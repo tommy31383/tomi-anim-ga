@@ -10,6 +10,7 @@ import { AssetLibrary } from "./AssetLibrary.js";
 import { CanvasArea } from "./CanvasArea.js";
 import { Inspector } from "./Inspector.js";
 import { ExportModal } from "./ExportModal.js";
+import { Toast } from "./Toast.js";
 
 export const Shell = {
   oninit: function (vnode) {
@@ -29,7 +30,9 @@ export const Shell = {
     ) {
       syncSelectionsToHash();
       if (isOffscreenCanvasInitialized()) {
-        renderCharacter(state.selections, state.bodyType).then(() => m.redraw());
+        renderCharacter(state.selections, state.bodyType).then(() =>
+          m.redraw(),
+        );
       }
       vnode.state.prevSelections = cur;
       vnode.state.prevBodyType = state.bodyType;
@@ -44,14 +47,18 @@ export const Shell = {
     const closeExport = () => {
       vnode.state.exportOpen = false;
     };
-    return m("div.flex.flex-col.h-screen.w-screen.bg-background.text-on-background", [
-      m(TopBar, { onExport: openExport }),
-      m("main.flex-1.flex.overflow-hidden", [
-        m(AssetLibrary),
-        m(CanvasArea),
-        m(Inspector, { onExport: openExport }),
-      ]),
-      vnode.state.exportOpen && m(ExportModal, { onClose: closeExport }),
-    ]);
+    return m(
+      "div.flex.flex-col.h-screen.w-screen.bg-background.text-on-background",
+      [
+        m(TopBar, { onExport: openExport }),
+        m("main.flex-1.flex.overflow-hidden", [
+          m(AssetLibrary),
+          m(CanvasArea),
+          m(Inspector, { onExport: openExport }),
+        ]),
+        vnode.state.exportOpen && m(ExportModal, { onClose: closeExport }),
+        m(Toast),
+      ],
+    );
   },
 };

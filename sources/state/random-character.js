@@ -6,6 +6,7 @@
 import { state, getStateDeps } from "./state.js";
 import { BODY_TYPES } from "./constants.ts";
 import * as catalog from "./catalog.js";
+import { dismissToast, showToast } from "./toast.js";
 
 const REQUIRED_TYPES = ["body", "head"];
 
@@ -35,7 +36,9 @@ const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
 function defSupportsBodyType(meta, bodyType) {
   const layers = meta?.layers;
-  if (!layers || Object.keys(layers).length === 0) return true;
+  // No layers means catalog data isn't fully loaded OR the item has no
+  // renderable assets — either way it cannot be picked for a random char.
+  if (!layers || Object.keys(layers).length === 0) return false;
   for (const k of Object.keys(layers)) {
     if (k.startsWith("layer_") && layers[k]?.[bodyType]) return true;
   }
@@ -62,9 +65,24 @@ function applyMutex(typesByGroup) {
  * @returns {Promise<void>}
  */
 export async function randomizeCharacter() {
+  if (!catalog.isLiteReady() || !catalog.isLayersReady()) {
+    showToast("⏳ Đang tải dữ liệu, thử lại sau 1 giây...", { kind: "info" });
+    return;
+  }
   const idx = catalog.getMetadataIndexes();
-  if (!idx?.byTypeName) return;
+  if (!idx?.byTypeName) {
+    showToast("Không có dữ liệu để random.", { kind: "error" });
+    return;
+  }
 
+  const loadingId = showToast("🎲 Đang random nhân vật, tải sprite...", {
+    kind: "info",
+    sticky: true,
+    spinner: true,
+  });
+  state.isRandomizing = true;
+
+  const t0 = performance.now();
   const bodyType = pick(BODY_TYPES);
 
   // Per type: list of { itemId, meta } supporting this body type.
@@ -147,6 +165,18 @@ export async function randomizeCharacter() {
 
   const deps = getStateDeps();
   deps.syncSelectionsToHash();
-  await deps.renderCharacter(state.selections, state.bodyType);
-  deps.redraw();
+  try {
+    await deps.renderCharacter(state.selections, state.bodyType);
+  } finally {
+    state.isRandomizing = false;
+    dismissToast(loadingId);
+    deps.redraw();
+  }
+
+  const partCount = Object.keys(newSelections).length;
+  const ms = Math.round(performance.now() - t0);
+  showToast(`✅ Random xong (${ms}ms): ${bodyType} • ${partCount} bộ phận`, {
+    kind: "success",
+    durationMs: 2500,
+  });
 }
