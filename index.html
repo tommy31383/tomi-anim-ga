@@ -77,170 +77,188 @@
 		.legacy-host h3.title { display: none !important; }
 		.legacy-host .category-tree-loading-host h3 { display: block !important; }
 
-		/* Variant cards: make sprite icons fill the box, not float in empty space */
-		.legacy-host .variant-item {
-			min-width: 110px !important;
-			max-width: 130px !important;
-			padding: 8px 6px !important;
-			background: rgba(15, 23, 42, 0.5) !important;
-			border-radius: 8px !important;
-			align-items: center !important;
-			justify-content: flex-start !important;
-			text-align: center;
-			transition: background 0.15s, border-color 0.15s;
-		}
-		.legacy-host .variant-item:hover {
-			background: rgba(34, 42, 61, 0.8) !important;
-		}
-		.legacy-host .variant-item.has-background-link-light {
-			background: rgba(34, 250, 208, 0.18) !important;
-			outline: 2px solid #44fad0;
-		}
-		.legacy-host .variant-canvas {
-			width: 84px !important;
-			height: 84px !important;
-			border: 1px solid #334155 !important;
-			border-radius: 4px;
-			background: #0f172a;
-			display: block;
-			margin: 0 auto;
-		}
-		.legacy-host .variant-canvas.compact-display {
-			width: 56px !important;
-			height: 56px !important;
-		}
-		.legacy-host .variant-display-name {
-			font-size: 11px !important;
-			color: #cbd5e1 !important;
-			margin-bottom: 4px;
-			width: 100%;
-			display: block !important;
-			white-space: normal !important;
-			word-break: keep-all !important;
-			overflow-wrap: normal !important;
-			line-height: 1.25 !important;
-			text-overflow: ellipsis;
-			overflow: hidden;
-			text-transform: capitalize;
-		}
-		.legacy-host .variant-item.has-background-link-light .variant-display-name {
-			color: #44fad0 !important;
-		}
-		.legacy-host .variants-container {
+		/* ============================================================
+		   Variant card system (used by Asset Library tree + palette modal)
+		   ============================================================ */
+		.legacy-host .variants-container,
+		.legacy-host .palette-modal .variants-container {
 			display: grid !important;
-			grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)) !important;
-			gap: 8px !important;
+			grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)) !important;
+			gap: 10px !important;
+			padding: 4px 0 !important;
 		}
 
-		/* Palette picker modal — dark theme + readable icons */
-		.palette-modal {
-			background: #171f33 !important;
-			border: 1px solid #334155 !important;
-			color: #cbd5e1 !important;
-			box-shadow: 0 12px 40px rgba(0,0,0,0.6) !important;
-			top: 8vh !important;
-			left: 50% !important;
-			right: auto !important;
-			transform: translateX(-50%);
-			width: min(720px, 92vw) !important;
-		}
-		.palette-modal header {
-			background: #0f172a !important;
-			border-bottom: 1px solid #334155 !important;
-			padding: 12px 16px !important;
-		}
-		.palette-modal header h4 {
-			color: #fff !important;
-			font-weight: 700 !important;
-		}
-		.palette-modal header button {
-			background: transparent !important;
-			color: #94a3b8 !important;
-			border: 1px solid #334155 !important;
-			border-radius: 6px !important;
-			width: 28px;
-			height: 28px;
-			display: inline-flex !important;
-			align-items: center;
-			justify-content: center;
-			font-size: 14px;
-			cursor: pointer;
-		}
-		.palette-modal header button:hover {
-			background: #334155 !important;
-			color: #fff !important;
-		}
-		.palette-modal section {
-			padding: 12px !important;
-		}
-		.palette-modal .variants-container.grid,
-		.palette-modal .variants-container {
-			display: grid !important;
-			grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)) !important;
-			gap: 8px !important;
-		}
+		.legacy-host .variant-item,
 		.palette-modal .variant-item,
 		.palette-modal .grid > .cell {
 			min-width: 0 !important;
 			max-width: none !important;
-			padding: 8px 6px !important;
-			background: rgba(15, 23, 42, 0.6) !important;
-			border-radius: 8px !important;
-			border: 1px solid transparent !important;
-			align-items: center !important;
+			width: 100% !important;
+			padding: 8px !important;
+			background: #1e293b !important;
+			border: 1px solid #334155 !important;
+			border-radius: 10px !important;
 			display: flex !important;
 			flex-direction: column !important;
-			gap: 4px !important;
+			align-items: center !important;
+			gap: 6px !important;
 			cursor: pointer;
-			transition: background 0.15s, border-color 0.15s;
-		}
-		.palette-modal .variant-item:hover,
-		.palette-modal .grid > .cell:hover {
-			background: rgba(34, 42, 61, 0.9) !important;
-			border-color: #475569 !important;
-		}
-		.palette-modal .variant-item.has-background-link-light {
-			background: rgba(34, 250, 208, 0.18) !important;
-			border-color: #44fad0 !important;
+			transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+			text-align: center;
 			outline: none !important;
 		}
-		.palette-modal .variant-canvas {
-			width: 84px !important;
-			height: 84px !important;
-			border: 1px solid #334155 !important;
-			border-radius: 4px;
-			background: #0f172a;
-			image-rendering: pixelated;
-			display: block;
+		.legacy-host .variant-item:hover,
+		.palette-modal .variant-item:hover,
+		.palette-modal .grid > .cell:hover {
+			background: #283447 !important;
+			border-color: #475569 !important;
 		}
+		/* Selected: teal border + tinted bg + glow */
+		.legacy-host .variant-item.has-background-link-light,
+		.palette-modal .variant-item.has-background-link-light {
+			background: rgba(68, 250, 208, 0.12) !important;
+			border-color: #44fad0 !important;
+			box-shadow: 0 0 0 2px rgba(68, 250, 208, 0.25) !important;
+		}
+		/* Hover-only state legacy applies via class — kill it on dark theme */
+		.legacy-host .variant-item.has-background-white-ter {
+			background: #283447 !important;
+		}
+
+		/* Label: 1-2 lines, horizontal, never truncated to first letter */
+		.legacy-host .variant-display-name,
 		.palette-modal .variant-display-name {
-			font-size: 11px !important;
-			color: #cbd5e1 !important;
-			text-align: center;
-			width: 100%;
-			white-space: normal !important;
-			word-break: keep-all !important;
-			overflow-wrap: normal !important;
+			width: 100% !important;
+			display: block !important;
+			font-size: 12px !important;
 			line-height: 1.25 !important;
-			text-transform: capitalize;
+			color: #e2e8f0 !important;
+			font-weight: 600 !important;
+			text-align: center !important;
+			text-transform: capitalize !important;
+			white-space: normal !important;
+			word-break: normal !important;
+			overflow-wrap: anywhere !important;
+			overflow: visible !important;
+			text-overflow: clip !important;
+			min-height: 1.25em;
+			padding: 0 2px;
 		}
+		.legacy-host .variant-item.has-background-link-light .variant-display-name,
 		.palette-modal .variant-item.has-background-link-light .variant-display-name {
 			color: #44fad0 !important;
 		}
+
+		/* Canvas: solid dark bg, centered, fills card width */
+		.legacy-host .variant-canvas,
+		.palette-modal .variant-canvas {
+			width: 88px !important;
+			height: 88px !important;
+			border: 1px solid #334155 !important;
+			border-radius: 6px !important;
+			background: #0b1220 !important;
+			image-rendering: pixelated !important;
+			display: block !important;
+			margin: 0 auto !important;
+			padding: 0 !important;
+		}
+		.legacy-host .variant-canvas.compact-display,
+		.palette-modal .variant-canvas.compact-display {
+			width: 56px !important;
+			height: 56px !important;
+		}
+
+		/* Palette swatch (gradient bar) below canvas in modal cards */
+		.palette-modal .palette-swatch {
+			width: 100% !important;
+			height: 14px !important;
+			border: 1px solid #334155 !important;
+			border-radius: 4px !important;
+			background: #0f172a !important;
+			overflow: hidden !important;
+		}
+
+		/* ============================================================
+		   Palette picker modal shell
+		   ============================================================ */
+		.palette-modal-overlay {
+			background: rgba(2, 6, 23, 0.78) !important;
+			backdrop-filter: blur(6px);
+			-webkit-backdrop-filter: blur(6px);
+			z-index: 999 !important;
+			position: fixed !important;
+			inset: 0;
+		}
+		.palette-modal {
+			background: #0f172a !important;
+			border: 1px solid #334155 !important;
+			color: #cbd5e1 !important;
+			box-shadow: 0 24px 60px rgba(0, 0, 0, 0.7) !important;
+			top: 8vh !important;
+			left: 50% !important;
+			right: auto !important;
+			transform: translateX(-50%) !important;
+			width: min(760px, 92vw) !important;
+			max-height: 85vh !important;
+			border-radius: 14px !important;
+			overflow: hidden !important;
+		}
+		.palette-modal header {
+			background: #131b2e !important;
+			border-bottom: 1px solid #334155 !important;
+			padding: 14px 18px !important;
+			color: #fff !important;
+		}
+		.palette-modal header h4 {
+			color: #fff !important;
+			font-weight: 700 !important;
+			font-size: 15px !important;
+			margin: 0 !important;
+		}
+		.palette-modal header button {
+			background: #1e293b !important;
+			color: #cbd5e1 !important;
+			border: 1px solid #334155 !important;
+			border-radius: 8px !important;
+			width: 30px !important;
+			height: 30px !important;
+			display: inline-flex !important;
+			align-items: center !important;
+			justify-content: center !important;
+			font-size: 14px !important;
+			line-height: 1 !important;
+			cursor: pointer !important;
+			text-transform: uppercase;
+		}
+		.palette-modal header button:hover {
+			background: #334155 !important;
+			color: #fff !important;
+			border-color: #475569 !important;
+		}
+		.palette-modal section {
+			padding: 16px !important;
+			overflow-y: auto !important;
+			background: #0b1326 !important;
+		}
 		.palette-modal section .palette-version {
 			color: #94a3b8 !important;
-			font-size: 11px;
-			padding: 4px 0;
+			font-size: 12px !important;
+			font-weight: 600 !important;
+			padding: 8px 4px !important;
+			text-transform: uppercase;
+			letter-spacing: 0.05em;
 		}
-		.palette-modal-overlay {
-			background: rgba(2, 6, 23, 0.7) !important;
-			backdrop-filter: blur(4px);
-			z-index: 999;
+		.palette-modal .palette-modal-version-block {
+			margin-bottom: 12px !important;
 		}
 		.palette-modal footer {
-			background: #0f172a !important;
+			background: #131b2e !important;
 			border-top: 1px solid #334155 !important;
-			padding: 10px 16px !important;
+			padding: 10px 18px !important;
+			color: #94a3b8 !important;
+		}
+		.palette-modal .tree-arrow {
+			filter: brightness(2);
 		}
 		.pixelated, .image-rendering-pixelated {
 			image-rendering: pixelated;
