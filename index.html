@@ -88,6 +88,93 @@
 			padding: 4px 0 !important;
 		}
 
+		/* ItemWithRecolors row: canvas on left, palette list on right.
+		   Wrap in a real card on dark theme so it doesn't look like raw flex. */
+		.legacy-host > .has-text-grey { color: #94a3b8 !important; }
+		.legacy-host .palette-recolor-list {
+			flex: 1 1 auto !important;
+			display: flex !important;
+			flex-direction: column !important;
+			gap: 6px !important;
+			margin-left: 12px !important;
+			min-width: 0 !important;
+		}
+		.legacy-host .palette-recolor-item {
+			display: flex !important;
+			align-items: center !important;
+			gap: 8px !important;
+			padding: 4px 6px !important;
+			background: rgba(15, 23, 42, 0.6) !important;
+			border: 1px solid #334155 !important;
+			border-radius: 6px !important;
+			cursor: pointer !important;
+			transition: background 0.15s, border-color 0.15s;
+		}
+		.legacy-host .palette-recolor-item:hover {
+			background: #283447 !important;
+			border-color: #475569 !important;
+		}
+		.legacy-host .palette-recolor-item label {
+			width: 78px !important;
+			min-width: 78px !important;
+			max-width: 78px !important;
+			text-align: left !important;
+			margin: 0 !important;
+			color: #cbd5e1 !important;
+			font-size: 11px !important;
+			font-weight: 600 !important;
+			white-space: nowrap !important;
+			overflow: hidden !important;
+			text-overflow: ellipsis !important;
+			text-transform: capitalize;
+		}
+		.legacy-host .palette-recolor-item .palette-swatch {
+			flex: 1 1 auto !important;
+			min-width: 80px !important;
+			max-width: none !important;
+			height: 16px !important;
+			border: 1px solid #334155 !important;
+			border-radius: 4px !important;
+			background: #0f172a !important;
+			overflow: hidden !important;
+			display: flex !important;
+		}
+		.legacy-host .palette-recolor-item .palette-swatch span {
+			height: 100% !important;
+		}
+
+		/* The recolor row's wrapper (is-flex parent of canvas + recolor-list) */
+		.legacy-host .tree-label + div > .is-flex.is-align-items-center {
+			display: flex !important;
+			align-items: stretch !important;
+			gap: 0 !important;
+			padding: 8px !important;
+			background: #1e293b !important;
+			border: 1px solid #334155 !important;
+			border-radius: 10px !important;
+			margin: 4px 0 !important;
+			cursor: pointer;
+			transition: border-color 0.15s, background 0.15s;
+		}
+		.legacy-host .tree-label + div > .is-flex.is-align-items-center:hover {
+			background: #283447 !important;
+			border-color: #475569 !important;
+		}
+		.legacy-host .tree-label + div .variant-item {
+			flex: 0 0 auto !important;
+			width: auto !important;
+			max-width: none !important;
+			min-width: 0 !important;
+			padding: 0 !important;
+			background: transparent !important;
+			border: none !important;
+			box-shadow: none !important;
+		}
+		.legacy-host .tree-label + div .variant-item .variant-canvas {
+			width: 80px !important;
+			height: 80px !important;
+		}
+
 		.legacy-host .variant-item,
 		.palette-modal .variant-item,
 		.palette-modal .grid > .cell {
