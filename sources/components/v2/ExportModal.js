@@ -9,6 +9,21 @@ import {
   exportSplitItemAnimations,
   exportIndividualFrames,
 } from "../../state/zip.js";
+import { extractAnimationFromCanvas } from "../../canvas/renderer.js";
+
+function downloadCanvasPng(srcCanvas, filename) {
+  srcCanvas.toBlob((blob) => {
+    if (!blob) return;
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }, "image/png");
+}
 
 // IMPORTANT: Mithril hyperscript shorthand (".class") cannot parse Tailwind
 // classes that contain "[", "]" or "/" (e.g. z-[100], bg-slate-950/80).
@@ -145,16 +160,31 @@ export const ExportModal = {
                     "Tùy chọn định dạng",
                   ),
                   option(
-                    "image",
-                    "Tải PNG",
-                    "Sprite sheet PNG nền trong suốt",
-                    () => downloadAsPNG("character-spritesheet.png"),
+                    "movie",
+                    `Tải PNG Anim đang chọn (${state.selectedAnimation})`,
+                    "Chỉ Anim đang xem trên canvas",
+                    () => {
+                      const c = extractAnimationFromCanvas(
+                        state.selectedAnimation,
+                      );
+                      if (!c) {
+                        alert("Anim này không có dữ liệu để xuất");
+                        return;
+                      }
+                      downloadCanvasPng(c, `${state.selectedAnimation}.png`);
+                    },
                     "primary",
                   ),
                   option(
+                    "image",
+                    "Tải PNG (cả sheet)",
+                    "Toàn bộ sprite sheet 832×3456",
+                    () => downloadAsPNG("character-spritesheet.png"),
+                  ),
+                  option(
                     "folder_zip",
-                    "ZIP: Tách theo hoạt ảnh",
-                    "Mỗi hoạt ảnh một sheet riêng",
+                    "ZIP: Tách theo Anim",
+                    "Mỗi Anim một sheet riêng",
                     () => exportSplitAnimations(),
                   ),
                   option(
@@ -165,8 +195,8 @@ export const ExportModal = {
                   ),
                   option(
                     "folder_zip",
-                    "ZIP: Tách theo mục + hoạt ảnh",
-                    "Một sheet cho mỗi cặp (mục, hoạt ảnh)",
+                    "ZIP: Tách theo mục + Anim",
+                    "Một sheet cho mỗi cặp (mục, Anim)",
                     () => exportSplitItemAnimations(),
                   ),
                   option(

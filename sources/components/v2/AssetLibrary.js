@@ -111,7 +111,7 @@ export const AssetLibrary = {
             "div.flex.gap-2.mt-3.overflow-x-auto.pb-1.scrollbar-thin",
             [
               ["License", "Bản quyền"],
-              ["Animation", "Hoạt ảnh"],
+              ["Animation", "Anim"],
             ].map(([key, label]) =>
               m(
                 "button",
