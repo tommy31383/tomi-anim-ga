@@ -521,6 +521,22 @@ export function extractAnimationFromCanvas(animationName) {
   const srcY = row * FRAME_SIZE;
   const srcHeight = num * FRAME_SIZE;
 
+  // Reject if region is fully transparent — caller can fall back to custom
+  // extractor or show a helpful alert instead of saving an empty PNG.
+  const srcCtx = get2DContext(canvas, true);
+  const sampleStep = Math.max(1, Math.floor(Math.min(SHEET_WIDTH, srcHeight) / 32));
+  let hasPixel = false;
+  outer: for (let dy = 0; dy < srcHeight; dy += sampleStep) {
+    for (let dx = 0; dx < SHEET_WIDTH; dx += sampleStep) {
+      const px = srcCtx.getImageData(dx, srcY + dy, 1, 1).data;
+      if (px[3] > 0) {
+        hasPixel = true;
+        break outer;
+      }
+    }
+  }
+  if (!hasPixel) return null;
+
   // Create new canvas for this animation
   const animCanvas = document.createElement("canvas");
   animCanvas.width = SHEET_WIDTH;
@@ -574,6 +590,23 @@ export function extractCustomAnimationFromCanvas(animationName) {
 
   const width = numCols * frameSize;
   const height = numRows * frameSize;
+
+  // Reject empty regions: yPos may be reserved on the sheet even if no item
+  // actually drew anything (so the PNG would be 100% transparent → looks
+  // black in dark image viewers). Sample a handful of pixels first.
+  const srcCtx = get2DContext(canvas, true);
+  const sampleStep = Math.max(1, Math.floor(Math.min(width, height) / 32));
+  let hasPixel = false;
+  outer: for (let dy = 0; dy < height; dy += sampleStep) {
+    for (let dx = 0; dx < width; dx += sampleStep) {
+      const px = srcCtx.getImageData(dx, yPos + dy, 1, 1).data;
+      if (px[3] > 0) {
+        hasPixel = true;
+        break outer;
+      }
+    }
+  }
+  if (!hasPixel) return null;
 
   const out = document.createElement("canvas");
   out.width = width;
