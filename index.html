@@ -79,12 +79,13 @@
 
 		/* Variant cards: make sprite icons fill the box, not float in empty space */
 		.legacy-host .variant-item {
-			min-width: 96px !important;
-			max-width: 110px !important;
-			padding: 6px !important;
+			min-width: 110px !important;
+			max-width: 130px !important;
+			padding: 8px 6px !important;
 			background: rgba(15, 23, 42, 0.5) !important;
 			border-radius: 8px !important;
-			align-items: stretch !important;
+			align-items: center !important;
+			justify-content: flex-start !important;
 			text-align: center;
 			transition: background 0.15s, border-color 0.15s;
 		}
@@ -96,8 +97,8 @@
 			outline: 2px solid #44fad0;
 		}
 		.legacy-host .variant-canvas {
-			width: 88px !important;
-			height: 88px !important;
+			width: 84px !important;
+			height: 84px !important;
 			border: 1px solid #334155 !important;
 			border-radius: 4px;
 			background: #0f172a;
@@ -112,13 +113,22 @@
 			font-size: 11px !important;
 			color: #cbd5e1 !important;
 			margin-bottom: 4px;
+			width: 100%;
+			display: block !important;
+			white-space: normal !important;
+			word-break: keep-all !important;
+			overflow-wrap: normal !important;
+			line-height: 1.25 !important;
+			text-overflow: ellipsis;
+			overflow: hidden;
+			text-transform: capitalize;
 		}
 		.legacy-host .variant-item.has-background-link-light .variant-display-name {
 			color: #44fad0 !important;
 		}
 		.legacy-host .variants-container {
 			display: grid !important;
-			grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)) !important;
+			grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)) !important;
 			gap: 8px !important;
 		}
 		.pixelated, .image-rendering-pixelated {
