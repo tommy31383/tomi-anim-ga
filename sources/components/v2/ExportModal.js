@@ -1,14 +1,7 @@
 import m from "mithril";
 import { state } from "../../state/state.js";
 import { layers } from "../../canvas/renderer.js";
-import { downloadAsPNG, downloadFile } from "../../canvas/download.js";
-import { getAllCredits, creditsToTxt } from "../../utils/credits.ts";
-import {
-  exportSplitAnimations,
-  exportSplitItemSheets,
-  exportSplitItemAnimations,
-  exportIndividualFrames,
-} from "../../state/zip.js";
+import { downloadAsPNG } from "../../canvas/download.js";
 import { extractAnimationFromCanvas } from "../../canvas/renderer.js";
 
 function downloadCanvasPng(srcCanvas, filename) {
@@ -180,43 +173,6 @@ export const ExportModal = {
                     "Tải PNG (cả sheet)",
                     "Toàn bộ sprite sheet 832×3456",
                     () => downloadAsPNG("character-spritesheet.png"),
-                  ),
-                  option(
-                    "folder_zip",
-                    "ZIP: Tách theo Anim",
-                    "Mỗi Anim một sheet riêng",
-                    () => exportSplitAnimations(),
-                  ),
-                  option(
-                    "folder_zip",
-                    "ZIP: Tách theo mục",
-                    "Mỗi mục layer một sheet riêng",
-                    () => exportSplitItemSheets(),
-                  ),
-                  option(
-                    "folder_zip",
-                    "ZIP: Tách theo mục + Anim",
-                    "Một sheet cho mỗi cặp (mục, Anim)",
-                    () => exportSplitItemAnimations(),
-                  ),
-                  option(
-                    "burst_mode",
-                    "ZIP: Từng frame riêng",
-                    "Mỗi frame là một file PNG",
-                    () => exportIndividualFrames(),
-                  ),
-                  option(
-                    "description",
-                    "Tải Credits.txt",
-                    "Danh sách ghi công tác giả",
-                    () => {
-                      const allCredits = getAllCredits(
-                        state.selections,
-                        state.bodyType,
-                      );
-                      const txt = creditsToTxt(allCredits);
-                      downloadFile(txt, "credits.txt", "text/plain");
-                    },
                   ),
                 ]),
 
