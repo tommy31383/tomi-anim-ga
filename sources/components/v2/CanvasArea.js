@@ -1,7 +1,6 @@
 import m from "mithril";
 import { state } from "../../state/state.js";
-import { ANIMATIONS, ANIMATION_DEFAULTS } from "../../state/constants.ts";
-import { layers as renderedLayers } from "../../canvas/renderer.js";
+import { ANIMATIONS } from "../../state/constants.ts";
 import {
   setPreviewAnimation,
   startPreviewAnimation,
@@ -138,24 +137,12 @@ export const CanvasArea = {
     const labelize = (a) =>
       ANIM_LABEL_VI[a.value] ||
       (a.label || a.value).replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
-    // Build set of animations actually supported by currently loaded layers.
-    // A layer's sheet definition lists which animations it has frames for —
-    // intersection across loaded layers tells us what's safe to show.
-    const supported = new Set(ANIMATION_DEFAULTS); // baseline universal set
-    for (const layer of renderedLayers || []) {
-      const anims = layer?.animations;
-      if (Array.isArray(anims)) {
-        for (const a of anims) supported.add(a);
-      }
-    }
+    // Show every animation defined in constants + any custom one. Matches the
+    // original dropdown — even animations the current body doesn't have frames
+    // for are listed so users can switch when they pick supporting items.
     const customAnims = Object.keys(getCustomAnimations());
-    for (const a of customAnims) supported.add(a);
-
     const allAnimations = [
-      ...ANIMATIONS.filter((a) => supported.has(a.value)).map((a) => ({
-        ...a,
-        label: labelize(a),
-      })),
+      ...ANIMATIONS.map((a) => ({ ...a, label: labelize(a) })),
       ...customAnims
         .filter((a) => !ANIMATIONS.some((x) => x.value === a))
         .map((a) => ({
