@@ -1,6 +1,7 @@
 import m from "mithril";
 import { state } from "../../state/state.js";
-import { ANIMATIONS } from "../../state/constants.ts";
+import { ANIMATIONS, ANIMATION_DEFAULTS } from "../../state/constants.ts";
+import { layers as renderedLayers } from "../../canvas/renderer.js";
 import {
   setPreviewAnimation,
   startPreviewAnimation,
@@ -138,16 +139,28 @@ export const CanvasArea = {
       ANIM_LABEL_VI[a.value] ||
       (a.label || a.value).replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
     // Show every animation defined in constants + any custom one. Matches the
-    // original dropdown — even animations the current body doesn't have frames
-    // for are listed so users can switch when they pick supporting items.
+    // original dropdown. Unsupported ones are kept visible but rendered dim
+    // with a tooltip so users see what they could enable.
     const customAnims = Object.keys(getCustomAnimations());
+    const supported = new Set(ANIMATION_DEFAULTS);
+    for (const layer of renderedLayers || []) {
+      const anims = layer?.animations;
+      if (Array.isArray(anims)) for (const a of anims) supported.add(a);
+    }
+    for (const a of customAnims) supported.add(a);
+
     const allAnimations = [
-      ...ANIMATIONS.map((a) => ({ ...a, label: labelize(a) })),
+      ...ANIMATIONS.map((a) => ({
+        ...a,
+        label: labelize(a),
+        supported: supported.has(a.value),
+      })),
       ...customAnims
         .filter((a) => !ANIMATIONS.some((x) => x.value === a))
         .map((a) => ({
           value: a,
           label: labelize({ value: a, label: a }),
+          supported: true,
         })),
     ];
     if (
@@ -184,18 +197,38 @@ export const CanvasArea = {
           },
           allAnimations.map((anim) => {
             const isActive = anim.value === vnode.state.selectedAnimation;
+            const dim = !anim.supported && !isActive;
             return m(
               "button",
               {
                 class: [
-                  "px-4 py-1.5 rounded-full font-bold text-xs whitespace-nowrap transition-colors",
+                  "px-4 py-1.5 rounded-full font-bold text-xs whitespace-nowrap transition-colors flex items-center gap-1",
                   isActive
                     ? "bg-cyan-400 text-slate-900"
-                    : "text-slate-400 hover:text-white",
+                    : dim
+                      ? "text-slate-600 hover:text-slate-400"
+                      : "text-slate-400 hover:text-white",
                 ].join(" "),
+                title: anim.supported
+                  ? anim.value
+                  : `${anim.value} — cần thêm item hỗ trợ (vũ khí / prosthesis / oversize body...) để có frame`,
                 onclick: () => setAnim(anim.value),
               },
-              anim.label,
+              [
+                anim.label,
+                !anim.supported &&
+                  !isActive &&
+                  m(
+                    "span",
+                    {
+                      class:
+                        "material-symbols-outlined opacity-70",
+                      style: { fontSize: "12px" },
+                      "aria-hidden": "true",
+                    },
+                    "lock",
+                  ),
+              ],
             );
           }),
         ),
