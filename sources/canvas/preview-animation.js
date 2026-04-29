@@ -221,3 +221,8 @@ export function setCurrentCustomAnimations(customAnimations) {
 export function setCustomAnimYPositions(yPositions) {
   customAnimYPositions = yPositions;
 }
+
+/** Read the latest Y offsets used by the renderer for custom animations. */
+export function getCustomAnimYPositions() {
+  return customAnimYPositions;
+}

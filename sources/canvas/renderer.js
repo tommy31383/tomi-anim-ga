@@ -17,6 +17,7 @@ import { customAnimations, customAnimationBase } from "../custom-animations.ts";
 import {
   setCurrentCustomAnimations,
   setCustomAnimYPositions,
+  getCustomAnimYPositions,
 } from "./preview-animation.js";
 import { getSortedLayersByAnim } from "../state/meta.js";
 import { catalogReady } from "../state/catalog.js";
@@ -557,21 +558,20 @@ export function extractCustomAnimationFromCanvas(animationName) {
   if (!canvas) return null;
   const def = customAnimations?.[animationName];
   if (!def) return null;
-  // customAreaItems carries the items that drew this custom anim; if absent,
-  // the layer didn't render it (no data for current selection).
-  if (!customAreaItems[animationName]) return null;
 
-  const items = customAreaItems[animationName];
-  if (!items.length) return null;
+  // Y offset is stored in preview-animation's customAnimYPositions map,
+  // populated by the renderer right before drawing.
+  const yPositions = getCustomAnimYPositions() || {};
+  const yPos = yPositions[animationName];
+  if (yPos === undefined || yPos === null) return null;
 
   const frameSize = def.frameSize || FRAME_SIZE;
   const frames = Array.isArray(def.frames) ? def.frames : null;
-  const numCols = frames ? Math.max(...frames.map((r) => r.length)) : 0;
-  const numRows = frames ? frames.length : 4;
+  if (!frames || !frames.length) return null;
+  const numCols = Math.max(...frames.map((r) => r.length));
+  const numRows = frames.length;
   if (!numCols || !numRows) return null;
 
-  // All items in a custom anim share yPos; use the first.
-  const yPos = items[0].yPos;
   const width = numCols * frameSize;
   const height = numRows * frameSize;
 
