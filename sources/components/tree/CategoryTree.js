@@ -11,7 +11,10 @@ import { BodyTypeSelector } from "./BodyTypeSelector.js";
 import { TreeNode } from "./TreeNode.js";
 
 export const CategoryTree = {
-  view: function () {
+  view: function (vnode) {
+    // Optional filter from v2 AssetLibrary: when set, only show this top-level
+    // category in the tree. "Body Type" is always shown above the tree.
+    const activeCategory = vnode?.attrs?.activeCategory ?? null;
     if (!catalog.isIndexReady()) {
       return m("div.box.has-background-light.category-tree-panel", [
         m("div.category-tree-loading-host", [
@@ -149,15 +152,18 @@ export const CategoryTree = {
       m("div", [
         // Body Type as first tree item
         m(BodyTypeSelector),
-        // Rest of the category tree
-        Object.entries(categoryTree.children || {}).map(
-          ([categoryName, categoryNode]) =>
+        // Rest of the category tree (filtered by activeCategory if v2 sets it)
+        Object.entries(categoryTree.children || {})
+          .filter(([categoryName]) =>
+            !activeCategory ? true : categoryName === activeCategory,
+          )
+          .map(([categoryName, categoryNode]) =>
             m(TreeNode, {
               key: categoryName,
               name: categoryName,
               node: categoryNode,
             }),
-        ),
+          ),
       ]),
     ]);
   },

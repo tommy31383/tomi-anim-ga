@@ -3,7 +3,6 @@ import { state } from "../../state/state.js";
 import * as catalog from "../../state/catalog.js";
 import { CategoryTree } from "../tree/CategoryTree.js";
 import { SearchControl } from "../filters/SearchControl.js";
-import { LicenseFilters } from "../filters/LicenseFilters.js";
 import { AnimationFilters } from "../filters/AnimationFilters.js";
 
 const CATEGORY_ICONS = {
@@ -110,9 +109,6 @@ export const AssetLibrary = {
           m(
             "div.flex.gap-2.mt-3.overflow-x-auto.pb-1.scrollbar-thin",
             [
-              ["License", "Bản quyền"],
-              ["Animation", "Anim"],
-            ].map(([key, label]) =>
               m(
                 "button",
                 {
@@ -120,19 +116,19 @@ export const AssetLibrary = {
                     "bg-slate-700 text-slate-200 px-3 py-1 rounded-full text-[10px] whitespace-nowrap hover:bg-slate-600 transition-colors",
                   onclick: () => {
                     vnode.state.showAdvanced =
-                      vnode.state.showAdvanced === key ? false : key;
+                      vnode.state.showAdvanced === "Animation"
+                        ? false
+                        : "Animation";
                   },
                 },
-                label,
+                "Anim",
               ),
-            ),
+            ],
           ),
-          vnode.state.showAdvanced &&
+          vnode.state.showAdvanced === "Animation" &&
             m(
               "div.mt-3.p-3.bg-slate-900.rounded-lg.legacy-host.text-xs",
-              vnode.state.showAdvanced === "License"
-                ? m(LicenseFilters)
-                : m(AnimationFilters),
+              m(AnimationFilters),
             ),
         ]),
 
@@ -177,10 +173,15 @@ export const AssetLibrary = {
             }),
           ),
 
-        // Tree (existing functional component, restyled via .legacy-host)
+        // Tree (existing functional component, restyled via .legacy-host).
+        // Pass activeCategory so it only renders the chosen top-level branch.
         m(
-          "div.flex-1.overflow-y-auto.px-3.pb-4.legacy-host.scrollbar-thin",
-          m(CategoryTree),
+          "div",
+          {
+            class:
+              "flex-1 overflow-y-auto px-3 pb-4 legacy-host scrollbar-thin",
+          },
+          m(CategoryTree, { activeCategory: active }),
         ),
       ],
     );
