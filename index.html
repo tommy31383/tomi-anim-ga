@@ -76,6 +76,51 @@
 		}
 		.legacy-host h3.title { display: none !important; }
 		.legacy-host .category-tree-loading-host h3 { display: block !important; }
+
+		/* Variant cards: make sprite icons fill the box, not float in empty space */
+		.legacy-host .variant-item {
+			min-width: 96px !important;
+			max-width: 110px !important;
+			padding: 6px !important;
+			background: rgba(15, 23, 42, 0.5) !important;
+			border-radius: 8px !important;
+			align-items: stretch !important;
+			text-align: center;
+			transition: background 0.15s, border-color 0.15s;
+		}
+		.legacy-host .variant-item:hover {
+			background: rgba(34, 42, 61, 0.8) !important;
+		}
+		.legacy-host .variant-item.has-background-link-light {
+			background: rgba(34, 250, 208, 0.18) !important;
+			outline: 2px solid #44fad0;
+		}
+		.legacy-host .variant-canvas {
+			width: 88px !important;
+			height: 88px !important;
+			border: 1px solid #334155 !important;
+			border-radius: 4px;
+			background: #0f172a;
+			display: block;
+			margin: 0 auto;
+		}
+		.legacy-host .variant-canvas.compact-display {
+			width: 56px !important;
+			height: 56px !important;
+		}
+		.legacy-host .variant-display-name {
+			font-size: 11px !important;
+			color: #cbd5e1 !important;
+			margin-bottom: 4px;
+		}
+		.legacy-host .variant-item.has-background-link-light .variant-display-name {
+			color: #44fad0 !important;
+		}
+		.legacy-host .variants-container {
+			display: grid !important;
+			grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)) !important;
+			gap: 8px !important;
+		}
 		.pixelated, .image-rendering-pixelated {
 			image-rendering: pixelated;
 			image-rendering: -moz-crisp-edges;
