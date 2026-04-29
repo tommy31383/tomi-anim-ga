@@ -102,12 +102,66 @@ const PreviewCanvas = {
   },
 };
 
+// What each locked animation needs the user to add. Each row is a group of
+// alternative requirements (any one unlocks). Used to render a checklist
+// popover when the user clicks a locked pill.
+const ANIM_REQUIREMENTS = {
+  idle: [
+    { key: "body-idle", label: "Body có frame Idle (vd. body biến thể có animation Đứng yên)" },
+  ],
+  jump: [{ key: "body-jump", label: "Body có frame Jump" }],
+  sit: [{ key: "body-sit", label: "Body có frame Sit" }],
+  emote: [{ key: "body-emote", label: "Body có frame Emote" }],
+  run: [{ key: "body-run", label: "Body có frame Run" }],
+  climb: [{ key: "body-climb", label: "Body có frame Climb" }],
+  combat: [
+    { key: "body-combat", label: "Body có Combat Idle (vd. body chiến đấu)" },
+  ],
+  combat_idle: [
+    { key: "body-combat", label: "Body có Combat Idle (vd. body chiến đấu)" },
+  ],
+  "1h_slash": [
+    { key: "weapon-1h", label: "Vũ khí 1 tay (Sword / Axe / Mace / Dagger)" },
+  ],
+  "1h_backslash": [
+    { key: "weapon-1h", label: "Vũ khí 1 tay (Sword / Axe / Mace / Dagger)" },
+  ],
+  "1h_halfslash": [
+    { key: "weapon-1h", label: "Vũ khí 1 tay (Sword / Axe / Mace / Dagger)" },
+  ],
+  slash_128: [
+    { key: "weapon-128", label: "Vũ khí oversize 128px (vd. Greatsword)" },
+  ],
+  backslash_128: [
+    { key: "weapon-128", label: "Vũ khí oversize 128px" },
+  ],
+  halfslash_128: [
+    { key: "weapon-128", label: "Vũ khí oversize 128px" },
+  ],
+  thrust_128: [
+    { key: "weapon-128", label: "Vũ khí oversize 128px (Spear / Polearm)" },
+  ],
+  walk_128: [
+    { key: "weapon-128", label: "Vũ khí oversize 128px" },
+  ],
+  slash_oversize: [
+    { key: "weapon-192", label: "Vũ khí cực lớn 192px (vd. Buster Sword)" },
+  ],
+  thrust_oversize: [
+    { key: "weapon-192", label: "Vũ khí cực lớn 192px (Polearm khổng lồ)" },
+  ],
+  watering: [
+    { key: "tool-watering", label: "Tool tưới nước (Watering Can) trong Dụng cụ" },
+  ],
+};
+
 export const CanvasArea = {
   oninit: (vnode) => {
     vnode.state.selectedAnimation = state.selectedAnimation || "walk";
     vnode.state.isPlaying = true;
     vnode.state.viewMode = "anim"; // "anim" | "sheet"
     vnode.state.sheetZoom = state.fullSpritesheetCanvasZoomLevel || 1;
+    vnode.state.lockedHint = null; // anim value when popover is open
   },
   view: function (vnode) {
     const ANIM_LABEL_VI = {
@@ -216,8 +270,18 @@ export const CanvasArea = {
                 ].join(" "),
                 title: anim.supported
                   ? anim.value
-                  : `${anim.value} — cần thêm item hỗ trợ (vũ khí / prosthesis / oversize body...) để có frame`,
-                onclick: () => setAnim(anim.value),
+                  : `${anim.value} — bị khóa, click để xem cần thêm gì`,
+                onclick: () => {
+                  if (anim.supported || isActive) {
+                    vnode.state.lockedHint = null;
+                    setAnim(anim.value);
+                  } else {
+                    vnode.state.lockedHint =
+                      vnode.state.lockedHint === anim.value
+                        ? null
+                        : anim.value;
+                  }
+                },
               },
               [
                 anim.label,
@@ -257,6 +321,97 @@ export const CanvasArea = {
         ),
       ],
     );
+
+    // Locked-anim hint banner (rendered when user clicks a 🔒 pill)
+    const hintAnim = vnode.state.lockedHint;
+    const hintBanner =
+      hintAnim &&
+      (() => {
+        const reqs = ANIM_REQUIREMENTS[hintAnim] || [
+          {
+            key: "generic",
+            label:
+              "Item hiện tại không cung cấp frame cho anim này. Hãy thử thêm vũ khí, body hoặc prosthesis chuyên dụng.",
+          },
+        ];
+        const labelOf = (val) =>
+          ANIM_LABEL_VI[val] ||
+          val.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
+        return m(
+          "div",
+          {
+            class:
+              "mx-6 mt-3 p-4 bg-slate-900/80 border border-violet-500/40 rounded-xl text-sm text-slate-200 shadow-lg",
+          },
+          [
+            m(
+              "div",
+              { class: "flex items-center justify-between mb-2" },
+              [
+                m(
+                  "div",
+                  { class: "flex items-center gap-2 font-semibold" },
+                  [
+                    m(
+                      "span",
+                      {
+                        class:
+                          "material-symbols-outlined text-violet-400",
+                        style: { fontSize: "18px" },
+                      },
+                      "lock",
+                    ),
+                    `Cần thêm để dùng "${labelOf(hintAnim)}"`,
+                  ],
+                ),
+                m(
+                  "button",
+                  {
+                    class:
+                      "text-slate-400 hover:text-white p-1 rounded",
+                    onclick: () => (vnode.state.lockedHint = null),
+                    title: "Đóng",
+                  },
+                  m(
+                    "span",
+                    {
+                      class: "material-symbols-outlined",
+                      style: { fontSize: "18px" },
+                    },
+                    "close",
+                  ),
+                ),
+              ],
+            ),
+            m(
+              "ul",
+              { class: "space-y-1.5" },
+              reqs.map((r) =>
+                m("li", { class: "flex items-start gap-2 text-xs" }, [
+                  m(
+                    "span",
+                    {
+                      class:
+                        "material-symbols-outlined text-slate-600 mt-0.5",
+                      style: { fontSize: "14px" },
+                    },
+                    "check_box_outline_blank",
+                  ),
+                  m("span", { class: "leading-snug" }, r.label),
+                ]),
+              ),
+            ),
+            m(
+              "p",
+              {
+                class:
+                  "text-[11px] text-slate-500 mt-3 leading-relaxed",
+              },
+              "Mở Thư viện tài nguyên bên trái → chọn category phù hợp (Vũ khí / Cơ thể / Dụng cụ) → click item, pill sẽ tự mở khóa.",
+            ),
+          ],
+        );
+      })();
 
     // Animation preview block
     const animBlock = m("div", { class: "p-6 flex flex-col items-center" }, [
@@ -397,7 +552,7 @@ export const CanvasArea = {
           {
             class: "flex-1 overflow-y-auto scrollbar-thin canvas-checkered",
           },
-          [animPills, animBlock, sheetBlock],
+          [animPills, hintBanner, animBlock, sheetBlock],
         ),
         state.isRenderingCharacter &&
           m(
