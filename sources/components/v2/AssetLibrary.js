@@ -4,6 +4,7 @@ import * as catalog from "../../state/catalog.js";
 import { CategoryTree } from "../tree/CategoryTree.js";
 import { SearchControl } from "../filters/SearchControl.js";
 import { AnimationFilters } from "../filters/AnimationFilters.js";
+import { randomizeCharacter } from "../../state/random-character.js";
 
 const CATEGORY_ICONS = {
   body: "person",
@@ -95,20 +96,17 @@ export const AssetLibrary = {
         m(
           "div",
           {
-            class:
-              "p-4 border-b border-slate-700 bg-slate-900/30",
+            class: "p-4 border-b border-slate-700 bg-slate-900/30",
           },
           [
-          m("h2.text-white.text-lg.font-bold", "Thư viện tài nguyên"),
-          m("p.text-slate-400.text-xs.font-normal", "Bộ sưu tập LPC"),
-          m(
-            "div.mt-3.legacy-host",
-            { style: { "--tw": "x" } },
-            m(SearchControl),
-          ),
-          m(
-            "div.flex.gap-2.mt-3.overflow-x-auto.pb-1.scrollbar-thin",
-            [
+            m("h2.text-white.text-lg.font-bold", "Thư viện tài nguyên"),
+            m("p.text-slate-400.text-xs.font-normal", "Bộ sưu tập LPC"),
+            m(
+              "div.mt-3.legacy-host",
+              { style: { "--tw": "x" } },
+              m(SearchControl),
+            ),
+            m("div.flex.gap-2.mt-3.overflow-x-auto.pb-1.scrollbar-thin", [
               m(
                 "button",
                 {
@@ -123,22 +121,38 @@ export const AssetLibrary = {
                 },
                 "Anim",
               ),
-            ],
-          ),
-          vnode.state.showAdvanced === "Animation" &&
-            m(
-              "div.mt-3.p-3.bg-slate-900.rounded-lg.legacy-host.text-xs",
-              m(AnimationFilters),
-            ),
-        ]),
+              m(
+                "button",
+                {
+                  class:
+                    "bg-gradient-to-r from-violet-500 to-cyan-400 text-white px-3 py-1 rounded-full text-[10px] whitespace-nowrap hover:opacity-90 active:scale-95 transition-all flex items-center gap-1",
+                  title: "Random nhân vật",
+                  onclick: () => randomizeCharacter(),
+                },
+                [
+                  m(
+                    "span.material-symbols-outlined",
+                    { style: { fontSize: "12px" } },
+                    "casino",
+                  ),
+                  "Random",
+                ],
+              ),
+            ]),
+            vnode.state.showAdvanced === "Animation" &&
+              m(
+                "div.mt-3.p-3.bg-slate-900.rounded-lg.legacy-host.text-xs",
+                m(AnimationFilters),
+              ),
+          ],
+        ),
 
         // Category tabs
         categories.length > 0 &&
           m(
             "div",
             {
-              class:
-                "flex flex-wrap gap-1 bg-slate-900/50 p-2 m-3 rounded-xl",
+              class: "flex flex-wrap gap-1 bg-slate-900/50 p-2 m-3 rounded-xl",
             },
             categories.map((cat) => {
               const isActive = cat === active;

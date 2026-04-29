@@ -15,12 +15,25 @@ function createDefaultMetaDeps() {
 
 let metaDeps = createDefaultMetaDeps();
 
+// Caches: catalog data is immutable post-registration, so layer lookups can be
+// memoized by itemId. Reset whenever deps change (tests swap out getZPos etc.)
+// or the catalog is reloaded.
+const sortedLayersCache = new Map();
+const sortedLayersByAnimCache = new Map();
+
+export function clearMetaCaches() {
+  sortedLayersCache.clear();
+  sortedLayersByAnimCache.clear();
+}
+
 export function setMetaDeps(overrides) {
   Object.assign(metaDeps, overrides);
+  clearMetaCaches();
 }
 
 export function resetMetaDeps() {
   metaDeps = createDefaultMetaDeps();
+  clearMetaCaches();
 }
 
 export function getMetaDeps() {
@@ -35,6 +48,10 @@ export function getMetaDeps() {
  * @returns {Array} Sorted array of layers with layerNum and zPos
  */
 export function getSortedLayers(itemId, standardOnly = false) {
+  const cacheKey = `${itemId}|${standardOnly ? 1 : 0}`;
+  const cached = sortedLayersCache.get(cacheKey);
+  if (cached !== undefined) return cached;
+
   const meta = metaDeps.getItemMetadata(itemId);
   if (!meta) {
     console.error("Item metadata not found:", itemId);
@@ -55,6 +72,7 @@ export function getSortedLayers(itemId, standardOnly = false) {
   }
 
   // Sort by animation first, then by zPos
+  sortedLayersCache.set(cacheKey, layersList);
   return layersList;
 }
 
@@ -80,6 +98,10 @@ export function getSortedLayersWithCustomFallback(itemId) {
  * @returns {Object} Object with animation names as keys and sorted arrays of layers
  */
 export function getSortedLayersByAnim(itemId, customOnly = false) {
+  const cacheKey = `${itemId}|${customOnly ? 1 : 0}`;
+  const cached = sortedLayersByAnimCache.get(cacheKey);
+  if (cached !== undefined) return cached;
+
   const meta = metaDeps.getItemMetadata(itemId);
   if (!meta) {
     console.error("Item metadata not found:", itemId);
@@ -119,6 +141,7 @@ export function getSortedLayersByAnim(itemId, customOnly = false) {
       });
   }
 
+  sortedLayersByAnimCache.set(cacheKey, animsList);
   return animsList;
 }
 

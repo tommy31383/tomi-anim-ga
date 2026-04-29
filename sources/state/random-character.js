@@ -1,0 +1,152 @@
+// Random character generator.
+// Picks a body type, then walks every type_name in the catalog and randomly
+// fills selections (required types are forced, optional types roll a coin).
+// Honors match_body_color so heads/expressions/etc. stay in sync with body.
+
+import { state, getStateDeps } from "./state.js";
+import { BODY_TYPES } from "./constants.ts";
+import * as catalog from "./catalog.js";
+
+const REQUIRED_TYPES = ["body", "head"];
+
+const PROB = {
+  hair: 0.95,
+  expression: 0.85,
+  facial_eyes: 0.7,
+  clothes: 0.85,
+  legs: 0.85,
+  shoes: 0.7,
+  hat: 0.35,
+  weapon: 0.35,
+  shield: 0.15,
+  beard: 0.3,
+  mustache: 0.2,
+  wings: 0.05,
+  tail: 0.05,
+};
+const PROB_DEFAULT = 0.12;
+
+const MUTEX_GROUPS = [
+  ["clothes", "dress", "vest", "armour"],
+  ["hat", "headcover", "bandana", "visor"],
+];
+
+const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+
+function defSupportsBodyType(meta, bodyType) {
+  const layers = meta?.layers;
+  if (!layers || Object.keys(layers).length === 0) return true;
+  for (const k of Object.keys(layers)) {
+    if (k.startsWith("layer_") && layers[k]?.[bodyType]) return true;
+  }
+  return false;
+}
+
+function rollEnabled(typeName) {
+  const p = PROB[typeName] ?? PROB_DEFAULT;
+  return Math.random() < p;
+}
+
+function applyMutex(typesByGroup) {
+  for (const group of MUTEX_GROUPS) {
+    const present = group.filter((t) => typesByGroup.has(t));
+    if (present.length > 1) {
+      const keep = pick(present);
+      for (const t of present) if (t !== keep) typesByGroup.delete(t);
+    }
+  }
+}
+
+/**
+ * Build a random selection set and trigger a render.
+ * @returns {Promise<void>}
+ */
+export async function randomizeCharacter() {
+  const idx = catalog.getMetadataIndexes();
+  if (!idx?.byTypeName) return;
+
+  const bodyType = pick(BODY_TYPES);
+
+  // Per type: list of { itemId, meta } supporting this body type.
+  /** @type {Map<string, Array<{ itemId: string, meta: object }>>} */
+  const candidates = new Map();
+  for (const [typeName, rows] of Object.entries(idx.byTypeName)) {
+    const list = [];
+    for (const row of rows) {
+      const meta = catalog.getItemMerged(row.itemId);
+      if (meta && defSupportsBodyType(meta, bodyType)) {
+        list.push({ itemId: row.itemId, meta });
+      }
+    }
+    if (list.length) candidates.set(typeName, list);
+  }
+
+  const enabledTypes = new Set();
+  for (const t of REQUIRED_TYPES) if (candidates.has(t)) enabledTypes.add(t);
+  for (const t of candidates.keys()) {
+    if (enabledTypes.has(t)) continue;
+    if (rollEnabled(t)) enabledTypes.add(t);
+  }
+  applyMutex(enabledTypes);
+
+  // Pick body first so we can mirror its recolor onto match_body_color items.
+  const bodyChoice = pick(candidates.get("body"));
+  const bodyVariants = bodyChoice.meta.recolors?.[0]?.variants ?? [];
+  const bodyRecolor = bodyVariants.length ? pick(bodyVariants) : "";
+
+  /** @type {Record<string, object>} */
+  const newSelections = {};
+  for (const typeName of enabledTypes) {
+    const choice =
+      typeName === "body" ? bodyChoice : pick(candidates.get(typeName));
+    const meta = choice.meta;
+    const useVariants = (meta.variants?.length ?? 0) > 0;
+    const recolorOptions = meta.recolors?.[0]?.variants ?? [];
+
+    let variant = null;
+    let recolor = null;
+    let subId = null;
+
+    if (useVariants) {
+      variant = pick(meta.variants);
+    } else if (recolorOptions.length) {
+      if (meta.matchBodyColor && recolorOptions.includes(bodyRecolor)) {
+        recolor = bodyRecolor;
+      } else {
+        recolor = pick(recolorOptions);
+      }
+    }
+
+    // If recolors carry their own type_name (sub-selections), pick one.
+    const subRecolors = (meta.recolors ?? []).filter(
+      (r) => r?.type_name && r.type_name !== meta.type_name,
+    );
+    if (subRecolors.length) {
+      const subIdx = Math.floor(Math.random() * meta.recolors.length);
+      const sub = meta.recolors[subIdx];
+      if (sub?.type_name && sub.type_name !== meta.type_name) {
+        subId = subIdx;
+        if (sub.variants?.length) recolor = pick(sub.variants);
+      }
+    }
+
+    const groupKey =
+      subId !== null ? (meta.recolors[subId]?.type_name ?? typeName) : typeName;
+
+    newSelections[groupKey] = {
+      itemId: choice.itemId,
+      subId,
+      variant,
+      recolor,
+      name: `${meta.name} (${variant ?? recolor ?? "default"})`,
+    };
+  }
+
+  state.bodyType = bodyType;
+  state.selections = newSelections;
+
+  const deps = getStateDeps();
+  deps.syncSelectionsToHash();
+  await deps.renderCharacter(state.selections, state.bodyType);
+  deps.redraw();
+}

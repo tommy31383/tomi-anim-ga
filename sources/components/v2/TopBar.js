@@ -1,6 +1,6 @@
 import m from "mithril";
-import { state, resetAll } from "../../state/state.js";
-import { downloadAsPNG } from "../../canvas/download.js";
+import { resetAll } from "../../state/state.js";
+import { randomizeCharacter } from "../../state/random-character.js";
 import { isOffscreenCanvasInitialized } from "../../canvas/renderer.js";
 import { APP_VERSION } from "../../version.js";
 
@@ -55,6 +55,12 @@ export const TopBar = {
               disabled: true,
             }),
             iconBtn("casino", {
+              title: "Random nhân vật",
+              onclick: () => {
+                randomizeCharacter();
+              },
+            }),
+            iconBtn("restart_alt", {
               title: "Đặt lại tất cả",
               onclick: () => {
                 if (confirm("Đặt lại tất cả lựa chọn?")) resetAll();

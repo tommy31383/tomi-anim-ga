@@ -6,6 +6,7 @@ import {
   extractAnimationFromCanvas,
   extractCustomAnimationFromCanvas,
 } from "../../canvas/renderer.js";
+import { exportUnityPackage } from "../../state/zip-unity.js";
 
 function downloadCanvasPng(srcCanvas, filename) {
   srcCanvas.toBlob((blob) => {
@@ -57,16 +58,8 @@ export const ExportModal = {
         },
         [
           m("div", { class: "flex-1" }, [
-            m(
-              "div",
-              { class: "text-sm font-semibold text-white" },
-              title,
-            ),
-            m(
-              "div",
-              { class: "text-[11px] text-slate-400" },
-              subtitle,
-            ),
+            m("div", { class: "text-sm font-semibold text-white" }, title),
+            m("div", { class: "text-[11px] text-slate-400" }, subtitle),
           ]),
           m(
             "span",
@@ -182,6 +175,20 @@ export const ExportModal = {
                     "Toàn bộ sprite sheet 832×3456",
                     () => downloadAsPNG("character-spritesheet.png"),
                   ),
+                  option(
+                    "deployed_code",
+                    "Xuất Unity Asset Pack (.zip)",
+                    "Sliced PNG + .anim + .meta theo từng hướng — drop vào Assets/ là chạy",
+                    () => {
+                      const name = prompt(
+                        "Tên nhân vật (sẽ là tên thư mục trong Unity):",
+                        "Character",
+                      );
+                      if (name === null) return;
+                      exportUnityPackage({ charName: name || "Character" });
+                    },
+                    "primary",
+                  ),
                 ]),
 
                 // Right: Stats
@@ -218,11 +225,7 @@ export const ExportModal = {
                         ),
                       ]),
                       m("div", { class: "flex justify-between text-xs" }, [
-                        m(
-                          "span",
-                          { class: "text-slate-400" },
-                          "Kiểu cơ thể:",
-                        ),
+                        m("span", { class: "text-slate-400" }, "Kiểu cơ thể:"),
                         m(
                           "span",
                           { class: "text-white font-mono-id" },
