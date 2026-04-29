@@ -266,84 +266,241 @@
 		}
 
 		/* ============================================================
-		   Palette picker modal shell
+		   Palette picker modal — Stitch redesign port (v0.1.15)
 		   ============================================================ */
 		.palette-modal-overlay {
-			background: rgba(2, 6, 23, 0.78) !important;
-			backdrop-filter: blur(6px);
-			-webkit-backdrop-filter: blur(6px);
+			background: rgba(11, 19, 38, 0.8) !important;
+			backdrop-filter: blur(12px);
+			-webkit-backdrop-filter: blur(12px);
 			z-index: 999 !important;
 			position: fixed !important;
 			inset: 0;
 		}
 		.palette-modal {
-			background: #0f172a !important;
-			border: 1px solid #334155 !important;
-			color: #cbd5e1 !important;
-			box-shadow: 0 24px 60px rgba(0, 0, 0, 0.7) !important;
-			top: 8vh !important;
+			background: #171f33 !important;
+			border: 1px solid #484555 !important;
+			color: #dae2fd !important;
+			box-shadow: 0 32px 80px rgba(0, 0, 0, 0.75) !important;
+			top: 6vh !important;
 			left: 50% !important;
 			right: auto !important;
 			transform: translateX(-50%) !important;
-			width: min(760px, 92vw) !important;
-			max-height: 85vh !important;
-			border-radius: 14px !important;
+			width: min(880px, 94vw) !important;
+			max-height: 88vh !important;
+			border-radius: 16px !important;
 			overflow: hidden !important;
+			display: flex !important;
+			flex-direction: column !important;
 		}
+
+		/* Header: icon tile + title + subtitle, square close button */
 		.palette-modal header {
-			background: #131b2e !important;
-			border-bottom: 1px solid #334155 !important;
-			padding: 14px 18px !important;
+			background: #171f33 !important;
+			border-bottom: 1px solid #484555 !important;
+			padding: 20px 24px !important;
 			color: #fff !important;
+			gap: 16px !important;
+			align-items: center !important;
+			flex-shrink: 0 !important;
 		}
 		.palette-modal header h4 {
-			color: #fff !important;
-			font-weight: 700 !important;
-			font-size: 15px !important;
+			color: #dae2fd !important;
+			font-weight: 600 !important;
+			font-size: 18px !important;
+			letter-spacing: -0.01em !important;
 			margin: 0 !important;
+			line-height: 1.2 !important;
+		}
+		/* "✨" icon tile virtualised in front of header h4 via ::before */
+		.palette-modal header h4::before {
+			content: "🎨";
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
+			width: 40px;
+			height: 40px;
+			background: #222a3d;
+			border: 1px solid #484555;
+			border-radius: 10px;
+			margin-right: 12px;
+			font-size: 18px;
+			vertical-align: middle;
 		}
 		.palette-modal header button {
-			background: #1e293b !important;
-			color: #cbd5e1 !important;
-			border: 1px solid #334155 !important;
-			border-radius: 8px !important;
-			width: 30px !important;
-			height: 30px !important;
+			background: transparent !important;
+			color: #c9c4d8 !important;
+			border: 1px solid #484555 !important;
+			border-radius: 10px !important;
+			width: 40px !important;
+			height: 40px !important;
 			display: inline-flex !important;
 			align-items: center !important;
 			justify-content: center !important;
-			font-size: 14px !important;
+			font-size: 16px !important;
 			line-height: 1 !important;
 			cursor: pointer !important;
 			text-transform: uppercase;
+			transition: background 0.15s, color 0.15s;
 		}
 		.palette-modal header button:hover {
-			background: #334155 !important;
+			background: #2d3449 !important;
 			color: #fff !important;
-			border-color: #475569 !important;
 		}
+
+		/* Body section is the scrollable grid */
 		.palette-modal section {
-			padding: 16px !important;
+			padding: 24px !important;
 			overflow-y: auto !important;
-			background: #0b1326 !important;
+			background: #171f33 !important;
+			flex: 1 1 auto !important;
 		}
 		.palette-modal section .palette-version {
-			color: #94a3b8 !important;
-			font-size: 12px !important;
-			font-weight: 600 !important;
-			padding: 8px 4px !important;
-			text-transform: uppercase;
-			letter-spacing: 0.05em;
+			color: #c9c4d8 !important;
+			font-size: 11px !important;
+			font-weight: 500 !important;
+			padding: 4px 0 12px !important;
+			text-transform: uppercase !important;
+			letter-spacing: 0.05em !important;
 		}
 		.palette-modal .palette-modal-version-block {
-			margin-bottom: 12px !important;
+			margin-bottom: 16px !important;
 		}
-		.palette-modal footer {
-			background: #131b2e !important;
-			border-top: 1px solid #334155 !important;
-			padding: 10px 18px !important;
-			color: #94a3b8 !important;
+
+		/* Card grid */
+		.palette-modal .variants-container,
+		.palette-modal .variants-container.grid {
+			display: grid !important;
+			grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)) !important;
+			gap: 16px !important;
+			padding: 0 !important;
 		}
+
+		/* Card */
+		.palette-modal .variant-item,
+		.palette-modal .grid > .cell {
+			position: relative !important;
+			width: 100% !important;
+			min-width: 0 !important;
+			max-width: none !important;
+			padding: 16px !important;
+			background: #1a2238 !important;
+			border: 1px solid #484555 !important;
+			border-radius: 12px !important;
+			display: flex !important;
+			flex-direction: column !important;
+			gap: 8px !important;
+			cursor: pointer !important;
+			transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s !important;
+			outline: none !important;
+		}
+		.palette-modal .variant-item:hover:not(.has-background-link-light),
+		.palette-modal .grid > .cell:hover {
+			border-color: #00E0B8 !important;
+			transform: translateY(-2px) !important;
+		}
+
+		/* Selected card */
+		.palette-modal .variant-item.has-background-link-light {
+			background: #1a2238 !important;
+			border: 2px solid #44fad0 !important;
+			box-shadow: 0 0 15px rgba(68, 250, 208, 0.25) !important;
+			padding: 15px !important; /* compensate for +1px border */
+		}
+		.palette-modal .variant-item.has-background-link-light::before {
+			content: "✓";
+			position: absolute !important;
+			top: 8px !important;
+			right: 8px !important;
+			width: 22px !important;
+			height: 22px !important;
+			background: #44fad0 !important;
+			color: #002019 !important;
+			border-radius: 999px !important;
+			display: flex !important;
+			align-items: center !important;
+			justify-content: center !important;
+			font-size: 14px !important;
+			font-weight: 800 !important;
+			z-index: 5 !important;
+			box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3) !important;
+		}
+
+		/* Canvas: full-width checkered tile, 96px tall, centered sprite */
+		.palette-modal .variant-canvas {
+			width: 100% !important;
+			height: 96px !important;
+			background-image:
+				linear-gradient(45deg, #0f172a 25%, transparent 25%),
+				linear-gradient(-45deg, #0f172a 25%, transparent 25%),
+				linear-gradient(45deg, transparent 75%, #0f172a 75%),
+				linear-gradient(-45deg, transparent 75%, #0f172a 75%) !important;
+			background-size: 10px 10px !important;
+			background-position: 0 0, 0 5px, 5px -5px, -5px 0px !important;
+			background-color: #1e293b !important;
+			border: 1px solid #2d3449 !important;
+			border-radius: 8px !important;
+			image-rendering: pixelated !important;
+			padding: 0 !important;
+			margin: 0 !important;
+			object-fit: contain !important;
+			object-position: center !important;
+			display: block !important;
+			order: 1 !important;
+		}
+
+		/* Variant name */
+		.palette-modal .variant-display-name {
+			order: 2 !important;
+			width: 100% !important;
+			display: block !important;
+			font-size: 14px !important;
+			line-height: 1.3 !important;
+			color: #dae2fd !important;
+			font-weight: 600 !important;
+			text-align: center !important;
+			text-transform: capitalize !important;
+			white-space: normal !important;
+			word-break: normal !important;
+			overflow-wrap: anywhere !important;
+			overflow: visible !important;
+			text-overflow: clip !important;
+			padding: 0 !important;
+			margin: 0 !important;
+		}
+		.palette-modal .variant-item.has-background-link-light .variant-display-name {
+			color: #44fad0 !important;
+		}
+
+		/* Gradient strip */
+		.palette-modal .palette-swatch {
+			order: 3 !important;
+			width: 100% !important;
+			height: 16px !important;
+			border: 1px solid rgba(0, 0, 0, 0.25) !important;
+			border-radius: 4px !important;
+			background: #0f172a !important;
+			overflow: hidden !important;
+			display: flex !important;
+		}
+		.palette-modal .palette-swatch span {
+			height: 100% !important;
+			flex: 1 1 auto !important;
+		}
+
+		/* Footer hint (rendered as a CSS-only sticky note since legacy markup
+		   has no <footer>). Pin to the modal's bottom edge via fixed flex. */
+		.palette-modal::after {
+			content: "Bấm vào ô màu để áp dụng • Esc để đóng";
+			display: block !important;
+			padding: 14px 24px !important;
+			border-top: 1px solid #484555 !important;
+			background: #171f33 !important;
+			color: #c9c4d8 !important;
+			font-size: 12px !important;
+			text-align: left !important;
+			flex-shrink: 0 !important;
+		}
+
 		.palette-modal .tree-arrow {
 			filter: brightness(2);
 		}
