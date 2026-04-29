@@ -272,15 +272,11 @@ export const CanvasArea = {
                   ? anim.value
                   : `${anim.value} — bị khóa, click để xem cần thêm gì`,
                 onclick: () => {
-                  if (anim.supported || isActive) {
-                    vnode.state.lockedHint = null;
-                    setAnim(anim.value);
-                  } else {
-                    vnode.state.lockedHint =
-                      vnode.state.lockedHint === anim.value
-                        ? null
-                        : anim.value;
-                  }
+                  // Always switch the active pill so the user sees what they
+                  // just clicked. For locked pills, also pop the checklist
+                  // banner; for supported ones close it.
+                  setAnim(anim.value);
+                  vnode.state.lockedHint = anim.supported ? null : anim.value;
                 },
               },
               [
