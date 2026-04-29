@@ -162,7 +162,12 @@ export const CanvasArea = {
           label: labelize({ value: a, label: a }),
           supported: true,
         })),
-    ];
+    ].sort((a, b) => {
+      // Supported anims first, then locked ones — preserve original order
+      // within each group (stable sort).
+      if (a.supported === b.supported) return 0;
+      return a.supported ? -1 : 1;
+    });
     if (
       !allAnimations.find((a) => a.value === vnode.state.selectedAnimation)
     ) {
