@@ -131,6 +131,117 @@
 			grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)) !important;
 			gap: 8px !important;
 		}
+
+		/* Palette picker modal — dark theme + readable icons */
+		.palette-modal {
+			background: #171f33 !important;
+			border: 1px solid #334155 !important;
+			color: #cbd5e1 !important;
+			box-shadow: 0 12px 40px rgba(0,0,0,0.6) !important;
+			top: 8vh !important;
+			left: 50% !important;
+			right: auto !important;
+			transform: translateX(-50%);
+			width: min(720px, 92vw) !important;
+		}
+		.palette-modal header {
+			background: #0f172a !important;
+			border-bottom: 1px solid #334155 !important;
+			padding: 12px 16px !important;
+		}
+		.palette-modal header h4 {
+			color: #fff !important;
+			font-weight: 700 !important;
+		}
+		.palette-modal header button {
+			background: transparent !important;
+			color: #94a3b8 !important;
+			border: 1px solid #334155 !important;
+			border-radius: 6px !important;
+			width: 28px;
+			height: 28px;
+			display: inline-flex !important;
+			align-items: center;
+			justify-content: center;
+			font-size: 14px;
+			cursor: pointer;
+		}
+		.palette-modal header button:hover {
+			background: #334155 !important;
+			color: #fff !important;
+		}
+		.palette-modal section {
+			padding: 12px !important;
+		}
+		.palette-modal .variants-container.grid,
+		.palette-modal .variants-container {
+			display: grid !important;
+			grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)) !important;
+			gap: 8px !important;
+		}
+		.palette-modal .variant-item,
+		.palette-modal .grid > .cell {
+			min-width: 0 !important;
+			max-width: none !important;
+			padding: 8px 6px !important;
+			background: rgba(15, 23, 42, 0.6) !important;
+			border-radius: 8px !important;
+			border: 1px solid transparent !important;
+			align-items: center !important;
+			display: flex !important;
+			flex-direction: column !important;
+			gap: 4px !important;
+			cursor: pointer;
+			transition: background 0.15s, border-color 0.15s;
+		}
+		.palette-modal .variant-item:hover,
+		.palette-modal .grid > .cell:hover {
+			background: rgba(34, 42, 61, 0.9) !important;
+			border-color: #475569 !important;
+		}
+		.palette-modal .variant-item.has-background-link-light {
+			background: rgba(34, 250, 208, 0.18) !important;
+			border-color: #44fad0 !important;
+			outline: none !important;
+		}
+		.palette-modal .variant-canvas {
+			width: 84px !important;
+			height: 84px !important;
+			border: 1px solid #334155 !important;
+			border-radius: 4px;
+			background: #0f172a;
+			image-rendering: pixelated;
+			display: block;
+		}
+		.palette-modal .variant-display-name {
+			font-size: 11px !important;
+			color: #cbd5e1 !important;
+			text-align: center;
+			width: 100%;
+			white-space: normal !important;
+			word-break: keep-all !important;
+			overflow-wrap: normal !important;
+			line-height: 1.25 !important;
+			text-transform: capitalize;
+		}
+		.palette-modal .variant-item.has-background-link-light .variant-display-name {
+			color: #44fad0 !important;
+		}
+		.palette-modal section .palette-version {
+			color: #94a3b8 !important;
+			font-size: 11px;
+			padding: 4px 0;
+		}
+		.palette-modal-overlay {
+			background: rgba(2, 6, 23, 0.7) !important;
+			backdrop-filter: blur(4px);
+			z-index: 999;
+		}
+		.palette-modal footer {
+			background: #0f172a !important;
+			border-top: 1px solid #334155 !important;
+			padding: 10px 16px !important;
+		}
 		.pixelated, .image-rendering-pixelated {
 			image-rendering: pixelated;
 			image-rendering: -moz-crisp-edges;
