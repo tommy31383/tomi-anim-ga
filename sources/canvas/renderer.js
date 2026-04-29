@@ -550,6 +550,40 @@ export function getCanvas() {
 }
 
 /**
+ * Crop a *custom* animation (1h_slash, slash_oversize, slash_128, etc.) from
+ * the offscreen canvas. Returns a new canvas, or null if not present.
+ */
+export function extractCustomAnimationFromCanvas(animationName) {
+  if (!canvas) return null;
+  const def = customAnimations?.[animationName];
+  if (!def) return null;
+  // customAreaItems carries the items that drew this custom anim; if absent,
+  // the layer didn't render it (no data for current selection).
+  if (!customAreaItems[animationName]) return null;
+
+  const items = customAreaItems[animationName];
+  if (!items.length) return null;
+
+  const frameSize = def.frameSize || FRAME_SIZE;
+  const frames = Array.isArray(def.frames) ? def.frames : null;
+  const numCols = frames ? Math.max(...frames.map((r) => r.length)) : 0;
+  const numRows = frames ? frames.length : 4;
+  if (!numCols || !numRows) return null;
+
+  // All items in a custom anim share yPos; use the first.
+  const yPos = items[0].yPos;
+  const width = numCols * frameSize;
+  const height = numRows * frameSize;
+
+  const out = document.createElement("canvas");
+  out.width = width;
+  out.height = height;
+  const octx = get2DContext(out);
+  octx.drawImage(canvas, 0, yPos, width, height, 0, 0, width, height);
+  return out;
+}
+
+/**
  * Render a single item to a new canvas
  * Returns a canvas with just this one item rendered
  *

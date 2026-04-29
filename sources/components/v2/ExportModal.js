@@ -2,7 +2,10 @@ import m from "mithril";
 import { state } from "../../state/state.js";
 import { layers } from "../../canvas/renderer.js";
 import { downloadAsPNG } from "../../canvas/download.js";
-import { extractAnimationFromCanvas } from "../../canvas/renderer.js";
+import {
+  extractAnimationFromCanvas,
+  extractCustomAnimationFromCanvas,
+} from "../../canvas/renderer.js";
 
 function downloadCanvasPng(srcCanvas, filename) {
   srcCanvas.toBlob((blob) => {
@@ -157,14 +160,19 @@ export const ExportModal = {
                     `Tải PNG Anim đang chọn (${state.selectedAnimation})`,
                     "Chỉ Anim đang xem trên canvas",
                     () => {
-                      const c = extractAnimationFromCanvas(
-                        state.selectedAnimation,
-                      );
+                      const name = state.selectedAnimation;
+                      // Try standard animation slot first, fall back to custom
+                      // (1h_slash, slash_oversize, slash_128, …).
+                      const c =
+                        extractAnimationFromCanvas(name) ||
+                        extractCustomAnimationFromCanvas(name);
                       if (!c) {
-                        alert("Anim này không có dữ liệu để xuất");
+                        alert(
+                          `Anim "${name}" không có dữ liệu để xuất.\n\nLý do thường gặp: layer hiện tại (body / head / weapon...) không có frame cho anim này. Hãy thử thêm/đổi item hỗ trợ anim, hoặc chọn anim khác (Walk / Slash / Thrust luôn có sẵn cho mọi body).`,
+                        );
                         return;
                       }
-                      downloadCanvasPng(c, `${state.selectedAnimation}.png`);
+                      downloadCanvasPng(c, `${name}.png`);
                     },
                     "primary",
                   ),
