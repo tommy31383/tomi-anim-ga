@@ -4,7 +4,10 @@
 
 import m from "mithril";
 import { ANIMATIONS, FRAME_SIZE, DIRECTIONS } from "./constants.ts";
-import { extractAnimationFromCanvas } from "../canvas/renderer.js";
+import {
+  extractAnimationFromCanvas,
+  extractCustomAnimationFromCanvas,
+} from "../canvas/renderer.js";
 import { canvasToBlob } from "../canvas/canvas-utils.ts";
 import {
   downloadZipBlob,
@@ -106,12 +109,19 @@ ${list}
 }
 
 /**
- * @param {{ charName?: string, fps?: number }} [opts]
+ * @param {{
+ *   charName?: string,
+ *   fps?: number,
+ *   selectedAnimations?: string[]
+ * }} [opts]
  * @returns {Promise<void>}
  */
 export async function exportUnityPackage(opts = {}) {
   const charName = sanitizeName(opts.charName ?? "Character");
   const fps = opts.fps ?? DEFAULT_FPS;
+  const explicitPicked = Array.isArray(opts.selectedAnimations)
+    ? new Set(opts.selectedAnimations)
+    : null;
 
   if (!guardZipExportEnvironment()) return;
 
@@ -135,12 +145,22 @@ export async function exportUnityPackage(opts = {}) {
     for (const animDef of ANIMATIONS) {
       if (animDef.noExport) continue;
       const animKey = animDef.value;
-      if (anyEnabled && !enabled[animKey]) continue;
+      if (explicitPicked) {
+        if (!explicitPicked.has(animKey)) continue;
+      } else if (anyEnabled && !enabled[animKey]) {
+        continue;
+      }
 
       const action = ACTION_NAMES[animKey];
       if (!action) continue;
 
-      const animCanvas = extractAnimationFromCanvas(animKey);
+      // Try standard sheet row first; for animations whose weapon overlays
+      // live in a separate custom canvas (1h_*), fall back to the custom
+      // extractor so the weapon is included.
+      let animCanvas = extractAnimationFromCanvas(animKey);
+      if (!animCanvas) {
+        animCanvas = extractCustomAnimationFromCanvas(animKey);
+      }
       if (!animCanvas) continue;
 
       const frames = extractFramesFromAnimation(

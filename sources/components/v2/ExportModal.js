@@ -6,7 +6,7 @@ import {
   extractAnimationFromCanvas,
   extractCustomAnimationFromCanvas,
 } from "../../canvas/renderer.js";
-import { exportUnityPackage } from "../../state/zip-unity.js";
+import { UnityExportDialog } from "./UnityExportDialog.js";
 
 function downloadCanvasPng(srcCanvas, filename) {
   srcCanvas.toBlob((blob) => {
@@ -27,6 +27,9 @@ function downloadCanvasPng(srcCanvas, filename) {
 // Always pass such classes via the `class:` attribute object.
 
 export const ExportModal = {
+  oninit: function (vnode) {
+    vnode.state.unityOpen = false;
+  },
   oncreate: function () {
     document.body.style.overflow = "hidden";
   },
@@ -178,14 +181,9 @@ export const ExportModal = {
                   option(
                     "deployed_code",
                     "Xuất Unity Asset Pack (.zip)",
-                    "Sliced PNG + .anim + .meta theo từng hướng — drop vào Assets/ là chạy",
+                    "Chọn anim cụ thể, đặt tên — sliced PNG + .anim + .meta drop thẳng vào Assets/",
                     () => {
-                      const name = prompt(
-                        "Tên nhân vật (sẽ là tên thư mục trong Unity):",
-                        "Character",
-                      );
-                      if (name === null) return;
-                      exportUnityPackage({ charName: name || "Character" });
+                      vnode.state.unityOpen = true;
                     },
                     "primary",
                   ),
@@ -276,6 +274,12 @@ export const ExportModal = {
             ),
           ],
         ),
+        vnode.state.unityOpen &&
+          m(UnityExportDialog, {
+            onClose: () => {
+              vnode.state.unityOpen = false;
+            },
+          }),
       ],
     );
   },
