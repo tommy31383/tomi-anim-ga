@@ -11,10 +11,12 @@ import { CanvasArea } from "./CanvasArea.js";
 import { Inspector } from "./Inspector.js";
 import { ExportModal } from "./ExportModal.js";
 import { Toast } from "./Toast.js";
+import { ProjectsDialog } from "./ProjectsDialog.js";
 
 export const Shell = {
   oninit: function (vnode) {
     vnode.state.exportOpen = false;
+    vnode.state.projectsOpen = false;
     vnode.state.prevSelections = JSON.stringify(state.selections);
     vnode.state.prevBodyType = state.bodyType;
     vnode.state.prevCustomImage = state.customUploadedImage;
@@ -47,6 +49,12 @@ export const Shell = {
     const closeExport = () => {
       vnode.state.exportOpen = false;
     };
+    const openProjects = () => {
+      vnode.state.projectsOpen = true;
+    };
+    const closeProjects = () => {
+      vnode.state.projectsOpen = false;
+    };
     return m(
       "div.flex.flex-col.h-screen.w-screen.bg-background.text-on-background",
       [
@@ -54,9 +62,11 @@ export const Shell = {
         m("main.flex-1.flex.overflow-hidden", [
           m(AssetLibrary),
           m(CanvasArea),
-          m(Inspector, { onExport: openExport }),
+          m(Inspector, { onExport: openExport, onProjects: openProjects }),
         ]),
         vnode.state.exportOpen && m(ExportModal, { onClose: closeExport }),
+        vnode.state.projectsOpen &&
+          m(ProjectsDialog, { onClose: closeProjects }),
         m(Toast),
       ],
     );

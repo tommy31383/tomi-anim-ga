@@ -110,25 +110,17 @@ export const Inspector = {
             class: "p-4 border-b border-slate-700 bg-slate-900/30",
           },
           [
-            m(
-              "div",
-              { class: "flex items-center justify-between" },
-              [
-                m(
-                  "h2",
-                  { class: "text-white text-lg font-bold" },
-                  "Lớp đã chọn",
-                ),
-                m(
-                  "span",
-                  {
-                    class:
-                      "text-[10px] font-mono-tag bg-cyan-400/20 text-cyan-400 px-2 py-0.5 rounded-full",
-                  },
-                  `${selections.length} mục`,
-                ),
-              ],
-            ),
+            m("div", { class: "flex items-center justify-between" }, [
+              m("h2", { class: "text-white text-lg font-bold" }, "Lớp đã chọn"),
+              m(
+                "span",
+                {
+                  class:
+                    "text-[10px] font-mono-tag bg-cyan-400/20 text-cyan-400 px-2 py-0.5 rounded-full",
+                },
+                `${selections.length} mục`,
+              ),
+            ]),
             m(
               "p",
               { class: "text-slate-500 text-xs mt-0.5" },
@@ -158,11 +150,7 @@ export const Inspector = {
                 onclick: () => (vnode.state.tab = key),
               },
               [
-                m(
-                  "span",
-                  { class: "material-symbols-outlined text-sm" },
-                  icon,
-                ),
+                m("span", { class: "material-symbols-outlined text-sm" }, icon),
                 m("span", label),
               ],
             );
@@ -190,28 +178,24 @@ export const Inspector = {
                   "bg-slate-800 p-3 rounded-xl border border-slate-700 mb-3",
               },
               [
-                m(
-                  "div",
-                  { class: "flex justify-between items-center mb-2" },
-                  [
-                    m(
-                      "span",
-                      {
-                        class:
-                          "text-[10px] font-mono-tag text-slate-400 uppercase tracking-widest",
-                      },
-                      "Lớp đã chọn",
-                    ),
-                    m(
-                      "span",
-                      {
-                        class:
-                          "text-[10px] font-mono-tag bg-violet-500/20 text-violet-400 px-2 py-0.5 rounded",
-                      },
-                      `${selections.length} MỤC`,
-                    ),
-                  ],
-                ),
+                m("div", { class: "flex justify-between items-center mb-2" }, [
+                  m(
+                    "span",
+                    {
+                      class:
+                        "text-[10px] font-mono-tag text-slate-400 uppercase tracking-widest",
+                    },
+                    "Lớp đã chọn",
+                  ),
+                  m(
+                    "span",
+                    {
+                      class:
+                        "text-[10px] font-mono-tag bg-violet-500/20 text-violet-400 px-2 py-0.5 rounded",
+                    },
+                    `${selections.length} MỤC`,
+                  ),
+                ]),
                 m(
                   "div",
                   { class: "flex gap-1" },
@@ -233,10 +217,13 @@ export const Inspector = {
               "button",
               {
                 class:
-                  "w-full bg-gradient-to-r from-violet-500 to-cyan-400 text-white font-extrabold py-3 rounded-xl shadow-xl shadow-cyan-500/10 active:scale-95 transition-transform",
-                onclick: () => vnode.attrs.onExport?.(),
+                  "w-full bg-gradient-to-r from-violet-500 to-cyan-400 text-white font-extrabold py-3 rounded-xl shadow-xl shadow-cyan-500/10 active:scale-95 transition-transform flex items-center justify-center gap-2",
+                onclick: () => vnode.attrs.onProjects?.(),
               },
-              "TẠO SPRITE SHEET",
+              [
+                m("span.material-symbols-outlined", "folder_special"),
+                "DỰ ÁN (Save / Load)",
+              ],
             ),
           ],
         ),
@@ -346,8 +333,18 @@ const LayerList = {
 };
 
 const PALETTE_SWATCHES = [
-  "#31009a", "#4816cb", "#947dff", "#cabeff", "#603ce2", "#1c0062",
-  "#00ddb5", "#00e0b8", "#44fad0", "#00382c", "#005c4a", "#005141",
+  "#31009a",
+  "#4816cb",
+  "#947dff",
+  "#cabeff",
+  "#603ce2",
+  "#1c0062",
+  "#00ddb5",
+  "#00e0b8",
+  "#44fad0",
+  "#00382c",
+  "#005c4a",
+  "#005141",
 ];
 
 const PalettePanel = {
