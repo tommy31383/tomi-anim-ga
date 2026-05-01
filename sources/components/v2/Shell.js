@@ -58,7 +58,7 @@ export const Shell = {
     return m(
       "div.flex.flex-col.h-screen.w-screen.bg-background.text-on-background",
       [
-        m(TopBar, { onExport: openExport }),
+        m(TopBar, { onExport: openExport, onProjects: openProjects }),
         m("main.flex-1.flex.overflow-hidden", [
           m(AssetLibrary),
           m(CanvasArea),

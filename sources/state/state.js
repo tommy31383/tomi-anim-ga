@@ -41,6 +41,10 @@ export const state = {
   selections: {}, // key: selectionGroup, value: { itemId, variant, name }
   bodyType: BODY_TYPES[0],
 
+  // Currently-open project (set by projects.js on load/save).
+  currentProjectId: null,
+  currentProjectName: null,
+
   // State that is currently not saved but could be in future
   selectedAnimation: "walk",
   expandedNodes: {}, // key: path string, value: boolean (true if expanded)

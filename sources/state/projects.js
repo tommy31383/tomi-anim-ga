@@ -47,6 +47,10 @@ export function deleteProject(id) {
   const map = readAll();
   delete map[id];
   writeAll(map);
+  if (state.currentProjectId === id) {
+    state.currentProjectId = null;
+    state.currentProjectName = null;
+  }
   m.redraw();
 }
 
@@ -114,8 +118,17 @@ export function saveProject(name, id = null) {
     data: snapshotState(),
   };
   writeAll(map);
+  state.currentProjectId = projectId;
+  state.currentProjectName = trimmed;
   m.redraw();
   return projectId;
+}
+
+/** Save into the currently-open project. Returns false if none is open. */
+export function quickSaveCurrent() {
+  if (!state.currentProjectId || !state.currentProjectName) return false;
+  saveProject(state.currentProjectName, state.currentProjectId);
+  return true;
 }
 
 /** Apply a saved snapshot back into state and trigger a render. */
@@ -132,6 +145,9 @@ export async function loadProject(id) {
     state.customImageZPos = d.customImageZPos;
   }
   state.customUploadedImage = null; // can't restore Image from storage
+
+  state.currentProjectId = project.id;
+  state.currentProjectName = project.name;
 
   syncSelectionsToHash();
   await renderCharacter(state.selections, state.bodyType);
