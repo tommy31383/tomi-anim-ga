@@ -3,7 +3,10 @@
 
 import m from "mithril";
 import { ANIMATIONS } from "../../state/constants.ts";
-import { exportUnityPackage } from "../../state/zip-unity.js";
+import {
+  exportUnityPackage,
+  SUPPORTED_CUSTOM_ANIMATION_KEYS,
+} from "../../state/zip-unity.js";
 
 const SUPPORTED_ANIM_KEYS = new Set([
   "spellcast",
@@ -23,12 +26,28 @@ const SUPPORTED_ANIM_KEYS = new Set([
   "1h_halfslash",
 ]);
 
+// Labels shown in dialog; mirrors CanvasArea preview tabs.
+const CUSTOM_ANIM_LABELS = {
+  slash_128: "Chém 128px",
+  backslash_128: "Chém ngược 128px",
+  halfslash_128: "Chém nửa 128px",
+  thrust_128: "Đâm 128px",
+  walk_128: "Đi bộ 128px",
+  thrust_oversize: "Đâm Oversize",
+  slash_oversize: "Chém Oversize",
+  slash_reverse_oversize: "Chém ngược Oversize",
+  whip_oversize: "Roi Oversize",
+};
+
 function defaultPickedSet() {
   const out = {};
   for (const a of ANIMATIONS) {
     if (a.noExport) continue;
     if (!SUPPORTED_ANIM_KEYS.has(a.value)) continue;
     out[a.value] = true;
+  }
+  for (const key of SUPPORTED_CUSTOM_ANIMATION_KEYS) {
+    out[key] = true;
   }
   return out;
 }
@@ -51,13 +70,20 @@ export const UnityExportDialog = {
     const animList = ANIMATIONS.filter(
       (a) => !a.noExport && SUPPORTED_ANIM_KEYS.has(a.value),
     );
-    const pickedCount = Object.values(vnode.state.picked).filter(
-      Boolean,
-    ).length;
+    const customList = SUPPORTED_CUSTOM_ANIMATION_KEYS.map((value) => ({
+      value,
+      label: CUSTOM_ANIM_LABELS[value] ?? value,
+    }));
+    const allKeys = [
+      ...animList.map((a) => a.value),
+      ...customList.map((c) => c.value),
+    ];
+    const pickedCount = allKeys.filter((k) => vnode.state.picked[k]).length;
+    const totalCount = allKeys.length;
 
     const toggleAll = (on) => {
       const next = {};
-      for (const a of animList) next[a.value] = on;
+      for (const k of allKeys) next[k] = on;
       vnode.state.picked = next;
     };
 
@@ -190,7 +216,7 @@ export const UnityExportDialog = {
                           class:
                             "text-[11px] font-mono-tag text-cyan-400 uppercase tracking-widest",
                         },
-                        `Animations (${pickedCount}/${animList.length})`,
+                        `Animations (${pickedCount}/${totalCount})`,
                       ),
                       m("div", { class: "flex gap-1" }, [
                         m(
@@ -250,6 +276,56 @@ export const UnityExportDialog = {
                               },
                               "1H",
                             ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ]),
+                // Custom (oversize / 128px) anims
+                m("div", [
+                  m(
+                    "span",
+                    {
+                      class:
+                        "text-[11px] font-mono-tag text-cyan-400 uppercase tracking-widest block mb-2",
+                    },
+                    "Anim Oversize / 128px (vũ khí to)",
+                  ),
+                  m(
+                    "div",
+                    {
+                      class:
+                        "grid grid-cols-2 gap-2 p-3 bg-slate-900 rounded-lg border border-slate-700",
+                    },
+                    customList.map((c) =>
+                      m(
+                        "label",
+                        {
+                          class:
+                            "flex items-center gap-2 text-sm text-slate-200 cursor-pointer hover:text-white",
+                        },
+                        [
+                          m("input", {
+                            type: "checkbox",
+                            checked: !!vnode.state.picked[c.value],
+                            onchange: (e) => {
+                              vnode.state.picked = {
+                                ...vnode.state.picked,
+                                [c.value]: e.target.checked,
+                              };
+                            },
+                          }),
+                          m("span", { class: "flex-1 truncate" }, c.label),
+                          m(
+                            "span",
+                            {
+                              class:
+                                "text-[9px] px-1.5 py-0.5 bg-violet-500/20 text-violet-300 rounded",
+                              title:
+                                "Custom animation, frameSize 128 — chỉ có data nếu char đang dùng vũ khí oversize tương ứng",
+                            },
+                            c.value.endsWith("_oversize") ? "OS" : "128",
+                          ),
                         ],
                       ),
                     ),

@@ -12,10 +12,12 @@ import { canvasToBlob } from "../canvas/canvas-utils.ts";
 import {
   downloadZipBlob,
   extractFramesFromAnimation,
+  extractFramesFromCustomAnimation,
   guardZipExportEnvironment,
   zipExportTimestamp,
   zipGenerateBlobWithProfiler,
 } from "../utils/zip-helpers.js";
+import { customAnimations } from "../custom-animations.ts";
 import { createZipExportProfiler } from "../performance-profiler.js";
 import {
   beginZipExportUiSuspend,
@@ -48,6 +50,22 @@ const ACTION_NAMES = {
   "1h_halfslash": "OneHandHalfslash",
 };
 
+// Custom animations (separate canvas regions) — exportable with their own
+// frameSize. Listed in UnityExportDialog as the "Oversize / 128px" group.
+const CUSTOM_ACTION_NAMES = {
+  slash_128: "Slash128",
+  backslash_128: "Backslash128",
+  halfslash_128: "Halfslash128",
+  thrust_128: "Thrust128",
+  walk_128: "Walk128",
+  thrust_oversize: "ThrustOversize",
+  slash_oversize: "SlashOversize",
+  slash_reverse_oversize: "SlashReverseOversize",
+  whip_oversize: "WhipOversize",
+};
+
+export const SUPPORTED_CUSTOM_ANIMATION_KEYS = Object.keys(CUSTOM_ACTION_NAMES);
+
 const DIR_NAMES = { up: "Up", left: "Left", down: "Down", right: "Right" };
 
 const DEFAULT_FPS = 10;
@@ -57,14 +75,56 @@ function sanitizeName(input) {
   return cleaned.length ? cleaned : "Character";
 }
 
-function compositeStripCanvas(frameList) {
+function compositeStripCanvas(frameList, frameSize = FRAME_SIZE) {
   const c = document.createElement("canvas");
-  c.width = frameList.length * FRAME_SIZE;
-  c.height = FRAME_SIZE;
+  c.width = frameList.length * frameSize;
+  c.height = frameSize;
   const ctx = c.getContext("2d");
   ctx.imageSmoothingEnabled = false;
-  frameList.forEach((f, i) => ctx.drawImage(f.canvas, i * FRAME_SIZE, 0));
+  frameList.forEach((f, i) => ctx.drawImage(f.canvas, i * frameSize, 0));
   return c;
+}
+
+/** Write one (action × direction) bundle: PNG + .meta + .anim + .anim.meta. */
+async function emitDirectionBundle({
+  spritesFolder,
+  animsFolder,
+  frameList,
+  frameSize,
+  baseName,
+  fps,
+}) {
+  const strip = compositeStripCanvas(frameList, frameSize);
+  const blob = await canvasToBlob(strip);
+  spritesFolder.file(`${baseName}.png`, blob);
+
+  const spriteList = buildSpriteList(baseName, frameList.length, frameSize);
+  const textureGuid = makeGuid();
+  spritesFolder.file(
+    `${baseName}.png.meta`,
+    buildTextureMeta({
+      guid: textureGuid,
+      sprites: spriteList,
+      // Keep PPU = standard tile size so a 128 oversize sprite renders at
+      // 2× world units (correct for an oversize attack reaching past the
+      // character).
+      ppu: FRAME_SIZE,
+    }),
+  );
+
+  animsFolder.file(
+    `${baseName}.anim`,
+    buildAnimClip({
+      name: baseName,
+      textureGuid,
+      sprites: spriteList,
+      fps,
+    }),
+  );
+  animsFolder.file(
+    `${baseName}.anim.meta`,
+    buildAnimMeta({ guid: makeGuid() }),
+  );
 }
 
 function readmeText(charName, fps, exportedActions) {
@@ -176,34 +236,56 @@ export async function exportUnityPackage(opts = {}) {
         const dir = DIR_NAMES[dirKey];
         const baseName = `${action}_${dir}`;
 
-        const strip = compositeStripCanvas(list);
-        const blob = await canvasToBlob(strip);
-        spritesFolder.file(`${baseName}.png`, blob);
+        await emitDirectionBundle({
+          spritesFolder,
+          animsFolder,
+          frameList: list,
+          frameSize: FRAME_SIZE,
+          baseName,
+          fps,
+        });
 
-        const spriteList = buildSpriteList(baseName, list.length, FRAME_SIZE);
-        const textureGuid = makeGuid();
-        spritesFolder.file(
-          `${baseName}.png.meta`,
-          buildTextureMeta({
-            guid: textureGuid,
-            sprites: spriteList,
-            ppu: FRAME_SIZE,
-          }),
-        );
+        exportedAnyDir = true;
+      }
 
-        animsFolder.file(
-          `${baseName}.anim`,
-          buildAnimClip({
-            name: baseName,
-            textureGuid,
-            sprites: spriteList,
-            fps,
-          }),
-        );
-        animsFolder.file(
-          `${baseName}.anim.meta`,
-          buildAnimMeta({ guid: makeGuid() }),
-        );
+      if (exportedAnyDir) exportedActions.add(action);
+    }
+
+    // Custom anims (separate canvas regions, may use frameSize 128 etc.)
+    for (const animKey of SUPPORTED_CUSTOM_ANIMATION_KEYS) {
+      if (explicitPicked && !explicitPicked.has(animKey)) continue;
+      // No global filter for custom anims — only run if explicitly picked
+      // OR if no explicit pick set was given (legacy behaviour).
+      if (!explicitPicked) continue;
+
+      const action = CUSTOM_ACTION_NAMES[animKey];
+      const def = customAnimations?.[animKey];
+      if (!action || !def) continue;
+
+      const animCanvas = extractCustomAnimationFromCanvas(animKey);
+      if (!animCanvas) continue;
+
+      const frames = extractFramesFromCustomAnimation(
+        animCanvas,
+        def,
+        DIRECTIONS,
+      );
+
+      let exportedAnyDir = false;
+      for (const dirKey of DIRECTIONS) {
+        const list = frames[dirKey];
+        if (!list || !list.length) continue;
+        const dir = DIR_NAMES[dirKey];
+        const baseName = `${action}_${dir}`;
+
+        await emitDirectionBundle({
+          spritesFolder,
+          animsFolder,
+          frameList: list,
+          frameSize: def.frameSize || FRAME_SIZE,
+          baseName,
+          fps,
+        });
 
         exportedAnyDir = true;
       }
