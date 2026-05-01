@@ -3,6 +3,8 @@ import m from "mithril";
 import { LICENSE_CONFIG, ANIMATIONS, BODY_TYPES } from "./constants.ts";
 import { syncSelectionsToHash, loadSelectionsFromHash } from "./hash.js";
 import * as catalog from "./catalog.js";
+import { BROKEN_ASSET_IDS } from "./broken-assets-data.js";
+import { showToast } from "./toast.js";
 import {
   renderCharacter,
   isOffscreenCanvasInitialized,
@@ -227,6 +229,12 @@ export function selectItem(itemId, variant, isSelected = false, subId = null) {
   if (isSelected) {
     delete state.selections[subSelect];
   } else {
+    if (BROKEN_ASSET_IDS.has(itemId)) {
+      showToast(
+        `⚠️ Item này có asset bị thiếu/lỗi (sẽ không render). Xem BROKEN_ASSETS.md.`,
+        { kind: "error", durationMs: 4500 },
+      );
+    }
     // Get Meta Data
     const meta = stateDeps.getItemMetadata(itemId);
     const useVariants = meta.variants?.length > 0;

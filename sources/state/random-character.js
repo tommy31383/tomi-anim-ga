@@ -7,6 +7,7 @@ import { state, getStateDeps } from "./state.js";
 import { BODY_TYPES } from "./constants.ts";
 import * as catalog from "./catalog.js";
 import { dismissToast, showToast } from "./toast.js";
+import { BROKEN_ASSET_IDS } from "./broken-assets-data.js";
 
 const REQUIRED_TYPES = ["body", "head"];
 
@@ -91,6 +92,7 @@ export async function randomizeCharacter() {
   for (const [typeName, rows] of Object.entries(idx.byTypeName)) {
     const list = [];
     for (const row of rows) {
+      if (BROKEN_ASSET_IDS.has(row.itemId)) continue; // skip known-bad assets
       const meta = catalog.getItemMerged(row.itemId);
       if (meta && defSupportsBodyType(meta, bodyType)) {
         list.push({ itemId: row.itemId, meta });
