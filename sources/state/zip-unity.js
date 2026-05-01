@@ -256,20 +256,41 @@ export async function exportUnityPackage(opts = {}) {
     /** @type {string[]} Custom anims user picked but the current char has no data for. */
     const skippedCustom = [];
     for (const animKey of SUPPORTED_CUSTOM_ANIMATION_KEYS) {
-      if (explicitPicked && !explicitPicked.has(animKey)) continue;
-      // No global filter for custom anims — only run if explicitly picked
-      // OR if no explicit pick set was given (legacy behaviour).
-      if (!explicitPicked) continue;
+      if (explicitPicked && !explicitPicked.has(animKey)) {
+        // eslint-disable-next-line no-console
+        console.log(`[unity-export] skip ${animKey}: not in user picks`);
+        continue;
+      }
+      if (!explicitPicked) {
+        // eslint-disable-next-line no-console
+        console.log(`[unity-export] skip ${animKey}: no explicit pick set`);
+        continue;
+      }
 
       const action = CUSTOM_ACTION_NAMES[animKey];
       const def = customAnimations?.[animKey];
-      if (!action || !def) continue;
+      if (!action || !def) {
+        // eslint-disable-next-line no-console
+        console.warn(
+          `[unity-export] skip ${animKey}: missing action name or def`,
+          { action, hasDef: !!def },
+        );
+        continue;
+      }
 
       const animCanvas = extractCustomAnimationFromCanvas(animKey);
       if (!animCanvas) {
+        // eslint-disable-next-line no-console
+        console.warn(
+          `[unity-export] skip ${animKey}: extractCustomAnimationFromCanvas returned null (no yPos OR canvas region empty)`,
+        );
         skippedCustom.push(animKey);
         continue;
       }
+      // eslint-disable-next-line no-console
+      console.log(
+        `[unity-export] OK ${animKey}: canvas ${animCanvas.width}x${animCanvas.height}`,
+      );
 
       const frames = extractFramesFromCustomAnimation(
         animCanvas,
