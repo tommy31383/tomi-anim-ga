@@ -31,6 +31,7 @@ import {
   makeGuid,
 } from "../utils/unity-yaml.js";
 import { state } from "./state.js";
+import { showToast } from "./toast.js";
 
 const ACTION_NAMES = {
   spellcast: "Spellcast",
@@ -252,6 +253,8 @@ export async function exportUnityPackage(opts = {}) {
     }
 
     // Custom anims (separate canvas regions, may use frameSize 128 etc.)
+    /** @type {string[]} Custom anims user picked but the current char has no data for. */
+    const skippedCustom = [];
     for (const animKey of SUPPORTED_CUSTOM_ANIMATION_KEYS) {
       if (explicitPicked && !explicitPicked.has(animKey)) continue;
       // No global filter for custom anims — only run if explicitly picked
@@ -263,7 +266,10 @@ export async function exportUnityPackage(opts = {}) {
       if (!action || !def) continue;
 
       const animCanvas = extractCustomAnimationFromCanvas(animKey);
-      if (!animCanvas) continue;
+      if (!animCanvas) {
+        skippedCustom.push(animKey);
+        continue;
+      }
 
       const frames = extractFramesFromCustomAnimation(
         animCanvas,
@@ -301,6 +307,17 @@ export async function exportUnityPackage(opts = {}) {
     const zipBlob = await zipGenerateBlobWithProfiler(profiler, zip);
     const ts = zipExportTimestamp();
     downloadZipBlob(zipBlob, `${charName}_Unity_${ts}.zip`);
+
+    if (skippedCustom.length) {
+      showToast(
+        `⚠️ Bỏ qua ${skippedCustom.length} anim không có data cho char hiện tại: ${skippedCustom.join(", ")}`,
+        { kind: "error", durationMs: 6000 },
+      );
+    }
+    showToast(
+      `✅ Đã export ${exportedActions.size} action vào ${charName}_Unity_*.zip`,
+      { kind: "success", durationMs: 3500 },
+    );
   } finally {
     state.zipUnity.isRunning = false;
     endZipExportUiSuspend();

@@ -89,12 +89,35 @@ function paintPreviewFrameForCycleIndex(cycleIndex) {
   let frameSize = FRAME_SIZE;
   let yOffset = 0;
 
+  let customAnimMissing = false;
   if (activeCustomAnimation && customAnimations) {
     const customAnimDef = customAnimations[activeCustomAnimation];
     if (customAnimDef) {
       frameSize = customAnimDef.frameSize;
-      yOffset = customAnimYPositions[activeCustomAnimation] || 0;
+      const resolvedY = customAnimYPositions[activeCustomAnimation];
+      if (resolvedY === undefined || resolvedY === null) {
+        // No data — char doesn't have any layer with this custom_animation.
+        // Leave preview blank with a notice instead of reading garbage at y=0.
+        customAnimMissing = true;
+      } else {
+        yOffset = resolvedY;
+      }
     }
+  }
+
+  if (customAnimMissing) {
+    previewCtx.fillStyle = "#1e293b";
+    previewCtx.fillRect(0, 0, previewCanvas.width, previewCanvas.height);
+    previewCtx.fillStyle = "#94a3b8";
+    previewCtx.font = "12px system-ui, sans-serif";
+    previewCtx.textAlign = "center";
+    previewCtx.textBaseline = "middle";
+    previewCtx.fillText(
+      "Char hiện tại không có data cho anim này",
+      previewCanvas.width / 2,
+      previewCanvas.height / 2,
+    );
+    return;
   }
 
   let tmpCanvas;
