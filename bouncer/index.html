@@ -222,14 +222,52 @@
 			<div id="settings-panel" class="space-y-4 bg-slate-900 rounded-2xl border border-slate-700 p-4"></div>
 		</div>
 
+		<!-- View toggles -->
+		<div class="bg-slate-900 rounded-xl border border-slate-700 p-3 space-y-2">
+			<p class="text-[10px] uppercase tracking-widest text-cyan-400 font-mono mb-1">Hiển thị preview</p>
+			<label class="flex items-center gap-2 text-xs text-slate-300 cursor-pointer">
+				<input id="show-onion" type="checkbox" class="rounded">
+				<span>👻 Onion skinning (frame trước/sau mờ)</span>
+			</label>
+			<label class="flex items-center gap-2 text-xs text-slate-300 cursor-pointer">
+				<input id="show-trail" type="checkbox" checked class="rounded">
+				<span>✨ Vệt vũ khí (slash trail)</span>
+			</label>
+			<div class="pt-2 border-t border-slate-800">
+				<div class="flex justify-between text-xs mb-1">
+					<span class="text-slate-300">Frame gây sát thương (hitbox)</span>
+					<span class="slider-label text-rose-400"><span id="hit-val">—</span></span>
+				</div>
+				<input id="hit-frame" type="range" min="-1" max="0" step="1" value="-1" class="w-full">
+				<p class="text-[9px] text-slate-500 mt-0.5">−1 = không đánh dấu. Frame này sẽ được ghi vào file JSON kèm theo.</p>
+			</div>
+		</div>
+
+		<!-- Save / Load preset -->
+		<div class="grid grid-cols-2 gap-2">
+			<button id="save-preset" class="text-xs px-3 py-2 rounded-lg border border-slate-700 text-slate-300 hover:bg-slate-800 active:scale-95 flex items-center justify-center gap-1">
+				<span class="material-symbols-outlined" style="font-size:14px">save</span>
+				Lưu preset
+			</button>
+			<label for="load-preset" class="text-xs px-3 py-2 rounded-lg border border-slate-700 text-slate-300 hover:bg-slate-800 active:scale-95 flex items-center justify-center gap-1 cursor-pointer">
+				<span class="material-symbols-outlined" style="font-size:14px">folder_open</span>
+				Tải preset
+			</label>
+			<input id="load-preset" type="file" accept="application/json" class="hidden">
+		</div>
+
 		<!-- Export -->
-		<div>
+		<div class="space-y-2">
 			<button id="export-btn" disabled class="w-full gradient-btn text-white font-bold py-3 rounded-xl shadow-lg shadow-violet-500/20 active:scale-95 transition-transform disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
 				<span class="material-symbols-outlined">download</span>
 				<span>Tải PNG sheet</span>
 			</button>
-			<p class="text-[11px] text-slate-500 mt-2 leading-relaxed">
-				Sheet ngang, tile auto-size, vũ khí (nếu có) bake luôn vào cùng frame.
+			<button id="export-bundle-btn" disabled class="w-full text-xs px-3 py-2 rounded-lg border border-violet-500/40 text-violet-300 bg-violet-500/10 hover:bg-violet-500/20 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1">
+				<span class="material-symbols-outlined" style="font-size:14px">archive</span>
+				Tải PNG + JSON metadata
+			</button>
+			<p class="text-[11px] text-slate-500 leading-relaxed">
+				Sheet ngang, tile auto-size, vũ khí + hitbox metadata bake vào file.
 			</p>
 		</div>
 	</aside>
@@ -244,6 +282,15 @@
 					<p class="text-slate-500 mt-2">Upload 1 ảnh nhân vật để xem hiệu ứng</p>
 				</div>
 				<canvas id="preview-canvas" class="hidden"></canvas>
+			</div>
+
+			<!-- Timeline scrubber -->
+			<div class="bg-slate-950 border-t border-slate-700 px-4 py-2 flex items-center gap-3">
+				<button id="scrub-play" class="text-cyan-400 hover:text-white p-1" title="Play / Pause">
+					<span id="scrub-play-icon" class="material-symbols-outlined" style="font-size:20px">pause</span>
+				</button>
+				<input id="scrub" type="range" min="0" max="100" step="0.5" value="0" class="flex-1">
+				<span id="scrub-info" class="text-[10px] font-mono text-slate-500 min-w-[80px] text-right">frame 0 / 8</span>
 			</div>
 
 			<div class="bg-slate-900 border-t border-slate-700 p-4">
@@ -484,6 +531,11 @@ let activePresetKey = 'hop';
 let settings = { ...PRESETS.hop.defaults };
 let direction = 'right'; // 'right' | 'left' — flips body+weapon horizontally
 let bakeBothDirs = false; // if true, sheet has 2 rows: top=right, bottom=left
+let showOnion = false;    // ghost prev/next frames in preview
+let showTrail = true;     // slash trail through weapon tip
+let hitFrame = -1;        // index of frame that triggers damage (-1 = none)
+let isPaused = false;     // play/pause toggle on timeline
+let scrubT = null;        // when set (0..1), preview holds at this time
 // Weapon position on body, plus 2 anchor points (in % of weapon image):
 //   grip (đuôi) = where the character holds it — becomes pivot for swing.
 //   tip  (đầu)  = the business end — defines the weapon's natural axis,
@@ -645,6 +697,87 @@ function drawFrameAt(ctx, t, cx, cy, dirOverride) {
 }
 
 // ============================================================
+// Compute weapon-tip position in body-local space at time t.
+// Used by slash-trail rendering. Mirrors drawWeapon's transform chain.
+// ============================================================
+function bodyLocalTip(t, dirSign) {
+	if (!weaponImg) return null;
+	const preset = PRESETS[activePresetKey];
+	const tr = preset.transform(t, settings);
+	const tx = tr.tx ?? 0;
+	const ty = tr.ty ?? 0;
+	const wRotDelta = tr.weaponRot ?? 0;
+	const wTxDelta = tr.weaponTx ?? 0;
+	const wScale = weapon.scale / 100;
+	const gripX = (weapon.grip.x / 100) * weaponImg.width;
+	const gripY = (weapon.grip.y / 100) * weaponImg.height;
+	const tipImgX = (weapon.tip.x / 100) * weaponImg.width;
+	const tipImgY = (weapon.tip.y / 100) * weaponImg.height;
+	const naturalAngle = Math.atan2(tipImgY - gripY, tipImgX - gripX);
+	const correction = -Math.PI / 2 - naturalAngle;
+	const totalAngle = ((weapon.rot + wRotDelta) * Math.PI) / 180 + correction;
+	// (tip - grip) in image space, scaled
+	const dxImg = (tipImgX - gripX) * wScale;
+	const dyImg = (tipImgY - gripY) * wScale;
+	// Rotate
+	const cos = Math.cos(totalAngle);
+	const sin = Math.sin(totalAngle);
+	const rx = dxImg * cos - dyImg * sin;
+	const ry = dxImg * sin + dyImg * cos;
+	// Grip in (mirrored) body-local space
+	const gripBodyX = dirSign * (weapon.x + wTxDelta);
+	const gripBodyY = -weapon.y;
+	// Tip = grip + dirSign-mirrored offset + body's per-frame translation
+	return {
+		x: tx + gripBodyX + dirSign * rx,
+		y: ty + gripBodyY + ry,
+	};
+}
+
+// Draw a fading polyline through recent weapon-tip positions.
+function drawSlashTrail(ctx, t, cx, cy, dir) {
+	if (!showTrail || !weaponImg) return;
+	const preset = PRESETS[activePresetKey];
+	const dirSign = dir === 'left' ? -1 : 1;
+	const SAMPLES = 7;
+	const SPAN = 0.18; // span behind current t (fraction of cycle)
+	const points = [];
+	for (let i = SAMPLES - 1; i >= 0; i--) {
+		const dt = (i / (SAMPLES - 1)) * SPAN;
+		let st = t - dt;
+		if (st < 0) {
+			if (preset.loop) st += 1; else continue;
+		}
+		const local = bodyLocalTip(st, dirSign);
+		if (!local) continue;
+		points.push({
+			x: cx + local.x,
+			y: cy + local.y,
+			alpha: 1 - i / (SAMPLES - 1),
+		});
+	}
+	if (points.length < 2) return;
+	ctx.save();
+	ctx.lineCap = 'round';
+	ctx.lineJoin = 'round';
+	for (let i = 0; i < points.length - 1; i++) {
+		const p0 = points[i], p1 = points[i + 1];
+		const a = (p0.alpha + p1.alpha) / 2;
+		ctx.strokeStyle = `rgba(255, 255, 255, ${(a * 0.85).toFixed(3)})`;
+		ctx.lineWidth = 2 + a * 4;
+		ctx.beginPath();
+		ctx.moveTo(p0.x, p0.y);
+		ctx.lineTo(p1.x, p1.y);
+		ctx.stroke();
+		// teal inner glow
+		ctx.strokeStyle = `rgba(68, 250, 208, ${(a * 0.4).toFixed(3)})`;
+		ctx.lineWidth = 1 + a * 1.5;
+		ctx.stroke();
+	}
+	ctx.restore();
+}
+
+// ============================================================
 // Live preview — 60fps rAF loop driven by elapsed time
 // ============================================================
 function preferredStageSize() {
@@ -716,16 +849,30 @@ function loop(now) {
 	if (!bodyImg) return;
 	const preset = PRESETS[activePresetKey];
 	const dur = settings.duration;
-	let elapsed = (now - animStart) / dur;
 	let t;
 	if (drag) {
-		// Pause animation at frame 0 while dragging — easier to position
+		t = 0; // pause at base pose while dragging
+	} else if (scrubT !== null) {
+		t = scrubT; // user scrubbing the timeline
+	} else if (isPaused) {
+		// Hold whatever frame the scrubber says (or 0)
 		t = 0;
-	} else if (preset.loop) {
-		t = elapsed - Math.floor(elapsed);
 	} else {
-		t = elapsed >= 1 ? 1 : elapsed;
-		if (elapsed > 1.5) animStart = now;
+		const elapsed = (now - animStart) / dur;
+		if (preset.loop) {
+			t = elapsed - Math.floor(elapsed);
+		} else {
+			t = elapsed >= 1 ? 1 : elapsed;
+			if (elapsed > 1.5) animStart = now;
+		}
+	}
+
+	// Update scrubber UI to track auto-play position
+	if (!drag && scrubT === null && !isPaused) {
+		const N = settings.frames;
+		const fIdx = Math.min(N - 1, Math.floor(t * N));
+		$('scrub').value = (t * 100).toFixed(2);
+		$('scrub-info').textContent = `frame ${fIdx} / ${N}`;
 	}
 
 	const ctx = previewCanvas.getContext('2d');
@@ -737,7 +884,41 @@ function loop(now) {
 	ctx.save();
 	ctx.translate(v.baselineX, v.baselineY);
 	ctx.scale(v.fit, v.fit);
+
+	// Onion skinning: draw prev/next frames at low alpha BEHIND current
+	if (showOnion) {
+		const N = settings.frames;
+		const dt = 1 / N;
+		ctx.save();
+		ctx.globalAlpha = 0.18;
+		ctx.filter = 'hue-rotate(80deg) saturate(2)';
+		const prevT = preset.loop ? (t - dt + 1) % 1 : Math.max(0, t - dt);
+		drawFrameAt(ctx, prevT, 0, 0);
+		ctx.restore();
+		ctx.save();
+		ctx.globalAlpha = 0.18;
+		ctx.filter = 'hue-rotate(-80deg) saturate(2)';
+		const nextT = preset.loop ? (t + dt) % 1 : Math.min(1, t + dt);
+		drawFrameAt(ctx, nextT, 0, 0);
+		ctx.restore();
+	}
+
 	drawFrameAt(ctx, t, 0, 0);
+	drawSlashTrail(ctx, t, 0, 0, direction);
+
+	// Highlight if current frame is the hitbox frame
+	if (hitFrame >= 0) {
+		const N = settings.frames;
+		const fIdx = Math.min(N - 1, Math.floor(t * N));
+		if (fIdx === hitFrame) {
+			ctx.save();
+			ctx.strokeStyle = 'rgba(244, 63, 94, 0.7)';
+			ctx.lineWidth = 3 / v.fit;
+			ctx.setLineDash([8 / v.fit, 4 / v.fit]);
+			ctx.strokeRect(-bodyImg.width * 0.7, -bodyImg.height * 1.1, bodyImg.width * 1.4, bodyImg.height * 1.2);
+			ctx.restore();
+		}
+	}
 	ctx.restore();
 
 	// Drag handle indicator (cyan ring at weapon attach point)
@@ -935,9 +1116,10 @@ function bake() {
 			const cx = i * tileW + padL;
 			const cy = padTop + r * tileH;
 			drawFrameAt(ctx, t, cx, cy, dir);
+			drawSlashTrail(ctx, t, cx, cy, dir);
 		}
 	}
-	return { canvas: out, tileW, tileH, frames: N, rows };
+	return { canvas: out, tileW, tileH, frames: N, rows, dirs: dirRows };
 }
 
 function updateBakePreview() {
@@ -990,6 +1172,7 @@ function handleFile(file, isWeapon) {
 				bodyInfo.classList.remove('hidden');
 				bodyInfo.textContent = `${file.name} · ${i.width}×${i.height}px · ${(file.size / 1024).toFixed(1)} KB`;
 				exportBtn.disabled = false;
+				$('export-bundle-btn').disabled = false;
 				setupPreviewCanvas();
 			}
 			animStart = performance.now();
@@ -1080,6 +1263,251 @@ refreshDirButtons();
 $('bake-both-dirs').addEventListener('change', (e) => {
 	bakeBothDirs = e.target.checked;
 	updateBakePreview();
+});
+
+// ============================================================
+// View toggles (onion / trail) + hitbox + scrubber + save/load
+// ============================================================
+$('show-onion').addEventListener('change', (e) => {
+	showOnion = e.target.checked;
+});
+$('show-trail').addEventListener('change', (e) => {
+	showTrail = e.target.checked;
+	updateBakePreview();
+});
+
+const hitFrameInput = $('hit-frame');
+const hitFrameVal = $('hit-val');
+function refreshHitFrameSlider() {
+	const N = settings.frames;
+	hitFrameInput.max = N - 1;
+	if (hitFrame >= N) hitFrame = -1;
+	hitFrameInput.value = hitFrame;
+	hitFrameVal.textContent = hitFrame < 0 ? '—' : `frame ${hitFrame}`;
+}
+hitFrameInput.addEventListener('input', (e) => {
+	hitFrame = Number(e.target.value);
+	hitFrameVal.textContent = hitFrame < 0 ? '—' : `frame ${hitFrame}`;
+});
+
+// Re-cap hitFrame whenever frames count changes (number-of-frames slider)
+const _origRenderSettings = renderSettingsPanel;
+renderSettingsPanel = function () {
+	_origRenderSettings();
+	refreshHitFrameSlider();
+	// Also wire the frames slider to refresh hitFrame max
+	const framesInp = settingsPanel.querySelector('input[data-slider="frames"]');
+	if (framesInp) {
+		framesInp.addEventListener('input', refreshHitFrameSlider);
+	}
+};
+refreshHitFrameSlider();
+
+// Scrubber
+const scrubInp = $('scrub');
+const scrubInfo = $('scrub-info');
+const scrubPlay = $('scrub-play');
+const scrubPlayIcon = $('scrub-play-icon');
+scrubInp.addEventListener('input', (e) => {
+	scrubT = Number(e.target.value) / 100;
+	const N = settings.frames;
+	const fIdx = Math.min(N - 1, Math.floor(scrubT * N));
+	scrubInfo.textContent = `frame ${fIdx} / ${N}`;
+	isPaused = true;
+	scrubPlayIcon.textContent = 'play_arrow';
+});
+scrubInp.addEventListener('change', () => {
+	// User released the slider — keep paused at this frame
+});
+scrubPlay.addEventListener('click', () => {
+	isPaused = !isPaused;
+	scrubPlayIcon.textContent = isPaused ? 'play_arrow' : 'pause';
+	if (!isPaused) {
+		scrubT = null;
+		// Resume from the scrubbed time
+		const t = Number(scrubInp.value) / 100;
+		animStart = performance.now() - t * settings.duration;
+	}
+});
+// Click anywhere on the scrubber background while paused = scrub
+scrubInp.addEventListener('click', () => {
+	scrubT = Number(scrubInp.value) / 100;
+});
+
+// Save preset to JSON file (includes weapon + body images as base64)
+$('save-preset').addEventListener('click', () => {
+	const cfg = {
+		_format: 'tomi-bouncer-preset/1',
+		preset: activePresetKey,
+		settings: { ...settings },
+		direction,
+		bakeBothDirs,
+		hitFrame,
+		showTrail,
+		weapon: weaponImg
+			? {
+					...weapon,
+					grip: { ...weapon.grip },
+					tip: { ...weapon.tip },
+					srcImageDataUrl: imageToDataUrl(weaponSrcImg || weaponImg),
+					crop: cropRect ? { ...cropRect } : null,
+				}
+			: null,
+		body: bodyImg
+			? { name: bodyName, dataUrl: imageToDataUrl(bodyImg) }
+			: null,
+	};
+	const blob = new Blob([JSON.stringify(cfg, null, 2)], {
+		type: 'application/json',
+	});
+	const url = URL.createObjectURL(blob);
+	const a = document.createElement('a');
+	a.href = url;
+	a.download = `${bodyName || 'preset'}_${activePresetKey}.tomi-anim.json`;
+	a.click();
+	setTimeout(() => URL.revokeObjectURL(url), 1000);
+});
+
+function imageToDataUrl(img) {
+	const c = document.createElement('canvas');
+	c.width = img.width;
+	c.height = img.height;
+	c.getContext('2d').drawImage(img, 0, 0);
+	return c.toDataURL('image/png');
+}
+
+// Load preset
+$('load-preset').addEventListener('change', async (e) => {
+	const f = e.target.files?.[0];
+	if (!f) return;
+	const text = await f.text();
+	let cfg;
+	try {
+		cfg = JSON.parse(text);
+	} catch (err) {
+		alert('File JSON không hợp lệ');
+		return;
+	}
+	if (cfg._format !== 'tomi-bouncer-preset/1') {
+		alert('Đây không phải file preset Tomi Bouncer');
+		return;
+	}
+	const loadImg = (dataUrl) => new Promise((res, rej) => {
+		if (!dataUrl) return res(null);
+		const i = new Image();
+		i.onload = () => res(i);
+		i.onerror = rej;
+		i.src = dataUrl;
+	});
+	const [bImg, wImg] = await Promise.all([
+		loadImg(cfg.body?.dataUrl),
+		loadImg(cfg.weapon?.srcImageDataUrl),
+	]);
+	if (bImg) {
+		bodyImg = bImg;
+		bodyName = cfg.body.name || 'sprite';
+		emptyState.classList.add('hidden');
+		previewCanvas.classList.remove('hidden');
+		bodyInfo.classList.remove('hidden');
+		bodyInfo.textContent = `${bodyName} · ${bImg.width}×${bImg.height}px (đã load từ preset)`;
+		exportBtn.disabled = false;
+		$('export-bundle-btn').disabled = false;
+		setupPreviewCanvas();
+	}
+	if (wImg && cfg.weapon) {
+		weaponSrcImg = wImg;
+		Object.assign(weapon, {
+			x: cfg.weapon.x ?? 20,
+			y: cfg.weapon.y ?? 40,
+			scale: cfg.weapon.scale ?? 100,
+			rot: cfg.weapon.rot ?? -30,
+			behind: cfg.weapon.behind ?? false,
+			grip: { ...cfg.weapon.grip },
+			tip: { ...cfg.weapon.tip },
+		});
+		cropRect = cfg.weapon.crop || { x: 0, y: 0, w: wImg.width, h: wImg.height };
+		applyCrop();
+		weaponInfo.classList.remove('hidden');
+		weaponClearBtn.classList.remove('hidden');
+		$('crop-panel').classList.remove('hidden');
+		weaponCtrls.classList.remove('hidden');
+		drawCropEditor();
+		// Sync weapon sliders
+		$('weapon-x').value = weapon.x; $('wx-val').textContent = weapon.x;
+		$('weapon-y').value = weapon.y; $('wy-val').textContent = weapon.y;
+		$('weapon-scale').value = weapon.scale; $('wscale-val').textContent = weapon.scale;
+		$('weapon-rot').value = weapon.rot; $('wrot-val').textContent = weapon.rot;
+		$('weapon-behind').checked = weapon.behind;
+	}
+	if (cfg.preset && PRESETS[cfg.preset]) {
+		activePresetKey = cfg.preset;
+		settings = { ...PRESETS[cfg.preset].defaults, ...cfg.settings };
+		presetDesc.textContent = PRESETS[cfg.preset].desc;
+		renderPresetGrid();
+		renderSettingsPanel();
+	}
+	direction = cfg.direction || 'right';
+	bakeBothDirs = !!cfg.bakeBothDirs;
+	hitFrame = cfg.hitFrame ?? -1;
+	showTrail = cfg.showTrail ?? true;
+	$('bake-both-dirs').checked = bakeBothDirs;
+	$('show-trail').checked = showTrail;
+	refreshDirButtons();
+	refreshHitFrameSlider();
+	animStart = performance.now();
+	updateBakePreview();
+	e.target.value = '';
+});
+
+// Bundled export — PNG + JSON metadata sidecar in a download
+$('export-bundle-btn').addEventListener('click', () => {
+	const r = bake();
+	if (!r) return;
+	const meta = {
+		_format: 'tomi-bouncer-meta/1',
+		preset: activePresetKey,
+		preset_label: PRESETS[activePresetKey].label,
+		loop: PRESETS[activePresetKey].loop,
+		frames: r.frames,
+		rows: r.rows,
+		directions: r.dirs,
+		tile_width: r.tileW,
+		tile_height: r.tileH,
+		sheet_width: r.canvas.width,
+		sheet_height: r.canvas.height,
+		duration_ms: settings.duration,
+		ms_per_frame: Math.round(settings.duration / r.frames),
+		fps: Math.round(1000 / (settings.duration / r.frames)),
+		hit_frame: hitFrame >= 0 ? hitFrame : null,
+		settings: { ...settings },
+		weapon_anchors: weaponImg
+			? { grip: { ...weapon.grip }, tip: { ...weapon.tip } }
+			: null,
+	};
+	const wsuffix = weaponImg ? '_armed' : '';
+	const dirSuffix = r.rows === 2 ? '_2dir' : `_${direction}`;
+	const baseName = `${bodyName}_${activePresetKey}${wsuffix}${dirSuffix}_${r.frames}f_${r.tileW}x${r.tileH}`;
+
+	r.canvas.toBlob((blob) => {
+		const pngUrl = URL.createObjectURL(blob);
+		const a1 = document.createElement('a');
+		a1.href = pngUrl; a1.download = `${baseName}.png`;
+		document.body.appendChild(a1); a1.click(); document.body.removeChild(a1);
+
+		const jsonBlob = new Blob([JSON.stringify(meta, null, 2)], {
+			type: 'application/json',
+		});
+		const jsonUrl = URL.createObjectURL(jsonBlob);
+		setTimeout(() => {
+			const a2 = document.createElement('a');
+			a2.href = jsonUrl; a2.download = `${baseName}.json`;
+			document.body.appendChild(a2); a2.click(); document.body.removeChild(a2);
+			setTimeout(() => {
+				URL.revokeObjectURL(pngUrl);
+				URL.revokeObjectURL(jsonUrl);
+			}, 1000);
+		}, 200);
+	}, 'image/png');
 });
 
 // ============================================================
