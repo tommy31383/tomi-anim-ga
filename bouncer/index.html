@@ -567,6 +567,42 @@ function setupPreviewCanvas() {
 	lastDpr = dpr;
 }
 
+// View transform shared by loop + drag handlers
+function getViewTransform() {
+	const w = previewCanvas.width / lastDpr;
+	const h = previewCanvas.height / lastDpr;
+	const fit = bodyImg
+		? Math.min(1, 240 / Math.max(bodyImg.width, bodyImg.height))
+		: 1;
+	return { w, h, fit, baselineX: w / 2, baselineY: h - 30 };
+}
+
+// Convert canvas (CSS-pixel) coordinate to body-local coordinate
+function canvasToLocal(cx, cy) {
+	const v = getViewTransform();
+	return {
+		x: (cx - v.baselineX) / v.fit,
+		y: (v.baselineY - cy) / v.fit, // up positive
+	};
+}
+
+// Hit-test the weapon (rough — bounding circle around weapon's pivot)
+function isWeaponNearMouse(cx, cy) {
+	if (!weaponImg) return false;
+	const v = getViewTransform();
+	const wScale = weapon.scale / 100;
+	// Weapon attach point in screen coords
+	const wsx = v.baselineX + weapon.x * v.fit;
+	const wsy = v.baselineY - weapon.y * v.fit;
+	const radius = Math.max(weaponImg.width, weaponImg.height) * wScale * v.fit * 0.6;
+	const dx = cx - wsx;
+	const dy = cy - wsy;
+	return dx * dx + dy * dy <= radius * radius;
+}
+
+let drag = null; // { kind, startMouse, startWeapon }
+let hovering = false;
+
 function loop(now) {
 	requestAnimationFrame(loop);
 	if (!bodyImg) return;
@@ -574,30 +610,143 @@ function loop(now) {
 	const dur = settings.duration;
 	let elapsed = (now - animStart) / dur;
 	let t;
-	if (preset.loop) {
+	if (drag) {
+		// Pause animation at frame 0 while dragging — easier to position
+		t = 0;
+	} else if (preset.loop) {
 		t = elapsed - Math.floor(elapsed);
 	} else {
 		t = elapsed >= 1 ? 1 : elapsed;
-		// Restart one-shot every 1.5s for preview
 		if (elapsed > 1.5) animStart = now;
 	}
 
 	const ctx = previewCanvas.getContext('2d');
 	ctx.imageSmoothingEnabled = false;
 	ctx.setTransform(lastDpr, 0, 0, lastDpr, 0, 0);
-	const w = previewCanvas.width / lastDpr;
-	const h = previewCanvas.height / lastDpr;
-	ctx.clearRect(0, 0, w, h);
+	const v = getViewTransform();
+	ctx.clearRect(0, 0, v.w, v.h);
 
-	// Scale body to preferred view size (fit 240px max)
-	const fit = Math.min(1, 240 / Math.max(bodyImg.width, bodyImg.height));
 	ctx.save();
-	ctx.translate(w / 2, h - 30);
-	ctx.scale(fit, fit);
+	ctx.translate(v.baselineX, v.baselineY);
+	ctx.scale(v.fit, v.fit);
 	drawFrameAt(ctx, t, 0, 0);
 	ctx.restore();
+
+	// Drag handle indicator (cyan ring at weapon attach point)
+	if (weaponImg) {
+		const wsx = v.baselineX + weapon.x * v.fit;
+		const wsy = v.baselineY - weapon.y * v.fit;
+		ctx.save();
+		ctx.strokeStyle = drag ? '#44fad0' : (hovering ? 'rgba(68,250,208,0.7)' : 'rgba(148,125,255,0.3)');
+		ctx.lineWidth = drag ? 2 : 1;
+		ctx.setLineDash(drag ? [] : [4, 3]);
+		ctx.beginPath();
+		ctx.arc(wsx, wsy, 6, 0, Math.PI * 2);
+		ctx.stroke();
+		// Crosshair when hovering
+		if (hovering || drag) {
+			ctx.beginPath();
+			ctx.moveTo(wsx - 10, wsy); ctx.lineTo(wsx + 10, wsy);
+			ctx.moveTo(wsx, wsy - 10); ctx.lineTo(wsx, wsy + 10);
+			ctx.stroke();
+		}
+		ctx.restore();
+	}
+
+	// Hint text
+	if (weaponImg && !drag && !hovering) {
+		ctx.save();
+		ctx.fillStyle = 'rgba(148, 163, 184, 0.6)';
+		ctx.font = '11px Inter, system-ui';
+		ctx.textAlign = 'center';
+		ctx.fillText('Kéo chấm tím để gắn vũ khí vào tay', v.w / 2, 18);
+		ctx.restore();
+	}
 }
 requestAnimationFrame(loop);
+
+// ============================================================
+// Drag-to-position weapon
+// ============================================================
+function getCanvasMouse(e) {
+	const rect = previewCanvas.getBoundingClientRect();
+	const cx = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
+	const cy = (e.touches ? e.touches[0].clientY : e.clientY) - rect.top;
+	return { cx, cy };
+}
+
+previewCanvas.addEventListener('mousemove', (e) => {
+	const { cx, cy } = getCanvasMouse(e);
+	if (drag) {
+		const local = canvasToLocal(cx, cy);
+		weapon.x = Math.round(local.x - drag.grabOffset.x);
+		weapon.y = Math.round(local.y - drag.grabOffset.y);
+		// Sync sliders
+		$('weapon-x').value = weapon.x;
+		$('wx-val').textContent = weapon.x;
+		$('weapon-y').value = weapon.y;
+		$('wy-val').textContent = weapon.y;
+		updateBakePreview();
+	} else {
+		hovering = isWeaponNearMouse(cx, cy);
+		previewCanvas.style.cursor = hovering ? 'grab' : 'default';
+	}
+});
+
+previewCanvas.addEventListener('mousedown', (e) => {
+	if (!weaponImg) return;
+	const { cx, cy } = getCanvasMouse(e);
+	if (!isWeaponNearMouse(cx, cy)) return;
+	const local = canvasToLocal(cx, cy);
+	drag = {
+		kind: 'weapon',
+		grabOffset: { x: local.x - weapon.x, y: local.y - weapon.y },
+	};
+	previewCanvas.style.cursor = 'grabbing';
+	e.preventDefault();
+});
+
+window.addEventListener('mouseup', () => {
+	if (drag) {
+		drag = null;
+		previewCanvas.style.cursor = hovering ? 'grab' : 'default';
+		animStart = performance.now(); // restart anim from drag pose
+	}
+});
+
+// Touch support
+previewCanvas.addEventListener('touchstart', (e) => {
+	if (!weaponImg) return;
+	const { cx, cy } = getCanvasMouse(e);
+	if (!isWeaponNearMouse(cx, cy)) return;
+	const local = canvasToLocal(cx, cy);
+	drag = {
+		kind: 'weapon',
+		grabOffset: { x: local.x - weapon.x, y: local.y - weapon.y },
+	};
+	e.preventDefault();
+}, { passive: false });
+
+previewCanvas.addEventListener('touchmove', (e) => {
+	if (!drag) return;
+	const { cx, cy } = getCanvasMouse(e);
+	const local = canvasToLocal(cx, cy);
+	weapon.x = Math.round(local.x - drag.grabOffset.x);
+	weapon.y = Math.round(local.y - drag.grabOffset.y);
+	$('weapon-x').value = weapon.x;
+	$('wx-val').textContent = weapon.x;
+	$('weapon-y').value = weapon.y;
+	$('wy-val').textContent = weapon.y;
+	updateBakePreview();
+	e.preventDefault();
+}, { passive: false });
+
+window.addEventListener('touchend', () => {
+	if (drag) {
+		drag = null;
+		animStart = performance.now();
+	}
+});
 
 // ============================================================
 // Bake — compute padding by sampling, then draw N frames.
