@@ -5,7 +5,6 @@ import { downloadAsPNG } from "../../canvas/download.js";
 import {
   extractAnimationFromCanvas,
   extractCustomAnimationFromCanvas,
-  bakeTungTungSheet,
 } from "../../canvas/renderer.js";
 import { UnityExportDialog } from "./UnityExportDialog.js";
 
@@ -163,19 +162,16 @@ export const ExportModal = {
                       // helpful note for the user to bake the bounce in their
                       // engine (Unity / Godot / Phaser have a built-in tween).
                       if (name === "tung_tung") {
-                        // Bake the CSS bounce into a real sprite sheet —
-                        // 8 frames horizontal, 96×96 per tile (FRAME_SIZE
-                        // 64 + 32px headroom for the hop).
-                        const sheet = bakeTungTungSheet(8);
-                        if (!sheet) {
+                        const c = extractAnimationFromCanvas("walk");
+                        if (!c) {
                           alert(
-                            "Char hiện tại không có Walk frame để bake Tưng tưng. Hãy chọn 1 body trước (mọi body đều có Walk).",
+                            "Tưng tưng dùng frame đứng yên của Walk làm pose gốc. Cần có Walk trước (mọi body đều có) — anh thử lại.",
                           );
                           return;
                         }
-                        downloadCanvasPng(
-                          sheet,
-                          "tung_tung_8f_96x96.png",
+                        downloadCanvasPng(c, "tung_tung_pose_walk.png");
+                        alert(
+                          "Đã tải frame gốc cho Tưng tưng (Walk sheet).\n\nAnim 'tưng tưng' là hiệu ứng squash & stretch CSS-only — không bake được vào PNG sheet. Trong game engine anh apply transform tween:\n\nUnity: DOTween scale.y + position.y\nGodot: AnimationPlayer scale + position\nPhaser: scene.tweens.add({y: -22, yoyo, repeat:-1})\n\nBounce 600ms, scaleY 0.78↔1.14, translateY 0↔-22px.",
                         );
                         return;
                       }
