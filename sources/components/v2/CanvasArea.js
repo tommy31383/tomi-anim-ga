@@ -244,12 +244,26 @@ export const CanvasArea = {
     const setAnim = (val) => {
       vnode.state.selectedAnimation = val;
       state.selectedAnimation = val;
-      // For the synthetic "tung_tung" pill, render the walk anim underneath
-      // and let the CSS hop animation do the work on the canvas wrapper.
+      // For the synthetic "tung_tung" pill, render ONE static frame of walk
+      // (frame 0 = standing pose) and freeze the preview loop. The CSS hop
+      // does all the motion. This matches Vampire Survivors / Brotato /
+      // Archero — single static frame + transform.
       const def = allAnimations.find((a) => a.value === val);
-      const renderVal = def?.cssOnly ? def.baseAnim || "walk" : val;
-      if (isOffscreenCanvasInitialized()) {
-        setPreviewAnimation(renderVal);
+      if (def?.cssOnly) {
+        if (isOffscreenCanvasInitialized()) {
+          setPreviewAnimation(def.baseAnim || "walk");
+          // stopPreviewAnimation freezes whatever frame is currently visible.
+          // Wait one tick so the renderer paints frame 0 first, then stop.
+          requestAnimationFrame(() => {
+            stopPreviewAnimation();
+            vnode.state.isPlaying = false;
+          });
+        }
+      } else {
+        if (isOffscreenCanvasInitialized()) {
+          setPreviewAnimation(val);
+          if (vnode.state.isPlaying) startPreviewAnimation();
+        }
       }
     };
     const isHop =

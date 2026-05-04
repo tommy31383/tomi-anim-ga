@@ -157,6 +157,25 @@ export const ExportModal = {
                     "Chỉ Anim đang xem trên canvas",
                     () => {
                       const name = state.selectedAnimation;
+                      // Tưng tưng is a CSS-only preview effect (1 static frame
+                      // + transform). Export the underlying Walk frame 0 + a
+                      // helpful note for the user to bake the bounce in their
+                      // engine (Unity / Godot / Phaser have a built-in tween).
+                      if (name === "tung_tung") {
+                        const c = extractAnimationFromCanvas("walk");
+                        if (!c) {
+                          alert(
+                            "Tưng tưng dùng frame đứng yên của Walk làm pose gốc. Cần có Walk trước (mọi body đều có) — anh thử lại.",
+                          );
+                          return;
+                        }
+                        downloadCanvasPng(c, "tung_tung_pose_walk.png");
+                        alert(
+                          "Đã tải frame gốc cho Tưng tưng (Walk sheet).\n\nAnim 'tưng tưng' là hiệu ứng squash & stretch CSS-only — không bake được vào PNG sheet. Trong game engine anh apply transform tween:\n\nUnity: DOTween scale.y + position.y\nGodot: AnimationPlayer scale + position\nPhaser: scene.tweens.add({y: -22, yoyo, repeat:-1})\n\nBounce 600ms, scaleY 0.78↔1.14, translateY 0↔-22px.",
+                        );
+                        return;
+                      }
+
                       // Try standard animation slot first, fall back to custom
                       // (1h_slash, slash_oversize, slash_128, …).
                       const c =
