@@ -3,7 +3,7 @@
 <head>
 	<meta charset="utf-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<title>Tomi Bouncer — Anim từ 1 ảnh tĩnh</title>
+	<title>Tomi Bouncer — Anim từ 1 ảnh tĩnh + vũ khí</title>
 	<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
 	<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 	<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
@@ -32,12 +32,6 @@
 			background-size: 16px 16px;
 			background-position: 0 0, 0 8px, 8px -8px, -8px 0px;
 		}
-		.preview-img {
-			image-rendering: pixelated;
-			image-rendering: -moz-crisp-edges;
-			transform-origin: 50% 100%;
-			will-change: transform, filter, opacity;
-		}
 		input[type=range] { accent-color: #44fad0; }
 		.slider-label { font-family: 'JetBrains Mono', monospace; }
 		.gradient-btn { background: linear-gradient(90deg, #947dff 0%, #00e0b8 100%); }
@@ -51,6 +45,7 @@
 			box-shadow: 0 0 0 2px rgba(68, 250, 208, 0.25);
 		}
 		.preset-card.active .preset-name { color: #44fad0; }
+		canvas { image-rendering: pixelated; image-rendering: -moz-crisp-edges; }
 	</style>
 </head>
 <body class="bg-slate-950 text-slate-200 min-h-screen">
@@ -64,35 +59,95 @@
 		<span class="text-xl font-bold tracking-tight bg-gradient-to-r from-violet-400 to-cyan-400 bg-clip-text text-transparent">
 			🐰 Tomi Bouncer
 		</span>
-		<span class="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700">v2 · 9 presets</span>
+		<span class="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700">v3 · weapon support</span>
 	</div>
 	<a href="https://github.com/tommy31383/tomi-anim-ga" target="_blank" class="text-slate-500 hover:text-white text-xs">GitHub</a>
 </header>
 
 <main class="max-w-7xl mx-auto px-6 py-8 grid grid-cols-1 lg:grid-cols-[440px_1fr] gap-6">
-
-	<!-- LEFT: Controls -->
 	<aside class="space-y-5">
-		<!-- Upload zone -->
+		<!-- Step 1: Upload body -->
 		<div>
-			<label class="text-xs font-mono uppercase tracking-widest text-cyan-400 mb-2 block">Bước 1 · Upload sprite</label>
-			<label id="dropzone" class="block aspect-[2/1] rounded-2xl border-2 border-dashed border-slate-700 bg-slate-900/40 flex flex-col items-center justify-center cursor-pointer hover:border-cyan-400/60 transition-colors group">
-				<input id="file-input" type="file" accept="image/png, image/jpeg, image/webp" class="hidden">
+			<label class="text-xs font-mono uppercase tracking-widest text-cyan-400 mb-2 block">Bước 1 · Upload nhân vật</label>
+			<label id="body-dropzone" class="block aspect-[2/1] rounded-2xl border-2 border-dashed border-slate-700 bg-slate-900/40 flex flex-col items-center justify-center cursor-pointer hover:border-cyan-400/60 transition-colors group">
+				<input id="body-input" type="file" accept="image/png, image/jpeg, image/webp" class="hidden">
 				<span class="material-symbols-outlined text-cyan-400 group-hover:scale-110 transition-transform" style="font-size:36px">cloud_upload</span>
-				<p class="text-sm font-semibold mt-2 text-slate-200">Kéo thả ảnh vào đây hoặc click chọn</p>
+				<p class="text-sm font-semibold mt-2 text-slate-200">Kéo thả ảnh nhân vật</p>
 				<p class="text-xs text-slate-500 mt-1">PNG / JPG / WebP — bất kỳ kích cỡ</p>
 			</label>
-			<div id="upload-info" class="hidden mt-2 text-[11px] font-mono text-slate-500"></div>
+			<div id="body-info" class="hidden mt-2 text-[11px] font-mono text-slate-500"></div>
 		</div>
 
-		<!-- Preset picker -->
+		<!-- Step 1b: Optional weapon -->
+		<div>
+			<label class="text-xs font-mono uppercase tracking-widest text-violet-400 mb-2 flex items-center justify-between">
+				<span>Bước 1b · Vũ khí <span class="normal-case font-normal text-slate-500">(tùy chọn)</span></span>
+				<button id="weapon-clear" class="hidden text-[10px] text-slate-500 hover:text-white normal-case">× Bỏ</button>
+			</label>
+			<label id="weapon-dropzone" class="block aspect-[3/1] rounded-2xl border-2 border-dashed border-slate-700 bg-slate-900/40 flex items-center justify-center cursor-pointer hover:border-violet-400/60 transition-colors gap-3 px-3">
+				<input id="weapon-input" type="file" accept="image/png, image/jpeg, image/webp" class="hidden">
+				<span class="material-symbols-outlined text-violet-400" style="font-size:24px">colorize</span>
+				<div class="text-left">
+					<p class="text-sm font-semibold text-slate-200">Upload vũ khí (sword / axe / bow…)</p>
+					<p class="text-[10px] text-slate-500">Vũ khí sẽ vung swing trong "Đánh thường"</p>
+				</div>
+			</label>
+			<div id="weapon-info" class="hidden mt-2 text-[11px] font-mono text-slate-500"></div>
+
+			<!-- Weapon attach controls (only when weapon loaded) -->
+			<div id="weapon-controls" class="hidden mt-3 space-y-3 bg-slate-900 rounded-xl border border-slate-700 p-3">
+				<p class="text-[10px] uppercase tracking-widest text-violet-400 font-mono">Vị trí gắn vào tay</p>
+				<div>
+					<div class="flex justify-between text-xs mb-1">
+						<span class="text-slate-300">Offset X</span>
+						<span class="slider-label text-violet-400"><span id="wx-val">20</span>px</span>
+					</div>
+					<input id="weapon-x" type="range" min="-100" max="100" step="1" value="20" class="w-full">
+				</div>
+				<div>
+					<div class="flex justify-between text-xs mb-1">
+						<span class="text-slate-300">Offset Y (lên cao)</span>
+						<span class="slider-label text-violet-400"><span id="wy-val">40</span>px</span>
+					</div>
+					<input id="weapon-y" type="range" min="0" max="200" step="1" value="40" class="w-full">
+				</div>
+				<div>
+					<div class="flex justify-between text-xs mb-1">
+						<span class="text-slate-300">Scale</span>
+						<span class="slider-label text-violet-400"><span id="wscale-val">100</span>%</span>
+					</div>
+					<input id="weapon-scale" type="range" min="20" max="200" step="5" value="100" class="w-full">
+				</div>
+				<div>
+					<div class="flex justify-between text-xs mb-1">
+						<span class="text-slate-300">Xoay nền (idle)</span>
+						<span class="slider-label text-violet-400"><span id="wrot-val">-30</span>°</span>
+					</div>
+					<input id="weapon-rot" type="range" min="-180" max="180" step="5" value="-30" class="w-full">
+				</div>
+				<div>
+					<div class="flex justify-between text-xs mb-1">
+						<span class="text-slate-300">Pivot dọc</span>
+						<span class="slider-label text-violet-400"><span id="wpivot-val">90</span>%</span>
+					</div>
+					<input id="weapon-pivot" type="range" min="0" max="100" step="5" value="90" class="w-full">
+					<p class="text-[9px] text-slate-500 mt-0.5">100% = cán dao (đáy ảnh) làm trục xoay</p>
+				</div>
+				<label class="flex items-center gap-2 text-xs text-slate-300 cursor-pointer pt-2 border-t border-slate-800">
+					<input id="weapon-behind" type="checkbox" class="rounded">
+					<span>Vẽ vũ khí phía sau body (vd. cánh, áo choàng)</span>
+				</label>
+			</div>
+		</div>
+
+		<!-- Step 2: Preset picker -->
 		<div>
 			<label class="text-xs font-mono uppercase tracking-widest text-cyan-400 mb-2 block">Bước 2 · Chọn preset anim</label>
 			<div id="preset-grid" class="grid grid-cols-3 gap-2"></div>
 			<p id="preset-desc" class="text-[11px] text-slate-500 mt-2 leading-relaxed"></p>
 		</div>
 
-		<!-- Settings (varies per preset) -->
+		<!-- Step 3: Settings -->
 		<div>
 			<label class="text-xs font-mono uppercase tracking-widest text-cyan-400 mb-2 block">Bước 3 · Tinh chỉnh</label>
 			<div id="settings-panel" class="space-y-4 bg-slate-900 rounded-2xl border border-slate-700 p-4"></div>
@@ -105,25 +160,21 @@
 				<span>Tải PNG sheet</span>
 			</button>
 			<p class="text-[11px] text-slate-500 mt-2 leading-relaxed">
-				Sheet ngang, tile auto-size, anchor bottom-center.
-				Drop thẳng vào Unity / Godot / Phaser / Aseprite.
+				Sheet ngang, tile auto-size, vũ khí (nếu có) bake luôn vào cùng frame.
 			</p>
 		</div>
 	</aside>
 
 	<!-- RIGHT: Preview -->
 	<section>
-		<label class="text-xs font-mono uppercase tracking-widest text-cyan-400 mb-3 block">Xem trước (live)</label>
-
+		<label class="text-xs font-mono uppercase tracking-widest text-cyan-400 mb-3 block">Xem trước (live, 60fps)</label>
 		<div class="rounded-2xl border border-slate-700 overflow-hidden">
-			<div id="preview" class="checkered relative flex items-center justify-center" style="min-height:360px">
+			<div class="checkered relative flex items-center justify-center" style="min-height:360px">
 				<div id="empty-state" class="text-center py-16">
 					<span class="material-symbols-outlined text-slate-600" style="font-size:64px">add_photo_alternate</span>
-					<p class="text-slate-500 mt-2">Upload 1 ảnh để xem hiệu ứng</p>
+					<p class="text-slate-500 mt-2">Upload 1 ảnh nhân vật để xem hiệu ứng</p>
 				</div>
-				<div id="bouncer-stage" class="hidden relative" style="width:240px;height:240px">
-					<img id="preview-img" class="preview-img absolute" alt="" />
-				</div>
+				<canvas id="preview-canvas" class="hidden"></canvas>
 			</div>
 
 			<div class="bg-slate-900 border-t border-slate-700 p-4">
@@ -132,7 +183,7 @@
 					<span id="sheet-info" class="text-[10px] font-mono text-slate-500"></span>
 				</div>
 				<div class="checkered rounded-lg overflow-x-auto p-2">
-					<canvas id="bake-canvas" class="block" style="image-rendering:pixelated"></canvas>
+					<canvas id="bake-canvas" class="block"></canvas>
 				</div>
 			</div>
 		</div>
@@ -142,9 +193,9 @@
 			<div class="mt-3 text-xs text-slate-400 space-y-2 leading-relaxed">
 				<p><span class="text-cyan-400 font-mono">Unity</span>: Texture Type = Sprite (2D), Sprite Mode = Multiple, Slice → Grid By Cell Size theo info trên header.</p>
 				<p><span class="text-cyan-400 font-mono">Godot 4</span>: SpriteFrames → New Atlas Texture → grid. FPS = 1000 / (duration / numFrames).</p>
-				<p><span class="text-cyan-400 font-mono">Phaser 3</span>: <code class="bg-slate-800 px-1.5 py-0.5 rounded">load.spritesheet('hop', file, { frameWidth, frameHeight })</code></p>
+				<p><span class="text-cyan-400 font-mono">Phaser 3</span>: <code class="bg-slate-800 px-1.5 py-0.5 rounded">load.spritesheet('attack', file, { frameWidth, frameHeight })</code></p>
 				<p><span class="text-cyan-400 font-mono">Aseprite</span>: File → Import Sprite Sheet → grid by tile size.</p>
-				<p class="pt-2 border-t border-slate-800 text-slate-500"><strong>Loop modes</strong>: <code>loop</code> = lặp vô tận (Hop, Idle, Run, Spell, Victory, Stunned). <code>oneshot</code> = chạy 1 lần rồi giữ frame cuối (Hit, Die, Attack, Spawn).</p>
+				<p class="pt-2 border-t border-slate-800 text-slate-500"><strong>Loop modes</strong>: <code>loop</code> (Hop, Idle, Run, Spell, Victory, Stunned). <code>oneshot</code> giữ frame cuối (Hit, Die, Attack, Spawn).</p>
 			</div>
 		</details>
 	</section>
@@ -152,36 +203,25 @@
 
 <script>
 // ============================================================
-// Tomi Bouncer V2 — preset-driven anim baker
-// ------------------------------------------------------------
-// Each preset is a function `transform(t, s)` returning a per-
-// frame transform { tx, ty, sx, sy, rot, alpha, filter }. The
-// same function powers BOTH the live CSS preview (sampled at
-// 11 stops) and the canvas bake (sampled at numFrames stops).
+// Tomi Bouncer V3 — preset + weapon support
+// Live preview is canvas-based 60fps (rAF) for unified rendering
+// with bake. Weapon attaches to body's transformed space, has its
+// own pivot + per-preset rotation delta (Attack swing = -45 → +75°).
 // ============================================================
 
 const $ = (id) => document.getElementById(id);
 const lerp = (a, b, t) => a + (b - a) * t;
-const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
 
-// ----- Easings -----
-// Smooth 0 → 1 → 0 for cyclic motion
 const phaseUp = (t) => 0.5 - 0.5 * Math.cos(t * Math.PI * 2);
-// Linear 0 → 1 for one-shot animations
-const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3);
 const easeInOutQuad = (t) => t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3);
 
-// ----- Presets -----
-// transform(t, s) returns { tx, ty, sx, sy, rot, alpha, filter }
-// loop: true = continuous loop, false = one-shot (last frame holds)
-// defaults: per-preset slider defaults
-// sliders: which sliders to show + their config
+// ---- Body presets: transform(t, s) → { tx, ty, sx, sy, rot, alpha, filter, weaponRot, weaponTx } ----
+// weaponRot/Tx are deltas applied AFTER the weapon's base offset+rotation.
 const PRESETS = {
 	hop: {
-		key: 'hop',
-		emoji: '🐰',
-		label: 'Tưng tưng',
-		desc: 'Squash & stretch + nhảy lên xuống. Vampire Survivors / Brotato style.',
+		key: 'hop', emoji: '🐰', label: 'Tưng tưng',
+		desc: 'Squash & stretch + nhảy lên xuống. Vampire Survivors style.',
 		loop: true,
 		defaults: { frames: 8, duration: 600, height: 22, squash: 18, stretch: 14 },
 		sliders: ['frames', 'duration', 'height', 'squash', 'stretch'],
@@ -189,16 +229,13 @@ const PRESETS = {
 			const p = phaseUp(t);
 			return {
 				ty: -s.height * p,
-				sx: lerp(1 + s.squash, 1 - s.squash * 0.5, p),
-				sy: lerp(1 - s.squash * 0.7, 1 + s.stretch, p),
+				sx: lerp(1 + s.squash / 100, 1 - s.squash / 200, p),
+				sy: lerp(1 - s.squash / 140, 1 + s.stretch / 100, p),
 			};
 		},
 	},
-
 	idle: {
-		key: 'idle',
-		emoji: '🌬',
-		label: 'Idle thở',
+		key: 'idle', emoji: '🌬', label: 'Idle thở',
 		desc: 'Phồng nhẹ ngực, giãn khẽ — cảm giác sống động dù không di chuyển.',
 		loop: true,
 		defaults: { frames: 12, duration: 1500, breathe: 4 },
@@ -206,24 +243,16 @@ const PRESETS = {
 		transform: (t, s) => {
 			const p = phaseUp(t);
 			const b = s.breathe / 100;
-			return {
-				ty: -p * 1.5,
-				sx: lerp(1, 1 - b * 0.4, p),
-				sy: lerp(1, 1 + b, p),
-			};
+			return { ty: -p * 1.5, sx: lerp(1, 1 - b * 0.4, p), sy: lerp(1, 1 + b, p) };
 		},
 	},
-
 	hit: {
-		key: 'hit',
-		emoji: '💥',
-		label: 'Trúng đòn',
-		desc: 'Flash trắng + giật mạnh + scale punch. Soul Knight / Archero style.',
+		key: 'hit', emoji: '💥', label: 'Trúng đòn',
+		desc: 'Flash trắng + giật mạnh + scale punch. Soul Knight style.',
 		loop: false,
 		defaults: { frames: 8, duration: 250, intensity: 6, flash: 60 },
 		sliders: ['frames', 'duration', 'intensity', 'flash'],
 		transform: (t, s) => {
-			// Quick punch then settle
 			const punch = Math.exp(-t * 6) * Math.cos(t * Math.PI * 4);
 			return {
 				tx: punch * s.intensity,
@@ -236,12 +265,9 @@ const PRESETS = {
 			};
 		},
 	},
-
 	die: {
-		key: 'die',
-		emoji: '💀',
-		label: 'Chết',
-		desc: 'Ngã xoay 90° + chìm xuống + mờ dần. Brotato / Holocure style.',
+		key: 'die', emoji: '💀', label: 'Chết',
+		desc: 'Ngã xoay 90° + chìm xuống + mờ dần. Brotato style.',
 		loop: false,
 		defaults: { frames: 12, duration: 700, fall: 12, fade: 30 },
 		sliders: ['frames', 'duration', 'fall', 'fade'],
@@ -253,48 +279,48 @@ const PRESETS = {
 				sx: lerp(1, 0.85, e),
 				sy: lerp(1, 0.85, e),
 				alpha: lerp(1, 1 - s.fade / 100, e),
+				weaponRot: e * 30, // weapon falls with body rotation
 			};
 		},
 	},
-
 	attack: {
-		key: 'attack',
-		emoji: '⚔',
-		label: 'Đánh thường',
-		desc: 'Wind-up rồi lao tới + scale punch khi va chạm. Nuclear Throne style.',
+		key: 'attack', emoji: '⚔', label: 'Đánh thường',
+		desc: 'Wind-up rồi vung vũ khí. Upload vũ khí ở Bước 1b để có swing arc.',
 		loop: false,
-		defaults: { frames: 8, duration: 350, lunge: 14, windup: 8 },
-		sliders: ['frames', 'duration', 'lunge', 'windup'],
+		defaults: { frames: 10, duration: 420, lunge: 14, windup: 8, swing: 110 },
+		sliders: ['frames', 'duration', 'lunge', 'windup', 'swing'],
 		transform: (t, s) => {
-			// 0-30%: wind up (lean back, squash)
-			// 30-60%: lunge forward (stretch, translate)
-			// 60-100%: return
-			let tx = 0, sx = 1, sy = 1;
+			let tx = 0, sx = 1, sy = 1, weaponRot = 0;
 			if (t < 0.3) {
+				// Wind up: lean back, raise weapon
 				const p = t / 0.3;
 				tx = -s.windup * p;
 				sx = lerp(1, 0.88, p);
 				sy = lerp(1, 1.05, p);
+				weaponRot = lerp(0, -s.swing * 0.45, easeOutCubic(p)); // raise back
 			} else if (t < 0.6) {
+				// Lunge: forward burst, weapon slashes down/forward
 				const p = (t - 0.3) / 0.3;
-				tx = lerp(-s.windup, s.lunge, easeOutCubic(p));
-				sx = lerp(0.88, 1.18, easeOutCubic(p));
-				sy = lerp(1.05, 0.88, easeOutCubic(p));
+				const e = easeOutCubic(p);
+				tx = lerp(-s.windup, s.lunge, e);
+				sx = lerp(0.88, 1.18, e);
+				sy = lerp(1.05, 0.88, e);
+				weaponRot = lerp(-s.swing * 0.45, s.swing * 0.55, e); // slash through arc
 			} else {
+				// Recover: settle
 				const p = (t - 0.6) / 0.4;
-				tx = lerp(s.lunge, 0, easeOutCubic(p));
-				sx = lerp(1.18, 1, easeOutCubic(p));
-				sy = lerp(0.88, 1, easeOutCubic(p));
+				const e = easeOutCubic(p);
+				tx = lerp(s.lunge, 0, e);
+				sx = lerp(1.18, 1, e);
+				sy = lerp(0.88, 1, e);
+				weaponRot = lerp(s.swing * 0.55, 0, e);
 			}
-			return { tx, sx, sy };
+			return { tx, sx, sy, weaponRot };
 		},
 	},
-
 	spell: {
-		key: 'spell',
-		emoji: '✨',
-		label: 'Niệm phép',
-		desc: 'Pulse glow tím + scale nhịp nhàng. Hades / mana cast style.',
+		key: 'spell', emoji: '✨', label: 'Niệm phép',
+		desc: 'Pulse glow tím + scale nhịp nhàng. Hades / mana cast.',
 		loop: true,
 		defaults: { frames: 12, duration: 800, pulse: 8, glow: 14 },
 		sliders: ['frames', 'duration', 'pulse', 'glow'],
@@ -303,23 +329,18 @@ const PRESETS = {
 			const sc = 1 + (s.pulse / 100) * p;
 			return {
 				ty: -p * 3,
-				sx: sc,
-				sy: sc,
+				sx: sc, sy: sc,
 				filter: `drop-shadow(0 0 ${(s.glow * p).toFixed(1)}px rgba(148,125,255,0.9))`,
 			};
 		},
 	},
-
 	victory: {
-		key: 'victory',
-		emoji: '🎉',
-		label: 'Chiến thắng',
-		desc: 'Nhảy mừng + xoay nhẹ qua lại. Mobile RPG ending pose.',
+		key: 'victory', emoji: '🎉', label: 'Chiến thắng',
+		desc: 'Nhảy mừng + xoay nhẹ qua lại. Vũ khí giơ cao.',
 		loop: true,
 		defaults: { frames: 12, duration: 900, hop: 14, sway: 8 },
 		sliders: ['frames', 'duration', 'hop', 'sway'],
 		transform: (t, s) => {
-			// Two hops per cycle, sway alternating
 			const hopPhase = Math.abs(Math.sin(t * Math.PI * 2));
 			const swayPhase = Math.sin(t * Math.PI * 2);
 			return {
@@ -327,31 +348,24 @@ const PRESETS = {
 				rot: swayPhase * s.sway,
 				sx: 1,
 				sy: lerp(1.05, 0.92, hopPhase),
+				weaponRot: -hopPhase * 25, // raise weapon up celebratory
 			};
 		},
 	},
-
 	stunned: {
-		key: 'stunned',
-		emoji: '💫',
-		label: 'Choáng',
+		key: 'stunned', emoji: '💫', label: 'Choáng',
 		desc: 'Lắc lư + xoay nhẹ + chao đảo. Tower defense stun state.',
 		loop: true,
 		defaults: { frames: 8, duration: 500, sway: 8, tilt: 6 },
 		sliders: ['frames', 'duration', 'sway', 'tilt'],
-		transform: (t, s) => {
-			return {
-				tx: Math.sin(t * Math.PI * 4) * s.sway * 0.3,
-				ty: Math.sin(t * Math.PI * 2) * 2,
-				rot: Math.sin(t * Math.PI * 2 + 0.3) * s.tilt,
-			};
-		},
+		transform: (t, s) => ({
+			tx: Math.sin(t * Math.PI * 4) * s.sway * 0.3,
+			ty: Math.sin(t * Math.PI * 2) * 2,
+			rot: Math.sin(t * Math.PI * 2 + 0.3) * s.tilt,
+		}),
 	},
-
 	run: {
-		key: 'run',
-		emoji: '🏃',
-		label: 'Chạy',
+		key: 'run', emoji: '🏃', label: 'Chạy',
 		desc: 'Tưng tưng mạnh + nghiêng người tới. Vampire Survivors locomotion.',
 		loop: true,
 		defaults: { frames: 8, duration: 380, height: 18, lean: 6 },
@@ -368,7 +382,6 @@ const PRESETS = {
 	},
 };
 
-// Slider config: label + range
 const SLIDER_CONFIG = {
 	frames: { label: 'Số frame', min: 4, max: 24, step: 1, suffix: '' },
 	duration: { label: 'Thời lượng', min: 150, max: 2000, step: 20, suffix: 'ms' },
@@ -382,6 +395,7 @@ const SLIDER_CONFIG = {
 	fade: { label: 'Độ mờ cuối', min: 0, max: 80, step: 5, suffix: '%' },
 	lunge: { label: 'Khoảng lao', min: 4, max: 30, step: 1, suffix: 'px' },
 	windup: { label: 'Wind-up', min: 0, max: 16, step: 1, suffix: 'px' },
+	swing: { label: 'Góc vung vũ khí', min: 30, max: 180, step: 5, suffix: '°' },
 	pulse: { label: 'Cường độ pulse', min: 2, max: 20, step: 1, suffix: '%' },
 	glow: { label: 'Cường độ glow', min: 0, max: 30, step: 1, suffix: 'px' },
 	hop: { label: 'Độ cao nhảy', min: 4, max: 30, step: 1, suffix: 'px' },
@@ -391,29 +405,31 @@ const SLIDER_CONFIG = {
 };
 
 // ============================================================
-// State + DOM glue
+// State
 // ============================================================
-let img = null;
-let imgName = 'sprite';
+let bodyImg = null, bodyName = 'sprite';
+let weaponImg = null;
 let activePresetKey = 'hop';
 let settings = { ...PRESETS.hop.defaults };
-let normalizeSettings = () => {
-	// Convert percent-based fields to fractions for transform fns
-	const s = { ...settings };
-	if (s.squash !== undefined) s.squash = s.squash / 100;
-	if (s.stretch !== undefined) s.stretch = s.stretch / 100;
-	if (s.breathe !== undefined) s.breathe = settings.breathe; // kept as %
-	if (s.flash !== undefined) s.flash = settings.flash; // kept as %
-	if (s.fade !== undefined) s.fade = settings.fade; // kept as %
-	if (s.pulse !== undefined) s.pulse = settings.pulse; // kept as %
-	return s;
+const weapon = {
+	x: 20, y: 40, scale: 100, rot: -30, pivot: 90, behind: false,
 };
 
-const dropzone = $('dropzone');
-const fileInput = $('file-input');
-const uploadInfo = $('upload-info');
-const previewImg = $('preview-img');
-const previewStage = $('bouncer-stage');
+// Animation timing
+let animStart = performance.now();
+
+// ============================================================
+// DOM
+// ============================================================
+const bodyDz = $('body-dropzone');
+const bodyInput = $('body-input');
+const bodyInfo = $('body-info');
+const weaponDz = $('weapon-dropzone');
+const weaponInput = $('weapon-input');
+const weaponInfo = $('weapon-info');
+const weaponClearBtn = $('weapon-clear');
+const weaponCtrls = $('weapon-controls');
+const previewCanvas = $('preview-canvas');
 const emptyState = $('empty-state');
 const bakeCanvas = $('bake-canvas');
 const exportBtn = $('export-btn');
@@ -448,7 +464,8 @@ function setPreset(key) {
 	presetDesc.textContent = PRESETS[key].desc;
 	renderPresetGrid();
 	renderSettingsPanel();
-	updateAll();
+	animStart = performance.now();
+	updateBakePreview();
 }
 
 // ============================================================
@@ -474,83 +491,168 @@ function renderSettingsPanel() {
 		input.addEventListener('input', (e) => {
 			settings[sliderKey] = Number(e.target.value);
 			valEl.textContent = settings[sliderKey];
-			updateAll();
+			animStart = performance.now();
+			updateBakePreview();
 		});
 	}
 }
 
 // ============================================================
-// Live CSS preview — sample transform at 11 stops
+// Draw a single frame at time t∈[0,1] onto a context.
+// (cx, cy) = where the body's bottom-center should land.
 // ============================================================
-let styleTag = null;
-function applyLivePreviewCSS() {
-	if (!styleTag) {
-		styleTag = document.createElement('style');
-		document.head.appendChild(styleTag);
-	}
+function drawFrameAt(ctx, t, cx, cy) {
+	if (!bodyImg) return;
 	const preset = PRESETS[activePresetKey];
-	const s = normalizeSettings();
-	const STOPS = 21; // sample density for smooth keyframe
-	let frames = '';
-	for (let i = 0; i <= STOPS; i++) {
-		const t = i / STOPS;
-		const tr = preset.transform(t, s);
+	const tr = preset.transform(t, settings);
+	const tx = tr.tx ?? 0;
+	const ty = tr.ty ?? 0;
+	const sx = tr.sx ?? 1;
+	const sy = tr.sy ?? 1;
+	const rot = tr.rot ?? 0;
+	const alpha = tr.alpha ?? 1;
+	const filter = tr.filter ?? 'none';
+	const wRotDelta = tr.weaponRot ?? 0;
+	const wTxDelta = tr.weaponTx ?? 0;
+
+	// Helper to draw weapon in body's transformed local space
+	const drawWeapon = () => {
+		if (!weaponImg) return;
+		const wScale = weapon.scale / 100;
+		const wPivotX = weaponImg.width / 2;
+		const wPivotY = (weapon.pivot / 100) * weaponImg.height;
+		ctx.save();
+		// In body's local space: weapon offset is (x, -y) — y goes UP from feet
+		ctx.translate(weapon.x + wTxDelta, -weapon.y);
+		ctx.rotate(((weapon.rot + wRotDelta) * Math.PI) / 180);
+		ctx.scale(wScale, wScale);
+		ctx.drawImage(weaponImg, -wPivotX, -wPivotY);
+		ctx.restore();
+	};
+
+	ctx.save();
+	ctx.globalAlpha = alpha;
+	ctx.filter = filter;
+	ctx.translate(cx + tx, cy + ty);
+	ctx.rotate((rot * Math.PI) / 180);
+	ctx.scale(sx, sy);
+
+	if (weapon.behind) drawWeapon();
+	ctx.drawImage(bodyImg, -bodyImg.width / 2, -bodyImg.height);
+	if (!weapon.behind) drawWeapon();
+
+	ctx.restore();
+}
+
+// ============================================================
+// Live preview — 60fps rAF loop driven by elapsed time
+// ============================================================
+function preferredStageSize() {
+	if (!bodyImg) return { w: 280, h: 280 };
+	const scale = Math.min(1, 240 / Math.max(bodyImg.width, bodyImg.height));
+	return {
+		w: Math.round(bodyImg.width * scale) + 140,
+		h: Math.round(bodyImg.height * scale) + 100,
+	};
+}
+
+let lastDpr = 1;
+function setupPreviewCanvas() {
+	const { w, h } = preferredStageSize();
+	const dpr = window.devicePixelRatio || 1;
+	previewCanvas.width = w * dpr;
+	previewCanvas.height = h * dpr;
+	previewCanvas.style.width = w + 'px';
+	previewCanvas.style.height = h + 'px';
+	lastDpr = dpr;
+}
+
+function loop(now) {
+	requestAnimationFrame(loop);
+	if (!bodyImg) return;
+	const preset = PRESETS[activePresetKey];
+	const dur = settings.duration;
+	let elapsed = (now - animStart) / dur;
+	let t;
+	if (preset.loop) {
+		t = elapsed - Math.floor(elapsed);
+	} else {
+		t = elapsed >= 1 ? 1 : elapsed;
+		// Restart one-shot every 1.5s for preview
+		if (elapsed > 1.5) animStart = now;
+	}
+
+	const ctx = previewCanvas.getContext('2d');
+	ctx.imageSmoothingEnabled = false;
+	ctx.setTransform(lastDpr, 0, 0, lastDpr, 0, 0);
+	const w = previewCanvas.width / lastDpr;
+	const h = previewCanvas.height / lastDpr;
+	ctx.clearRect(0, 0, w, h);
+
+	// Scale body to preferred view size (fit 240px max)
+	const fit = Math.min(1, 240 / Math.max(bodyImg.width, bodyImg.height));
+	ctx.save();
+	ctx.translate(w / 2, h - 30);
+	ctx.scale(fit, fit);
+	drawFrameAt(ctx, t, 0, 0);
+	ctx.restore();
+}
+requestAnimationFrame(loop);
+
+// ============================================================
+// Bake — compute padding by sampling, then draw N frames.
+// ============================================================
+function bake() {
+	if (!bodyImg) return null;
+	const preset = PRESETS[activePresetKey];
+	const N = settings.frames;
+
+	// Sample N*4 to find extents (and account for weapon swing)
+	let extLeft = 0, extRight = 0, extTop = 0, extBottom = 0;
+	const SAMPLES = N * 4;
+	for (let i = 0; i <= SAMPLES; i++) {
+		const t = i / SAMPLES;
+		const tr = preset.transform(t, settings);
 		const tx = tr.tx ?? 0;
 		const ty = tr.ty ?? 0;
 		const sx = tr.sx ?? 1;
 		const sy = tr.sy ?? 1;
 		const rot = tr.rot ?? 0;
-		const alpha = tr.alpha ?? 1;
-		const filter = tr.filter ?? 'none';
-		const pct = ((i / STOPS) * 100).toFixed(2);
-		frames += `${pct}% { transform: translate(${tx.toFixed(2)}px, ${ty.toFixed(2)}px) scale(${sx.toFixed(3)}, ${sy.toFixed(3)}) rotate(${rot.toFixed(2)}deg); opacity: ${alpha.toFixed(3)}; filter: ${filter}; }\n`;
-	}
-	const dur = settings.duration;
-	const iter = preset.loop ? 'infinite' : 'forwards';
-	const easing = preset.loop ? 'linear' : 'ease-out';
-	const fillMode = preset.loop ? '' : 'animation-fill-mode: forwards;';
-	styleTag.textContent = `
-		@keyframes tomi-anim-live {
-			${frames}
+		const wRot = (weapon.rot + (tr.weaponRot ?? 0)) * Math.PI / 180;
+		const bodyHalfW = (bodyImg.width / 2) * Math.abs(sx) + 4;
+		const bodyH = bodyImg.height * Math.abs(sy) + 4;
+
+		// Body bbox after rotation
+		const cosR = Math.abs(Math.cos(rot * Math.PI / 180));
+		const sinR = Math.abs(Math.sin(rot * Math.PI / 180));
+		const bodyW = bodyHalfW * 2;
+		const rotatedW = bodyW * cosR + bodyH * sinR;
+		const rotatedH = bodyW * sinR + bodyH * cosR;
+
+		extLeft = Math.max(extLeft, rotatedW / 2 - tx);
+		extRight = Math.max(extRight, rotatedW / 2 + tx);
+		extTop = Math.max(extTop, rotatedH - ty);
+		extBottom = Math.max(extBottom, ty + 4);
+
+		// Account for weapon (rough — bounding circle approach)
+		if (weaponImg) {
+			const wScale = weapon.scale / 100;
+			const wRadius = Math.max(weaponImg.width, weaponImg.height) * wScale + 10;
+			const wcx = tx + weapon.x; // approximate
+			const wcy = ty - weapon.y;
+			extLeft = Math.max(extLeft, -wcx + wRadius);
+			extRight = Math.max(extRight, wcx + wRadius);
+			extTop = Math.max(extTop, -wcy + wRadius);
+			extBottom = Math.max(extBottom, wcy + wRadius);
 		}
-		#preview-img {
-			animation: tomi-anim-live ${dur}ms ${easing} ${iter};
-			${fillMode}
-		}
-	`;
-	// Restart animation so it replays when settings change
-	previewImg.style.animation = 'none';
-	void previewImg.offsetWidth;
-	previewImg.style.animation = '';
-}
-
-// ============================================================
-// Bake to canvas (used for both preview strip + export)
-// ============================================================
-function bake() {
-	if (!img) return null;
-	const preset = PRESETS[activePresetKey];
-	const s = normalizeSettings();
-	const N = settings.frames;
-
-	// Compute padding by sampling all transforms — find max horizontal/vertical extent
-	let maxTy = 0, minTy = 0, maxTx = 0, minTx = 0, maxSx = 1, maxSy = 1;
-	for (let i = 0; i <= N * 2; i++) {
-		const t = i / (N * 2);
-		const tr = preset.transform(t, s);
-		maxTy = Math.max(maxTy, tr.ty ?? 0);
-		minTy = Math.min(minTy, tr.ty ?? 0);
-		maxTx = Math.max(maxTx, tr.tx ?? 0);
-		minTx = Math.min(minTx, tr.tx ?? 0);
-		maxSx = Math.max(maxSx, tr.sx ?? 1);
-		maxSy = Math.max(maxSy, tr.sy ?? 1);
 	}
-	const padX = Math.ceil(Math.max(Math.abs(maxTx), Math.abs(minTx)) + img.width * Math.max(maxSx - 1, 0) / 2 + 8);
-	const padTop = Math.ceil(Math.abs(minTy) + img.height * Math.max(maxSy - 1, 0) + 8);
-	const padBottom = Math.ceil(Math.max(maxTy, 0) + 8);
+	const padL = Math.ceil(extLeft + 8);
+	const padR = Math.ceil(extRight + 8);
+	const padTop = Math.ceil(extTop + 8);
+	const padBottom = Math.ceil(extBottom + 8);
 
-	const tileW = img.width + padX * 2;
-	const tileH = img.height + padTop + padBottom;
+	const tileW = padL + padR;
+	const tileH = padTop + padBottom;
 
 	const out = document.createElement('canvas');
 	out.width = tileW * N;
@@ -560,26 +662,9 @@ function bake() {
 
 	for (let i = 0; i < N; i++) {
 		const t = i / N;
-		const tr = preset.transform(t, s);
-		const tx = tr.tx ?? 0;
-		const ty = tr.ty ?? 0;
-		const sx = tr.sx ?? 1;
-		const sy = tr.sy ?? 1;
-		const rot = tr.rot ?? 0;
-		const alpha = tr.alpha ?? 1;
-		const filter = tr.filter ?? 'none';
-
-		const cx = i * tileW + tileW / 2 + tx;
-		const cy = tileH - padBottom + ty;
-
-		ctx.save();
-		ctx.globalAlpha = alpha;
-		ctx.filter = filter;
-		ctx.translate(cx, cy);
-		ctx.rotate((rot * Math.PI) / 180);
-		ctx.scale(sx, sy);
-		ctx.drawImage(img, -img.width / 2, -img.height);
-		ctx.restore();
+		const cx = i * tileW + padL;
+		const cy = padTop;
+		drawFrameAt(ctx, t, cx, cy);
 	}
 	return { canvas: out, tileW, tileH, frames: N };
 }
@@ -598,61 +683,97 @@ function updateBakePreview() {
 	bakeCanvas.style.height = (r.canvas.height * scale) + 'px';
 	const msPerFrame = Math.round(settings.duration / settings.frames);
 	const preset = PRESETS[activePresetKey];
-	sheetInfo.textContent = `${r.frames}f · ${r.tileW}×${r.tileH}px / tile · ${r.canvas.width}×${r.canvas.height}px tổng · ${msPerFrame}ms/frame · ${preset.loop ? 'loop' : 'one-shot'}`;
+	sheetInfo.textContent = `${r.frames}f · ${r.tileW}×${r.tileH}px / tile · ${r.canvas.width}×${r.canvas.height}px tổng · ${msPerFrame}ms/frame · ${preset.loop ? 'loop' : 'one-shot'}${weaponImg ? ' · ⚔ vũ khí baked' : ''}`;
 }
 
 // ============================================================
-// Upload
+// Upload handlers
 // ============================================================
-function handleFile(file) {
+function handleFile(file, isWeapon) {
 	if (!file || !file.type.startsWith('image/')) {
 		alert('File phải là ảnh PNG / JPG / WebP');
 		return;
 	}
-	imgName = file.name.replace(/\.[^.]+$/, '').replace(/\W+/g, '_').slice(0, 40) || 'sprite';
 	const reader = new FileReader();
 	reader.onload = (e) => {
 		const i = new Image();
 		i.onload = () => {
-			img = i;
-			emptyState.classList.add('hidden');
-			previewStage.classList.remove('hidden');
-			previewImg.src = i.src;
-			const scale = Math.min(1, 240 / Math.max(i.width, i.height));
-			const w = Math.round(i.width * scale);
-			const h = Math.round(i.height * scale);
-			previewStage.style.width = (w + 100) + 'px';
-			previewStage.style.height = (h + 100) + 'px';
-			previewImg.style.width = w + 'px';
-			previewImg.style.height = h + 'px';
-			previewImg.style.left = '50%';
-			previewImg.style.bottom = '20px';
-			previewImg.style.top = 'auto';
-			previewImg.style.marginLeft = (-w / 2) + 'px';
-			uploadInfo.classList.remove('hidden');
-			uploadInfo.textContent = `${file.name} · ${i.width}×${i.height}px · ${(file.size / 1024).toFixed(1)} KB`;
-			exportBtn.disabled = false;
-			updateAll();
+			if (isWeapon) {
+				weaponImg = i;
+				weaponInfo.classList.remove('hidden');
+				weaponInfo.textContent = `${file.name} · ${i.width}×${i.height}px`;
+				weaponClearBtn.classList.remove('hidden');
+				weaponCtrls.classList.remove('hidden');
+			} else {
+				bodyImg = i;
+				bodyName = file.name.replace(/\.[^.]+$/, '').replace(/\W+/g, '_').slice(0, 40) || 'sprite';
+				emptyState.classList.add('hidden');
+				previewCanvas.classList.remove('hidden');
+				bodyInfo.classList.remove('hidden');
+				bodyInfo.textContent = `${file.name} · ${i.width}×${i.height}px · ${(file.size / 1024).toFixed(1)} KB`;
+				exportBtn.disabled = false;
+				setupPreviewCanvas();
+			}
+			animStart = performance.now();
+			updateBakePreview();
 		};
 		i.src = e.target.result;
 	};
 	reader.readAsDataURL(file);
 }
 
-fileInput.addEventListener('change', (e) => {
-	const f = e.target.files?.[0];
-	if (f) handleFile(f);
-});
-dropzone.addEventListener('dragover', (e) => {
+function bindDropzone(zone, input, isWeapon) {
+	input.addEventListener('change', (e) => {
+		const f = e.target.files?.[0];
+		if (f) handleFile(f, isWeapon);
+	});
+	zone.addEventListener('dragover', (e) => {
+		e.preventDefault();
+		zone.classList.add('dropzone-active');
+	});
+	zone.addEventListener('dragleave', () => zone.classList.remove('dropzone-active'));
+	zone.addEventListener('drop', (e) => {
+		e.preventDefault();
+		zone.classList.remove('dropzone-active');
+		const f = e.dataTransfer.files?.[0];
+		if (f) handleFile(f, isWeapon);
+	});
+}
+bindDropzone(bodyDz, bodyInput, false);
+bindDropzone(weaponDz, weaponInput, true);
+
+weaponClearBtn.addEventListener('click', (e) => {
 	e.preventDefault();
-	dropzone.classList.add('dropzone-active');
+	weaponImg = null;
+	weaponInfo.classList.add('hidden');
+	weaponClearBtn.classList.add('hidden');
+	weaponCtrls.classList.add('hidden');
+	weaponInput.value = '';
+	updateBakePreview();
 });
-dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dropzone-active'));
-dropzone.addEventListener('drop', (e) => {
-	e.preventDefault();
-	dropzone.classList.remove('dropzone-active');
-	const f = e.dataTransfer.files?.[0];
-	if (f) handleFile(f);
+
+// ============================================================
+// Weapon sliders
+// ============================================================
+const weaponSliders = [
+	['weapon-x', 'wx-val', 'x'],
+	['weapon-y', 'wy-val', 'y'],
+	['weapon-scale', 'wscale-val', 'scale'],
+	['weapon-rot', 'wrot-val', 'rot'],
+	['weapon-pivot', 'wpivot-val', 'pivot'],
+];
+for (const [inputId, valId, key] of weaponSliders) {
+	const inp = $(inputId);
+	const val = $(valId);
+	inp.addEventListener('input', (e) => {
+		weapon[key] = Number(e.target.value);
+		val.textContent = weapon[key];
+		updateBakePreview();
+	});
+}
+$('weapon-behind').addEventListener('change', (e) => {
+	weapon.behind = e.target.checked;
+	updateBakePreview();
 });
 
 // ============================================================
@@ -666,7 +787,8 @@ exportBtn.addEventListener('click', () => {
 		const url = URL.createObjectURL(blob);
 		const a = document.createElement('a');
 		a.href = url;
-		a.download = `${imgName}_${activePresetKey}_${r.frames}f_${r.tileW}x${r.tileH}.png`;
+		const wsuffix = weaponImg ? '_armed' : '';
+		a.download = `${bodyName}_${activePresetKey}${wsuffix}_${r.frames}f_${r.tileW}x${r.tileH}.png`;
 		document.body.appendChild(a);
 		a.click();
 		document.body.removeChild(a);
@@ -675,18 +797,12 @@ exportBtn.addEventListener('click', () => {
 });
 
 // ============================================================
-// Glue
-// ============================================================
-function updateAll() {
-	applyLivePreviewCSS();
-	if (img) updateBakePreview();
-}
-
 // Init
+// ============================================================
 renderPresetGrid();
 presetDesc.textContent = PRESETS.hop.desc;
 renderSettingsPanel();
-applyLivePreviewCSS();
+window.addEventListener('resize', () => { if (bodyImg) setupPreviewCanvas(); });
 </script>
 </body>
 </html>
