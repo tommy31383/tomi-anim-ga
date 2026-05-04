@@ -204,6 +204,17 @@ export const CanvasArea = {
     for (const a of customAnims) supported.add(a);
 
     const allAnimations = [
+      // Synthetic CSS-only animation: bounces the rendered Walk frames
+      // (Vampire Survivors / Brotato style hop). cssOnly = true → renderer
+      // keeps drawing 'walk' under the hood; only the canvas wrapper gets
+      // a hop transform.
+      {
+        value: "tung_tung",
+        label: "🐰 Tưng tưng",
+        supported: supported.has("walk"),
+        cssOnly: true,
+        baseAnim: "walk",
+      },
       ...ANIMATIONS.map((a) => ({
         ...a,
         label: labelize(a),
@@ -233,10 +244,17 @@ export const CanvasArea = {
     const setAnim = (val) => {
       vnode.state.selectedAnimation = val;
       state.selectedAnimation = val;
+      // For the synthetic "tung_tung" pill, render the walk anim underneath
+      // and let the CSS hop animation do the work on the canvas wrapper.
+      const def = allAnimations.find((a) => a.value === val);
+      const renderVal = def?.cssOnly ? def.baseAnim || "walk" : val;
       if (isOffscreenCanvasInitialized()) {
-        setPreviewAnimation(val);
+        setPreviewAnimation(renderVal);
       }
     };
+    const isHop =
+      allAnimations.find((a) => a.value === vnode.state.selectedAnimation)
+        ?.cssOnly === true;
 
     const sheetZoom = vnode.state.sheetZoom;
 
@@ -414,12 +432,16 @@ export const CanvasArea = {
       m(
         "div",
         {
-          class:
+          class: [
             "relative bg-white/40 backdrop-blur-sm rounded-2xl shadow-lg border border-white/40 p-4 inline-flex items-center justify-center",
+            isHop ? "tung-tung-active" : "",
+          ].join(" "),
         },
         [
           m(PreviewCanvas, {
-            selectedAnimation: vnode.state.selectedAnimation,
+            // Render Walk frames under the hood for tung_tung; the bouncing
+            // is purely CSS on the wrapper.
+            selectedAnimation: isHop ? "walk" : vnode.state.selectedAnimation,
             zoomLevel: zoom,
           }),
           m(
@@ -430,6 +452,24 @@ export const CanvasArea = {
             },
             `${Math.round(zoom * 100)}%`,
           ),
+          isHop &&
+            m(
+              "div",
+              {
+                class: "absolute top-2 left-2 tung-tung-badge",
+              },
+              [
+                m(
+                  "span",
+                  {
+                    class: "material-symbols-outlined",
+                    style: { fontSize: "12px" },
+                  },
+                  "celebration",
+                ),
+                "TƯNG TƯNG MODE",
+              ],
+            ),
         ],
       ),
       m(
