@@ -134,6 +134,29 @@ function paintPreviewFrameForCycleIndex(cycleIndex) {
     tmpCanvas = canvas;
   }
 
+  // Special case: "tung_tung" hop preview shows ONE direction (south) only,
+  // so the CSS bounce on the canvas wrapper looks like a single character
+  // hopping (Vampire Survivors / Brotato), not a row of 4 figures bouncing
+  // together.
+  if (state.selectedAnimation === "tung_tung") {
+    const SOUTH_ROW_OFFSET = 2; // LPC row order: N=0, W=1, S=2, E=3
+    const srcY = (animRowStart + SOUTH_ROW_OFFSET) * FRAME_SIZE;
+    // Center the single sprite within the preview canvas width
+    const destX = Math.floor((previewCanvas.width - frameSize) / 2);
+    previewCtx.drawImage(
+      tmpCanvas,
+      currentFrame * frameSize,
+      srcY,
+      frameSize,
+      frameSize,
+      destX,
+      0,
+      frameSize,
+      frameSize,
+    );
+    return;
+  }
+
   // Draw stacked rows from main canvas to preview
   for (let i = 0; i < animRowNum; i++) {
     const srcY = activeCustomAnimation
