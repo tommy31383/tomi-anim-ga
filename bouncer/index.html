@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html class="dark" lang="vi">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Tomi Bouncer — Tưng tưng cho mọi sprite</title>
+	<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+	<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+	<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+	<style>
+		body { font-family: Inter, system-ui, sans-serif; }
+		.material-symbols-outlined {
+			font-family: 'Material Symbols Outlined', monospace;
+			font-weight: normal;
+			line-height: 1;
+			letter-spacing: normal;
+			display: inline-block;
+			direction: ltr;
+			-webkit-font-feature-settings: 'liga';
+			font-feature-settings: 'liga';
+			-webkit-font-smoothing: antialiased;
+			font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+			overflow: hidden;
+			max-width: 1.5em;
+			max-height: 1.5em;
+		}
+		.checkered {
+			background-color: #1e293b;
+			background-image:
+				linear-gradient(45deg, #0f172a 25%, transparent 25%),
+				linear-gradient(-45deg, #0f172a 25%, transparent 25%),
+				linear-gradient(45deg, transparent 75%, #0f172a 75%),
+				linear-gradient(-45deg, transparent 75%, #0f172a 75%);
+			background-size: 16px 16px;
+			background-position: 0 0, 0 8px, 8px -8px, -8px 0px;
+		}
+		.preview-img {
+			image-rendering: pixelated;
+			image-rendering: -moz-crisp-edges;
+			transform-origin: 50% 100%;
+			will-change: transform;
+		}
+		@keyframes ground-shadow-anim {
+			0%, 100% { transform: translateX(-50%) scaleX(1.1); opacity: 0.55; }
+			50%      { transform: translateX(-50%) scaleX(0.55); opacity: 0.22; }
+		}
+		.ground-shadow {
+			position: absolute;
+			left: 50%;
+			width: 64px;
+			height: 8px;
+			background: radial-gradient(ellipse at center, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0) 70%);
+			border-radius: 999px;
+			pointer-events: none;
+		}
+		input[type=range] { accent-color: #44fad0; }
+		.slider-label { font-family: 'JetBrains Mono', monospace; }
+		.gradient-btn {
+			background: linear-gradient(90deg, #947dff 0%, #00e0b8 100%);
+		}
+		.dropzone-active {
+			border-color: #44fad0 !important;
+			background: rgba(68, 250, 208, 0.08) !important;
+		}
+	</style>
+</head>
+<body class="bg-slate-950 text-slate-200 min-h-screen">
+<header class="bg-slate-900 border-b border-slate-800 px-6 h-16 flex items-center justify-between">
+	<div class="flex items-center gap-3">
+		<a href="../" class="text-slate-400 hover:text-white transition-colors flex items-center gap-1 text-xs">
+			<span class="material-symbols-outlined" style="font-size:18px">arrow_back</span>
+			Quay lại Tomi Anim Gà
+		</a>
+		<span class="text-slate-700">|</span>
+		<span class="text-xl font-bold tracking-tight bg-gradient-to-r from-violet-400 to-cyan-400 bg-clip-text text-transparent">
+			🐰 Tomi Bouncer
+		</span>
+		<span class="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700">v0.1</span>
+	</div>
+	<a href="https://github.com/tommy31383/tomi-anim-ga" target="_blank" class="text-slate-500 hover:text-white text-xs">GitHub</a>
+</header>
+
+<main class="max-w-7xl mx-auto px-6 py-8 grid grid-cols-1 lg:grid-cols-[420px_1fr] gap-8">
+
+	<!-- LEFT: Controls -->
+	<aside class="space-y-6">
+		<!-- Upload zone -->
+		<div>
+			<label class="text-xs font-mono uppercase tracking-widest text-cyan-400 mb-2 block">Bước 1 · Upload sprite</label>
+			<label id="dropzone" class="block aspect-[2/1] rounded-2xl border-2 border-dashed border-slate-700 bg-slate-900/40 flex flex-col items-center justify-center cursor-pointer hover:border-cyan-400/60 transition-colors group">
+				<input id="file-input" type="file" accept="image/png, image/jpeg, image/webp" class="hidden">
+				<span class="material-symbols-outlined text-cyan-400 group-hover:scale-110 transition-transform" style="font-size:36px">cloud_upload</span>
+				<p class="text-sm font-semibold mt-2 text-slate-200">Kéo thả PNG vào đây hoặc click chọn</p>
+				<p class="text-xs text-slate-500 mt-1">Hỗ trợ PNG / JPG / WebP — bất kỳ kích cỡ</p>
+			</label>
+			<div id="upload-info" class="hidden mt-2 text-[11px] font-mono text-slate-500"></div>
+		</div>
+
+		<!-- Settings -->
+		<div>
+			<label class="text-xs font-mono uppercase tracking-widest text-cyan-400 mb-3 block">Bước 2 · Tinh chỉnh hiệu ứng</label>
+			<div class="space-y-4 bg-slate-900 rounded-2xl border border-slate-700 p-4">
+				<div>
+					<div class="flex justify-between text-xs mb-1">
+						<span class="font-semibold text-slate-300">Số frame</span>
+						<span class="slider-label text-cyan-400" id="frames-val">8</span>
+					</div>
+					<input id="frames" type="range" min="4" max="24" step="1" value="8" class="w-full">
+					<p class="text-[10px] text-slate-500 mt-1">Càng nhiều frame, animation càng mượt nhưng file lớn hơn</p>
+				</div>
+
+				<div>
+					<div class="flex justify-between text-xs mb-1">
+						<span class="font-semibold text-slate-300">Độ cao nhảy</span>
+						<span class="slider-label text-cyan-400"><span id="height-val">22</span>px</span>
+					</div>
+					<input id="height" type="range" min="6" max="60" step="1" value="22" class="w-full">
+				</div>
+
+				<div>
+					<div class="flex justify-between text-xs mb-1">
+						<span class="font-semibold text-slate-300">Squash (kéo ngang)</span>
+						<span class="slider-label text-cyan-400"><span id="squashx-val">18</span>%</span>
+					</div>
+					<input id="squashx" type="range" min="0" max="40" step="1" value="18" class="w-full">
+				</div>
+
+				<div>
+					<div class="flex justify-between text-xs mb-1">
+						<span class="font-semibold text-slate-300">Stretch (kéo dọc khi nhảy lên)</span>
+						<span class="slider-label text-cyan-400"><span id="stretchy-val">14</span>%</span>
+					</div>
+					<input id="stretchy" type="range" min="0" max="40" step="1" value="14" class="w-full">
+				</div>
+
+				<div>
+					<div class="flex justify-between text-xs mb-1">
+						<span class="font-semibold text-slate-300">Thời lượng (1 chu kỳ)</span>
+						<span class="slider-label text-cyan-400"><span id="duration-val">600</span>ms</span>
+					</div>
+					<input id="duration" type="range" min="200" max="1500" step="20" value="600" class="w-full">
+				</div>
+
+				<div class="pt-2 border-t border-slate-800">
+					<label class="flex items-center gap-2 text-xs text-slate-300 cursor-pointer">
+						<input id="show-shadow" type="checkbox" checked class="rounded">
+						<span>Hiện bóng pulse dưới chân</span>
+					</label>
+				</div>
+			</div>
+		</div>
+
+		<!-- Export -->
+		<div>
+			<label class="text-xs font-mono uppercase tracking-widest text-cyan-400 mb-3 block">Bước 3 · Xuất sprite sheet</label>
+			<button id="export-btn" disabled class="w-full gradient-btn text-white font-bold py-3 rounded-xl shadow-lg shadow-violet-500/20 active:scale-95 transition-transform disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+				<span class="material-symbols-outlined">download</span>
+				<span>Tải PNG sheet</span>
+			</button>
+			<p class="text-[11px] text-slate-500 mt-2 leading-relaxed">
+				Sheet ngang, mỗi tile bằng kích cỡ sprite + headroom cho cú nhảy.
+				Drop thẳng vào Unity / Godot / Phaser / Aseprite.
+			</p>
+		</div>
+	</aside>
+
+	<!-- RIGHT: Preview -->
+	<section>
+		<label class="text-xs font-mono uppercase tracking-widest text-cyan-400 mb-3 block">Xem trước (live)</label>
+
+		<div class="rounded-2xl border border-slate-700 overflow-hidden">
+			<!-- Live preview -->
+			<div id="preview" class="checkered relative flex items-center justify-center" style="min-height:360px">
+				<div id="empty-state" class="text-center py-16">
+					<span class="material-symbols-outlined text-slate-600" style="font-size:64px">add_photo_alternate</span>
+					<p class="text-slate-500 mt-2">Upload 1 ảnh để xem hiệu ứng</p>
+				</div>
+				<div id="bouncer-stage" class="hidden relative" style="width:240px;height:240px">
+					<img id="preview-img" class="preview-img absolute" alt="" />
+					<div id="ground-shadow" class="ground-shadow"></div>
+				</div>
+			</div>
+
+			<!-- Bake preview strip -->
+			<div class="bg-slate-900 border-t border-slate-700 p-4">
+				<div class="flex items-center justify-between mb-2">
+					<span class="text-xs font-mono uppercase tracking-widest text-slate-400">Sheet sẽ xuất</span>
+					<span id="sheet-info" class="text-[10px] font-mono text-slate-500"></span>
+				</div>
+				<div class="checkered rounded-lg overflow-x-auto p-2">
+					<canvas id="bake-canvas" class="block" style="image-rendering:pixelated"></canvas>
+				</div>
+			</div>
+		</div>
+
+		<!-- Tips -->
+		<details class="mt-4 bg-slate-900 rounded-xl border border-slate-700 p-4">
+			<summary class="text-sm font-semibold text-slate-200 cursor-pointer">💡 Cách import vào game engine</summary>
+			<div class="mt-3 text-xs text-slate-400 space-y-2 leading-relaxed">
+				<p><span class="text-cyan-400 font-mono">Unity</span>: kéo file vào Assets, set Texture Type = Sprite (2D), Sprite Mode = Multiple, click "Sprite Editor" → Slice → Grid By Cell Size, set bằng kích cỡ tile (in trên header "Sheet sẽ xuất"). Tạo Animation: Window → Animation, drag hết frames vào, samples = 1000 / (duration / numFrames) ms.</p>
+				<p><span class="text-cyan-400 font-mono">Godot 4</span>: import PNG, tạo SpriteFrames → New Atlas Texture → cắt theo grid. Loop on, FPS = 1000 / (duration / numFrames).</p>
+				<p><span class="text-cyan-400 font-mono">Phaser 3</span>: <code class="bg-slate-800 px-1.5 py-0.5 rounded">this.load.spritesheet('hop', 'tomi_bounce.png', { frameWidth: TILE, frameHeight: TILE })</code> → <code class="bg-slate-800 px-1.5 py-0.5 rounded">scene.anims.create({ key: 'hop', frames, frameRate, repeat: -1 })</code></p>
+				<p><span class="text-cyan-400 font-mono">Aseprite</span>: File → Import Sprite Sheet → grid by tile size → save as .ase với loop frame tag.</p>
+			</div>
+		</details>
+	</section>
+</main>
+
+<script>
+// ============================================================
+// Tomi Bouncer — vanilla JS, no build step
+// Single-file feature: upload an image, apply CSS bounce in
+// preview, bake N transformed frames into a horizontal PNG sheet.
+// ============================================================
+
+const $ = (id) => document.getElementById(id);
+const dropzone = $('dropzone');
+const fileInput = $('file-input');
+const uploadInfo = $('upload-info');
+const previewImg = $('preview-img');
+const previewStage = $('bouncer-stage');
+const emptyState = $('empty-state');
+const groundShadow = $('ground-shadow');
+const bakeCanvas = $('bake-canvas');
+const exportBtn = $('export-btn');
+const sheetInfo = $('sheet-info');
+
+const sliders = {
+	frames: $('frames'),
+	height: $('height'),
+	squashx: $('squashx'),
+	stretchy: $('stretchy'),
+	duration: $('duration'),
+};
+const showShadow = $('show-shadow');
+
+const labels = {
+	frames: $('frames-val'),
+	height: $('height-val'),
+	squashx: $('squashx-val'),
+	stretchy: $('stretchy-val'),
+	duration: $('duration-val'),
+};
+
+// state
+let img = null; // HTMLImageElement
+let imgName = 'sprite';
+
+// ---- Upload handling ----
+function handleFile(file) {
+	if (!file || !file.type.startsWith('image/')) {
+		alert('File phải là ảnh PNG / JPG / WebP');
+		return;
+	}
+	imgName = file.name.replace(/\.[^.]+$/, '').replace(/\W+/g, '_').slice(0, 40) || 'sprite';
+	const reader = new FileReader();
+	reader.onload = (e) => {
+		const i = new Image();
+		i.onload = () => {
+			img = i;
+			emptyState.classList.add('hidden');
+			previewStage.classList.remove('hidden');
+			previewImg.src = i.src;
+			// Stage size auto-fits — sprite up to 240px, headroom on top
+			const scale = Math.min(1, 240 / Math.max(i.width, i.height));
+			const w = Math.round(i.width * scale);
+			const h = Math.round(i.height * scale);
+			previewStage.style.width = w + 'px';
+			previewStage.style.height = (h + 60) + 'px'; // extra room for hop arc
+			previewImg.style.width = w + 'px';
+			previewImg.style.height = h + 'px';
+			previewImg.style.left = '0px';
+			previewImg.style.bottom = '0px';
+			previewImg.style.top = 'auto';
+			groundShadow.style.width = Math.round(w * 0.7) + 'px';
+			groundShadow.style.bottom = '4px';
+			uploadInfo.classList.remove('hidden');
+			uploadInfo.textContent = `${file.name} · ${i.width}×${i.height}px · ${(file.size / 1024).toFixed(1)} KB`;
+			exportBtn.disabled = false;
+			updateAll();
+		};
+		i.src = e.target.result;
+	};
+	reader.readAsDataURL(file);
+}
+
+fileInput.addEventListener('change', (e) => {
+	const f = e.target.files?.[0];
+	if (f) handleFile(f);
+});
+dropzone.addEventListener('dragover', (e) => {
+	e.preventDefault();
+	dropzone.classList.add('dropzone-active');
+});
+dropzone.addEventListener('dragleave', () => {
+	dropzone.classList.remove('dropzone-active');
+});
+dropzone.addEventListener('drop', (e) => {
+	e.preventDefault();
+	dropzone.classList.remove('dropzone-active');
+	const f = e.dataTransfer.files?.[0];
+	if (f) handleFile(f);
+});
+
+// ---- Slider live updates ----
+function readSettings() {
+	return {
+		frames: parseInt(sliders.frames.value, 10),
+		height: parseInt(sliders.height.value, 10),
+		squashx: parseInt(sliders.squashx.value, 10) / 100,
+		stretchy: parseInt(sliders.stretchy.value, 10) / 100,
+		duration: parseInt(sliders.duration.value, 10),
+		shadow: showShadow.checked,
+	};
+}
+
+function updateLabels(s) {
+	labels.frames.textContent = s.frames;
+	labels.height.textContent = s.height;
+	labels.squashx.textContent = Math.round(s.squashx * 100);
+	labels.stretchy.textContent = Math.round(s.stretchy * 100);
+	labels.duration.textContent = s.duration;
+}
+
+// ---- Live preview animation (CSS keyframes injected) ----
+let styleTag = null;
+function applyLivePreviewCSS(s) {
+	if (!styleTag) {
+		styleTag = document.createElement('style');
+		document.head.appendChild(styleTag);
+	}
+	const sxGround = 1 + s.squashx;
+	const sxApex = 1 - s.squashx * 0.5;
+	const syGround = 1 - s.squashx * 0.7; // squash flat on ground
+	const syApex = 1 + s.stretchy;
+	styleTag.textContent = `
+		@keyframes tomi-hop-live {
+			0%, 100% { transform: translateY(0)              scaleX(${sxGround.toFixed(3)}) scaleY(${syGround.toFixed(3)}); }
+			18%      { transform: translateY(-2px)           scaleX(0.98) scaleY(1.10); }
+			50%      { transform: translateY(-${s.height}px) scaleX(${sxApex.toFixed(3)}) scaleY(${syApex.toFixed(3)}); }
+			82%      { transform: translateY(-2px)           scaleX(0.98) scaleY(1.10); }
+		}
+		#preview-img { animation: tomi-hop-live ${s.duration}ms cubic-bezier(0.5, 0, 0.5, 1) infinite; }
+		@keyframes tomi-hop-shadow-live {
+			0%, 100% { transform: translateX(-50%) scaleX(1.1); opacity: 0.55; }
+			50%      { transform: translateX(-50%) scaleX(0.55); opacity: 0.22; }
+		}
+		#ground-shadow { animation: tomi-hop-shadow-live ${s.duration}ms cubic-bezier(0.5, 0, 0.5, 1) infinite; }
+	`;
+	groundShadow.style.display = s.shadow ? '' : 'none';
+}
+
+// ---- Bake to canvas (used by both preview strip + export) ----
+function bake(s, sourceImg) {
+	const PAD_TOP = Math.max(s.height + 8, 16);
+	const PAD_X = Math.ceil(sourceImg.width * Math.max(s.squashx, 0.05));
+	const tileW = sourceImg.width + PAD_X * 2;
+	const tileH = sourceImg.height + PAD_TOP;
+	const out = document.createElement('canvas');
+	out.width = tileW * s.frames;
+	out.height = tileH;
+	const ctx = out.getContext('2d');
+	ctx.imageSmoothingEnabled = false;
+
+	const sxGround = 1 + s.squashx;
+	const sxApex = 1 - s.squashx * 0.5;
+	const syGround = 1 - s.squashx * 0.7;
+	const syApex = 1 + s.stretchy;
+
+	for (let i = 0; i < s.frames; i++) {
+		const t = i / s.frames;
+		// 0 → 1 → 0 across cycle, smooth via cosine
+		const phase = 0.5 - 0.5 * Math.cos(t * Math.PI * 2);
+		const sx = sxGround + phase * (sxApex - sxGround);
+		const sy = syGround + phase * (syApex - syGround);
+		const ty = -s.height * phase;
+
+		const cx = i * tileW + tileW / 2;
+		const cy = tileH; // bottom of tile
+
+		ctx.save();
+		ctx.translate(cx, cy + ty);
+		ctx.scale(sx, sy);
+		// Anchor at bottom-center of source
+		ctx.drawImage(sourceImg, -sourceImg.width / 2, -sourceImg.height);
+		ctx.restore();
+
+		// Optional ground shadow per frame (subtle)
+		if (s.shadow) {
+			ctx.save();
+			const shadowScale = 1.1 - phase * 0.55;
+			const shadowAlpha = 0.55 - phase * 0.33;
+			const shadowW = sourceImg.width * 0.7 * shadowScale;
+			ctx.fillStyle = `rgba(0,0,0,${shadowAlpha.toFixed(3)})`;
+			ctx.beginPath();
+			ctx.ellipse(cx, tileH - 4, shadowW / 2, 3, 0, 0, Math.PI * 2);
+			ctx.fill();
+			ctx.restore();
+		}
+	}
+	return { canvas: out, tileW, tileH };
+}
+
+function updateBakePreview(s) {
+	if (!img) return;
+	const { canvas, tileW, tileH } = bake(s, img);
+	// Show smaller preview (max ~600px wide for the strip)
+	const maxStripWidth = 800;
+	const scale = Math.min(1, maxStripWidth / canvas.width);
+	bakeCanvas.width = canvas.width;
+	bakeCanvas.height = canvas.height;
+	const ctx = bakeCanvas.getContext('2d');
+	ctx.imageSmoothingEnabled = false;
+	ctx.drawImage(canvas, 0, 0);
+	bakeCanvas.style.width = (canvas.width * scale) + 'px';
+	bakeCanvas.style.height = (canvas.height * scale) + 'px';
+	sheetInfo.textContent = `${s.frames} frame · ${tileW}×${tileH}px / tile · ${canvas.width}×${canvas.height}px tổng · ${Math.round(s.duration / s.frames)}ms / frame`;
+}
+
+// ---- Export ----
+exportBtn.addEventListener('click', () => {
+	if (!img) return;
+	const s = readSettings();
+	const { canvas, tileW, tileH } = bake(s, img);
+	canvas.toBlob((blob) => {
+		if (!blob) return;
+		const url = URL.createObjectURL(blob);
+		const a = document.createElement('a');
+		a.href = url;
+		a.download = `${imgName}_bounce_${s.frames}f_${tileW}x${tileH}.png`;
+		document.body.appendChild(a);
+		a.click();
+		document.body.removeChild(a);
+		setTimeout(() => URL.revokeObjectURL(url), 1000);
+	}, 'image/png');
+});
+
+// ---- Glue: any change updates everything ----
+function updateAll() {
+	const s = readSettings();
+	updateLabels(s);
+	applyLivePreviewCSS(s);
+	updateBakePreview(s);
+}
+
+Object.values(sliders).forEach((s) => s.addEventListener('input', updateAll));
+showShadow.addEventListener('change', updateAll);
+
+// initial
+updateLabels(readSettings());
+applyLivePreviewCSS(readSettings());
+</script>
+</body>
+</html>

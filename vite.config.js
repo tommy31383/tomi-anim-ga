@@ -38,6 +38,7 @@ export default defineConfig(({ command }) => ({
     rolldownOptions: {
       input: {
         main: "index.html",
+        bouncer: "bouncer/index.html",
       },
       output: {
         codeSplitting: {

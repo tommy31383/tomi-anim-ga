@@ -95,6 +95,24 @@ export const TopBar = {
             ),
         ]),
         m("div.flex.items-center.gap-2", [
+          // Quick link to the standalone Bouncer tool
+          m(
+            "a",
+            {
+              href: "./bouncer/",
+              class:
+                "text-[11px] font-semibold px-3 py-1.5 rounded-full border border-violet-500/40 text-violet-300 bg-violet-500/10 hover:bg-violet-500/20 transition-colors flex items-center gap-1.5 mr-2",
+              title: "Mở Tomi Bouncer — tưng tưng cho bất kỳ sprite nào",
+            },
+            [
+              m(
+                "span.material-symbols-outlined",
+                { style: { fontSize: "13px" } },
+                "rocket_launch",
+              ),
+              "🐰 Bouncer",
+            ],
+          ),
           m("div.flex.items-center.gap-1.bg-slate-800.p-1.rounded-lg.mr-4", [
             iconBtn("undo", {
               title: "Hoàn tác (chưa hỗ trợ)",
