@@ -597,10 +597,12 @@ function drawFrameAt(ctx, t, cx, cy, dirOverride) {
 	const dirSign = dir === 'left' ? -1 : 1;
 
 	// Helper to draw weapon in body's transformed local space.
-	// The weapon is rotated around the GRIP point (handle/cán). Inside the
-	// weapon image, the natural axis is the vector from grip → tip; we add
-	// an offset so weapon.rot=0 means tip pointing UP (a sensible default
-	// regardless of how the source image was drawn).
+	// - Direction (Phải/Trái) only flips the WEAPON, not the body. The flip
+	//   moves the weapon to the other hand (mirror x) and reverses the swing
+	//   arc so a slash going right becomes a slash going left.
+	// - Weapon rotates around the GRIP (đuôi/cán). The grip→tip vector is
+	//   the natural axis; rot=0 always means 'tip up', regardless of how
+	//   the source was drawn.
 	const drawWeapon = () => {
 		if (!weaponImg) return;
 		const wScale = weapon.scale / 100;
@@ -608,18 +610,17 @@ function drawFrameAt(ctx, t, cx, cy, dirOverride) {
 		const gripY = (weapon.grip.y / 100) * weaponImg.height;
 		const tipX = (weapon.tip.x / 100) * weaponImg.width;
 		const tipY = (weapon.tip.y / 100) * weaponImg.height;
-		// Angle of the (grip → tip) vector in image space (image y goes DOWN).
-		// We want rot=0 to mean "tip points UP" → desired vector = (0,-1) → angle = -π/2.
-		// So we subtract the natural axis angle from our intended rotation.
-		const naturalAngle = Math.atan2(tipY - gripY, tipX - gripX); // radians
+		const naturalAngle = Math.atan2(tipY - gripY, tipX - gripX);
 		const intendedAngle = -Math.PI / 2; // tip up
 		const correction = intendedAngle - naturalAngle;
 		ctx.save();
-		// Position grip at (weapon.x, -weapon.y) in body local space
+		// Mirror only the weapon container when facing left
+		ctx.scale(dirSign, 1);
+		// Position grip at (weapon.x, -weapon.y) — in the mirrored frame this
+		// automatically lands on the opposite hand.
 		ctx.translate(weapon.x + wTxDelta, -weapon.y);
 		ctx.rotate(((weapon.rot + wRotDelta) * Math.PI) / 180 + correction);
 		ctx.scale(wScale, wScale);
-		// Anchor: grip sits at (0,0) of the rotated frame
 		ctx.drawImage(weaponImg, -gripX, -gripY);
 		ctx.restore();
 	};
@@ -627,12 +628,11 @@ function drawFrameAt(ctx, t, cx, cy, dirOverride) {
 	ctx.save();
 	ctx.globalAlpha = alpha;
 	ctx.filter = filter;
-	// Outer: position the character. Mirror once at this level → every inner
-	// transform (lunge tx, rotation, weapon offset & swing) flips correctly
-	// without needing to negate signs individually.
+	// Body stays facing the camera (no horizontal flip). Direction (Phải/Trái)
+	// is applied INSIDE drawWeapon — it only mirrors the weapon to the other
+	// hand and reverses the swing arc. The body just lunges/rotates as defined
+	// by the preset.
 	ctx.translate(cx, cy);
-	ctx.scale(dirSign, 1);
-	// Inner: per-frame body transforms in (mirrored) local space
 	ctx.translate(tx, ty);
 	ctx.rotate((rot * Math.PI) / 180);
 	ctx.scale(sx, sy);
@@ -686,14 +686,22 @@ function canvasToLocal(cx, cy) {
 	};
 }
 
-// Hit-test the weapon (rough — bounding circle around weapon's pivot)
+// Where the weapon attach (grip) point lands on the preview canvas.
+function weaponScreenPos() {
+	const v = getViewTransform();
+	const dirSign = direction === 'left' ? -1 : 1;
+	return {
+		x: v.baselineX + dirSign * weapon.x * v.fit,
+		y: v.baselineY - weapon.y * v.fit,
+	};
+}
+
+// Hit-test the weapon (rough — bounding circle around weapon's grip point)
 function isWeaponNearMouse(cx, cy) {
 	if (!weaponImg) return false;
 	const v = getViewTransform();
 	const wScale = weapon.scale / 100;
-	// Weapon attach point in screen coords
-	const wsx = v.baselineX + weapon.x * v.fit;
-	const wsy = v.baselineY - weapon.y * v.fit;
+	const { x: wsx, y: wsy } = weaponScreenPos();
 	const radius = Math.max(weaponImg.width, weaponImg.height) * wScale * v.fit * 0.6;
 	const dx = cx - wsx;
 	const dy = cy - wsy;
@@ -734,8 +742,7 @@ function loop(now) {
 
 	// Drag handle indicator (cyan ring at weapon attach point)
 	if (weaponImg) {
-		const wsx = v.baselineX + weapon.x * v.fit;
-		const wsy = v.baselineY - weapon.y * v.fit;
+		const { x: wsx, y: wsy } = weaponScreenPos();
 		ctx.save();
 		ctx.strokeStyle = drag ? '#44fad0' : (hovering ? 'rgba(68,250,208,0.7)' : 'rgba(148,125,255,0.3)');
 		ctx.lineWidth = drag ? 2 : 1;
@@ -775,18 +782,25 @@ function getCanvasMouse(e) {
 	return { cx, cy };
 }
 
+function updateWeaponXYFromMouse(cx, cy) {
+	const local = canvasToLocal(cx, cy);
+	const dirSign = direction === 'left' ? -1 : 1;
+	// Mouse local x is in canvas (un-mirrored) space. Multiplying by dirSign
+	// gives the body-local weapon.x so drag works the same regardless of
+	// whether the weapon is currently rendered on the right or left hand.
+	weapon.x = Math.round(dirSign * (local.x - drag.grabOffset.x));
+	weapon.y = Math.round(local.y - drag.grabOffset.y);
+	$('weapon-x').value = weapon.x;
+	$('wx-val').textContent = weapon.x;
+	$('weapon-y').value = weapon.y;
+	$('wy-val').textContent = weapon.y;
+	updateBakePreview();
+}
+
 previewCanvas.addEventListener('mousemove', (e) => {
 	const { cx, cy } = getCanvasMouse(e);
 	if (drag) {
-		const local = canvasToLocal(cx, cy);
-		weapon.x = Math.round(local.x - drag.grabOffset.x);
-		weapon.y = Math.round(local.y - drag.grabOffset.y);
-		// Sync sliders
-		$('weapon-x').value = weapon.x;
-		$('wx-val').textContent = weapon.x;
-		$('weapon-y').value = weapon.y;
-		$('wy-val').textContent = weapon.y;
-		updateBakePreview();
+		updateWeaponXYFromMouse(cx, cy);
 	} else {
 		hovering = isWeaponNearMouse(cx, cy);
 		previewCanvas.style.cursor = hovering ? 'grab' : 'default';
@@ -798,9 +812,15 @@ previewCanvas.addEventListener('mousedown', (e) => {
 	const { cx, cy } = getCanvasMouse(e);
 	if (!isWeaponNearMouse(cx, cy)) return;
 	const local = canvasToLocal(cx, cy);
+	const dirSign = direction === 'left' ? -1 : 1;
+	// Store grabOffset in canvas-local space (so it adds correctly to mouse
+	// during the drag). Convert weapon.x from body-local to canvas-local.
 	drag = {
 		kind: 'weapon',
-		grabOffset: { x: local.x - weapon.x, y: local.y - weapon.y },
+		grabOffset: {
+			x: local.x - dirSign * weapon.x,
+			y: local.y - weapon.y,
+		},
 	};
 	previewCanvas.style.cursor = 'grabbing';
 	e.preventDefault();
@@ -820,9 +840,13 @@ previewCanvas.addEventListener('touchstart', (e) => {
 	const { cx, cy } = getCanvasMouse(e);
 	if (!isWeaponNearMouse(cx, cy)) return;
 	const local = canvasToLocal(cx, cy);
+	const dirSign = direction === 'left' ? -1 : 1;
 	drag = {
 		kind: 'weapon',
-		grabOffset: { x: local.x - weapon.x, y: local.y - weapon.y },
+		grabOffset: {
+			x: local.x - dirSign * weapon.x,
+			y: local.y - weapon.y,
+		},
 	};
 	e.preventDefault();
 }, { passive: false });
@@ -830,14 +854,7 @@ previewCanvas.addEventListener('touchstart', (e) => {
 previewCanvas.addEventListener('touchmove', (e) => {
 	if (!drag) return;
 	const { cx, cy } = getCanvasMouse(e);
-	const local = canvasToLocal(cx, cy);
-	weapon.x = Math.round(local.x - drag.grabOffset.x);
-	weapon.y = Math.round(local.y - drag.grabOffset.y);
-	$('weapon-x').value = weapon.x;
-	$('wx-val').textContent = weapon.x;
-	$('weapon-y').value = weapon.y;
-	$('wy-val').textContent = weapon.y;
-	updateBakePreview();
+	updateWeaponXYFromMouse(cx, cy);
 	e.preventDefault();
 }, { passive: false });
 
