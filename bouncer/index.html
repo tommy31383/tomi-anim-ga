@@ -199,6 +199,23 @@
 			<p id="preset-desc" class="text-[11px] text-slate-500 mt-2 leading-relaxed"></p>
 		</div>
 
+		<!-- Direction picker -->
+		<div>
+			<label class="text-xs font-mono uppercase tracking-widest text-cyan-400 mb-2 block">Hướng nhân vật</label>
+			<div class="flex gap-2 bg-slate-900 rounded-xl border border-slate-700 p-2">
+				<button data-dir="right" class="dir-btn flex-1 py-2 rounded-lg text-sm font-semibold transition-all flex items-center justify-center gap-1">
+					<span style="font-size:18px">🠆</span> Phải
+				</button>
+				<button data-dir="left" class="dir-btn flex-1 py-2 rounded-lg text-sm font-semibold transition-all flex items-center justify-center gap-1">
+					<span style="font-size:18px">🠄</span> Trái
+				</button>
+			</div>
+			<label class="flex items-center gap-2 text-xs text-slate-300 cursor-pointer mt-2">
+				<input id="bake-both-dirs" type="checkbox" class="rounded">
+				<span>Xuất cả 2 hướng vào 1 sheet (2 hàng: trên = phải, dưới = trái)</span>
+			</label>
+		</div>
+
 		<!-- Step 3: Settings -->
 		<div>
 			<label class="text-xs font-mono uppercase tracking-widest text-cyan-400 mb-2 block">Bước 3 · Tinh chỉnh</label>
@@ -465,6 +482,8 @@ let weaponImg = null;    // Cropped/processed weapon used by drawWeapon
 let cropRect = null;     // {x, y, w, h} in source image pixels
 let activePresetKey = 'hop';
 let settings = { ...PRESETS.hop.defaults };
+let direction = 'right'; // 'right' | 'left' — flips body+weapon horizontally
+let bakeBothDirs = false; // if true, sheet has 2 rows: top=right, bottom=left
 // Weapon position on body, plus 2 anchor points (in % of weapon image):
 //   grip (đuôi) = where the character holds it — becomes pivot for swing.
 //   tip  (đầu)  = the business end — defines the weapon's natural axis,
@@ -561,7 +580,7 @@ function renderSettingsPanel() {
 // Draw a single frame at time t∈[0,1] onto a context.
 // (cx, cy) = where the body's bottom-center should land.
 // ============================================================
-function drawFrameAt(ctx, t, cx, cy) {
+function drawFrameAt(ctx, t, cx, cy, dirOverride) {
 	if (!bodyImg) return;
 	const preset = PRESETS[activePresetKey];
 	const tr = preset.transform(t, settings);
@@ -574,6 +593,8 @@ function drawFrameAt(ctx, t, cx, cy) {
 	const filter = tr.filter ?? 'none';
 	const wRotDelta = tr.weaponRot ?? 0;
 	const wTxDelta = tr.weaponTx ?? 0;
+	const dir = dirOverride || direction;
+	const dirSign = dir === 'left' ? -1 : 1;
 
 	// Helper to draw weapon in body's transformed local space.
 	// The weapon is rotated around the GRIP point (handle/cán). Inside the
@@ -606,7 +627,13 @@ function drawFrameAt(ctx, t, cx, cy) {
 	ctx.save();
 	ctx.globalAlpha = alpha;
 	ctx.filter = filter;
-	ctx.translate(cx + tx, cy + ty);
+	// Outer: position the character. Mirror once at this level → every inner
+	// transform (lunge tx, rotation, weapon offset & swing) flips correctly
+	// without needing to negate signs individually.
+	ctx.translate(cx, cy);
+	ctx.scale(dirSign, 1);
+	// Inner: per-frame body transforms in (mirrored) local space
+	ctx.translate(tx, ty);
 	ctx.rotate((rot * Math.PI) / 180);
 	ctx.scale(sx, sy);
 
@@ -876,19 +903,24 @@ function bake() {
 	const tileW = padL + padR;
 	const tileH = padTop + padBottom;
 
+	const rows = bakeBothDirs ? 2 : 1;
 	const out = document.createElement('canvas');
 	out.width = tileW * N;
-	out.height = tileH;
+	out.height = tileH * rows;
 	const ctx = out.getContext('2d');
 	ctx.imageSmoothingEnabled = false;
 
-	for (let i = 0; i < N; i++) {
-		const t = i / N;
-		const cx = i * tileW + padL;
-		const cy = padTop;
-		drawFrameAt(ctx, t, cx, cy);
+	const dirRows = bakeBothDirs ? ['right', 'left'] : [direction];
+	for (let r = 0; r < dirRows.length; r++) {
+		const dir = dirRows[r];
+		for (let i = 0; i < N; i++) {
+			const t = i / N;
+			const cx = i * tileW + padL;
+			const cy = padTop + r * tileH;
+			drawFrameAt(ctx, t, cx, cy, dir);
+		}
 	}
-	return { canvas: out, tileW, tileH, frames: N };
+	return { canvas: out, tileW, tileH, frames: N, rows };
 }
 
 function updateBakePreview() {
@@ -905,7 +937,8 @@ function updateBakePreview() {
 	bakeCanvas.style.height = (r.canvas.height * scale) + 'px';
 	const msPerFrame = Math.round(settings.duration / settings.frames);
 	const preset = PRESETS[activePresetKey];
-	sheetInfo.textContent = `${r.frames}f · ${r.tileW}×${r.tileH}px / tile · ${r.canvas.width}×${r.canvas.height}px tổng · ${msPerFrame}ms/frame · ${preset.loop ? 'loop' : 'one-shot'}${weaponImg ? ' · ⚔ vũ khí baked' : ''}`;
+	const rowDesc = r.rows === 2 ? ' · 2 hàng (P/T)' : '';
+	sheetInfo.textContent = `${r.frames}f · ${r.tileW}×${r.tileH}px / tile · ${r.canvas.width}×${r.canvas.height}px tổng · ${msPerFrame}ms/frame · ${preset.loop ? 'loop' : 'one-shot'}${weaponImg ? ' · ⚔ vũ khí' : ''}${rowDesc}`;
 }
 
 // ============================================================
@@ -1003,6 +1036,32 @@ for (const [inputId, valId, key] of weaponSliders) {
 }
 $('weapon-behind').addEventListener('change', (e) => {
 	weapon.behind = e.target.checked;
+	updateBakePreview();
+});
+
+// Direction buttons
+function refreshDirButtons() {
+	for (const btn of document.querySelectorAll('.dir-btn')) {
+		const isActive = btn.dataset.dir === direction;
+		btn.className = `dir-btn flex-1 py-2 rounded-lg text-sm font-semibold transition-all flex items-center justify-center gap-1 ${
+			isActive
+				? 'bg-cyan-400 text-slate-900'
+				: 'text-slate-400 hover:text-white hover:bg-slate-800'
+		}`;
+	}
+}
+for (const btn of document.querySelectorAll('.dir-btn')) {
+	btn.addEventListener('click', () => {
+		direction = btn.dataset.dir;
+		refreshDirButtons();
+		animStart = performance.now();
+		updateBakePreview();
+	});
+}
+refreshDirButtons();
+
+$('bake-both-dirs').addEventListener('change', (e) => {
+	bakeBothDirs = e.target.checked;
 	updateBakePreview();
 });
 
@@ -1450,7 +1509,8 @@ exportBtn.addEventListener('click', () => {
 		const a = document.createElement('a');
 		a.href = url;
 		const wsuffix = weaponImg ? '_armed' : '';
-		a.download = `${bodyName}_${activePresetKey}${wsuffix}_${r.frames}f_${r.tileW}x${r.tileH}.png`;
+		const dirSuffix = r.rows === 2 ? '_2dir' : `_${direction}`;
+		a.download = `${bodyName}_${activePresetKey}${wsuffix}${dirSuffix}_${r.frames}f_${r.tileW}x${r.tileH}.png`;
 		document.body.appendChild(a);
 		a.click();
 		document.body.removeChild(a);
