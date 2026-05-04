@@ -94,11 +94,41 @@
 			</label>
 			<div id="weapon-info" class="hidden mt-2 text-[11px] font-mono text-slate-500"></div>
 
+			<!-- Crop tool (only after upload, before/while editing weapon) -->
+			<div id="crop-panel" class="hidden mt-3 bg-slate-900 rounded-xl border border-slate-700 p-3 space-y-3">
+				<div class="flex items-center justify-between">
+					<p class="text-[10px] uppercase tracking-widest text-cyan-400 font-mono">Cắt vùng vũ khí</p>
+					<div class="flex gap-2">
+						<button id="crop-auto" class="text-[10px] px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-slate-700">
+							🪄 Auto-detect
+						</button>
+						<button id="crop-reset" class="text-[10px] px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700">
+							↻ Reset
+						</button>
+					</div>
+				</div>
+				<div class="bg-slate-950 rounded-lg border border-slate-800 p-2 flex items-center justify-center">
+					<canvas id="crop-canvas" class="block" style="max-width:100%;height:auto;cursor:crosshair"></canvas>
+				</div>
+				<p class="text-[10px] text-slate-500 leading-relaxed">
+					Kéo trên ảnh để chọn vùng vũ khí. Nhấn <strong>Auto-detect</strong> để tool tự cắt vùng pixel (bỏ nền trong suốt). Crop tự áp dụng khi anh kéo / nhấn nút.
+				</p>
+				<div class="flex gap-2">
+					<button id="crop-apply" class="flex-1 gradient-btn text-white font-bold py-2 rounded-lg active:scale-95 transition-transform text-sm flex items-center justify-center gap-1">
+						<span class="material-symbols-outlined" style="font-size:14px">crop</span>
+						Áp dụng vùng cắt
+					</button>
+					<button id="crop-skip" class="px-3 py-2 rounded-lg border border-slate-700 text-slate-300 text-xs hover:bg-slate-800">
+						Dùng ảnh gốc
+					</button>
+				</div>
+			</div>
+
 			<!-- Weapon attach controls (only when weapon loaded) -->
 			<div id="weapon-controls" class="hidden mt-3 space-y-3 bg-slate-900 rounded-xl border border-slate-700 p-3">
 				<!-- 2D anchor editor: drag handles directly on the weapon -->
 				<div>
-					<p class="text-[10px] uppercase tracking-widest text-violet-400 font-mono mb-2">Đánh dấu vị trí trên cây vũ khí</p>
+					<p class="text-[10px] uppercase tracking-widest text-violet-400 font-mono mb-2">Đánh dấu vị trí trên cây vũ khí (sau khi cắt)</p>
 					<div class="bg-slate-950 rounded-lg border border-slate-800 p-2 flex items-center justify-center">
 						<canvas id="anchor-editor" class="block cursor-grab" style="max-width:100%;height:auto"></canvas>
 					</div>
@@ -430,7 +460,9 @@ const SLIDER_CONFIG = {
 // State
 // ============================================================
 let bodyImg = null, bodyName = 'sprite';
-let weaponImg = null;
+let weaponSrcImg = null; // Original uploaded weapon image (uncropped)
+let weaponImg = null;    // Cropped/processed weapon used by drawWeapon
+let cropRect = null;     // {x, y, w, h} in source image pixels
 let activePresetKey = 'hop';
 let settings = { ...PRESETS.hop.defaults };
 // Weapon position on body, plus 2 anchor points (in % of weapon image):
@@ -889,11 +921,16 @@ function handleFile(file, isWeapon) {
 		const i = new Image();
 		i.onload = () => {
 			if (isWeapon) {
-				weaponImg = i;
+				weaponSrcImg = i;
+				// Default crop = full image (no crop yet). User can adjust then click "Áp dụng".
+				cropRect = { x: 0, y: 0, w: i.width, h: i.height };
+				weaponImg = i; // start with full image as the working weapon
 				weaponInfo.classList.remove('hidden');
-				weaponInfo.textContent = `${file.name} · ${i.width}×${i.height}px`;
+				weaponInfo.textContent = `${file.name} · ${i.width}×${i.height}px (chưa cắt)`;
 				weaponClearBtn.classList.remove('hidden');
+				$('crop-panel').classList.remove('hidden');
 				weaponCtrls.classList.remove('hidden');
+				drawCropEditor();
 				drawAnchorEditor();
 			} else {
 				bodyImg = i;
@@ -936,9 +973,12 @@ bindDropzone(weaponDz, weaponInput, true);
 weaponClearBtn.addEventListener('click', (e) => {
 	e.preventDefault();
 	weaponImg = null;
+	weaponSrcImg = null;
+	cropRect = null;
 	weaponInfo.classList.add('hidden');
 	weaponClearBtn.classList.add('hidden');
 	weaponCtrls.classList.add('hidden');
+	$('crop-panel').classList.add('hidden');
 	weaponInput.value = '';
 	updateBakePreview();
 });
@@ -1107,6 +1147,296 @@ anchorCanvas.addEventListener('touchmove', (e) => {
 	e.preventDefault();
 }, { passive: false });
 window.addEventListener('touchend', () => { anchorDrag = null; });
+
+// ============================================================
+// Crop tool — drag rectangle on uploaded weapon, auto-detect by alpha
+// ============================================================
+const cropCanvas = $('crop-canvas');
+let cropDrag = null; // { kind: 'new'|'move'|'nw'|'ne'|'sw'|'se', startMouse, startRect }
+const HANDLE_SIZE = 10;
+
+function drawCropEditor() {
+	if (!weaponSrcImg) return;
+	const maxW = 380;
+	const scale = Math.min(1, maxW / Math.max(weaponSrcImg.width, weaponSrcImg.height));
+	const w = Math.round(weaponSrcImg.width * scale);
+	const h = Math.round(weaponSrcImg.height * scale);
+	const dpr = window.devicePixelRatio || 1;
+	cropCanvas.width = w * dpr;
+	cropCanvas.height = h * dpr;
+	cropCanvas.style.width = w + 'px';
+	cropCanvas.style.height = h + 'px';
+	cropCanvas.dataset.scale = scale;
+	const ctx = cropCanvas.getContext('2d');
+	ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+	ctx.imageSmoothingEnabled = false;
+	// checker bg
+	ctx.fillStyle = '#1e293b'; ctx.fillRect(0, 0, w, h);
+	const tile = 8;
+	ctx.fillStyle = '#0f172a';
+	for (let yy = 0; yy < h; yy += tile) {
+		for (let xx = (yy / tile) % 2 === 0 ? 0 : tile; xx < w; xx += tile * 2) {
+			ctx.fillRect(xx, yy, tile, tile);
+		}
+	}
+	ctx.drawImage(weaponSrcImg, 0, 0, w, h);
+	// Dim outside the crop rect
+	const r = cropRect;
+	const dx = r.x * scale, dy = r.y * scale;
+	const dw = r.w * scale, dh = r.h * scale;
+	ctx.fillStyle = 'rgba(11, 19, 38, 0.65)';
+	ctx.fillRect(0, 0, w, dy);
+	ctx.fillRect(0, dy + dh, w, h - (dy + dh));
+	ctx.fillRect(0, dy, dx, dh);
+	ctx.fillRect(dx + dw, dy, w - (dx + dw), dh);
+	// Crop rectangle outline
+	ctx.strokeStyle = '#44fad0';
+	ctx.lineWidth = 2;
+	ctx.setLineDash([]);
+	ctx.strokeRect(dx + 1, dy + 1, dw - 2, dh - 2);
+	// Corner handles
+	ctx.fillStyle = '#44fad0';
+	const handles = [
+		[dx, dy], [dx + dw, dy],
+		[dx, dy + dh], [dx + dw, dy + dh],
+	];
+	for (const [hx, hy] of handles) {
+		ctx.fillRect(hx - HANDLE_SIZE / 2, hy - HANDLE_SIZE / 2, HANDLE_SIZE, HANDLE_SIZE);
+	}
+	// Size info
+	ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+	ctx.fillRect(dx, dy - 18, 80, 16);
+	ctx.fillStyle = '#44fad0';
+	ctx.font = '10px JetBrains Mono';
+	ctx.textBaseline = 'middle';
+	ctx.textAlign = 'left';
+	ctx.fillText(`${r.w}×${r.h}px`, dx + 4, dy - 10);
+}
+
+function cropMouseToCanvas(e) {
+	const rect = cropCanvas.getBoundingClientRect();
+	const cx = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
+	const cy = (e.touches ? e.touches[0].clientY : e.clientY) - rect.top;
+	return { cx, cy };
+}
+
+function cropHitTest(cx, cy) {
+	if (!weaponSrcImg) return null;
+	const scale = parseFloat(cropCanvas.dataset.scale);
+	const dx = cropRect.x * scale, dy = cropRect.y * scale;
+	const dw = cropRect.w * scale, dh = cropRect.h * scale;
+	const handles = {
+		nw: [dx, dy], ne: [dx + dw, dy],
+		sw: [dx, dy + dh], se: [dx + dw, dy + dh],
+	};
+	const r2 = (HANDLE_SIZE * 0.8) ** 2;
+	for (const [k, [hx, hy]] of Object.entries(handles)) {
+		if ((cx - hx) ** 2 + (cy - hy) ** 2 < r2) return k;
+	}
+	if (cx >= dx && cx <= dx + dw && cy >= dy && cy <= dy + dh) return 'move';
+	return 'new';
+}
+
+cropCanvas.addEventListener('mousedown', (e) => {
+	const { cx, cy } = cropMouseToCanvas(e);
+	const kind = cropHitTest(cx, cy);
+	cropDrag = {
+		kind,
+		startMouse: { cx, cy },
+		startRect: { ...cropRect },
+	};
+	cropCanvas.style.cursor = kind === 'move' ? 'grabbing' : 'crosshair';
+	if (kind === 'new') {
+		// Start a new rectangle from the click point
+		const scale = parseFloat(cropCanvas.dataset.scale);
+		const px = Math.round(cx / scale);
+		const py = Math.round(cy / scale);
+		cropRect = { x: px, y: py, w: 1, h: 1 };
+		cropDrag.startRect = { ...cropRect };
+		drawCropEditor();
+	}
+	e.preventDefault();
+});
+
+cropCanvas.addEventListener('mousemove', (e) => {
+	if (!cropDrag) {
+		const { cx, cy } = cropMouseToCanvas(e);
+		const k = cropHitTest(cx, cy);
+		cropCanvas.style.cursor =
+			k === 'move' ? 'grab'
+			: k === 'nw' || k === 'se' ? 'nwse-resize'
+			: k === 'ne' || k === 'sw' ? 'nesw-resize'
+			: 'crosshair';
+		return;
+	}
+	const { cx, cy } = cropMouseToCanvas(e);
+	const scale = parseFloat(cropCanvas.dataset.scale);
+	const dxImg = (cx - cropDrag.startMouse.cx) / scale;
+	const dyImg = (cy - cropDrag.startMouse.cy) / scale;
+	const sr = cropDrag.startRect;
+	const W = weaponSrcImg.width, H = weaponSrcImg.height;
+	let nx = sr.x, ny = sr.y, nw = sr.w, nh = sr.h;
+	switch (cropDrag.kind) {
+		case 'move':
+			nx = Math.max(0, Math.min(W - sr.w, sr.x + dxImg));
+			ny = Math.max(0, Math.min(H - sr.h, sr.y + dyImg));
+			break;
+		case 'nw':
+			nx = sr.x + dxImg; ny = sr.y + dyImg;
+			nw = sr.w - dxImg; nh = sr.h - dyImg;
+			break;
+		case 'ne':
+			ny = sr.y + dyImg;
+			nw = sr.w + dxImg; nh = sr.h - dyImg;
+			break;
+		case 'sw':
+			nx = sr.x + dxImg;
+			nw = sr.w - dxImg; nh = sr.h + dyImg;
+			break;
+		case 'se':
+			nw = sr.w + dxImg; nh = sr.h + dyImg;
+			break;
+		case 'new': {
+			// Drag from start to current → rectangle
+			const startPx = Math.round(cropDrag.startMouse.cx / scale);
+			const startPy = Math.round(cropDrag.startMouse.cy / scale);
+			const curPx = Math.round(cx / scale);
+			const curPy = Math.round(cy / scale);
+			nx = Math.min(startPx, curPx);
+			ny = Math.min(startPy, curPy);
+			nw = Math.abs(curPx - startPx);
+			nh = Math.abs(curPy - startPy);
+			break;
+		}
+	}
+	// Normalize negative size by flipping
+	if (nw < 0) { nx += nw; nw = -nw; }
+	if (nh < 0) { ny += nh; nh = -nh; }
+	// Clamp
+	nx = Math.max(0, Math.round(nx));
+	ny = Math.max(0, Math.round(ny));
+	nw = Math.max(4, Math.round(Math.min(nw, W - nx)));
+	nh = Math.max(4, Math.round(Math.min(nh, H - ny)));
+	cropRect = { x: nx, y: ny, w: nw, h: nh };
+	drawCropEditor();
+});
+
+window.addEventListener('mouseup', () => {
+	if (cropDrag) {
+		cropDrag = null;
+		cropCanvas.style.cursor = 'crosshair';
+		// Auto-apply on release so user sees result without needing to click button
+		applyCrop();
+	}
+});
+
+// Touch
+cropCanvas.addEventListener('touchstart', (e) => {
+	const { cx, cy } = cropMouseToCanvas(e);
+	const kind = cropHitTest(cx, cy);
+	cropDrag = { kind, startMouse: { cx, cy }, startRect: { ...cropRect } };
+	if (kind === 'new') {
+		const scale = parseFloat(cropCanvas.dataset.scale);
+		cropRect = { x: Math.round(cx / scale), y: Math.round(cy / scale), w: 1, h: 1 };
+		cropDrag.startRect = { ...cropRect };
+		drawCropEditor();
+	}
+	e.preventDefault();
+}, { passive: false });
+cropCanvas.addEventListener('touchmove', (e) => {
+	if (!cropDrag) return;
+	cropCanvas.dispatchEvent(new MouseEvent('mousemove', {
+		clientX: e.touches[0].clientX,
+		clientY: e.touches[0].clientY,
+	}));
+	e.preventDefault();
+}, { passive: false });
+window.addEventListener('touchend', () => {
+	if (cropDrag) {
+		cropDrag = null;
+		applyCrop();
+	}
+});
+
+// Apply: extract sub-image from source into a new canvas, set as weaponImg
+function applyCrop() {
+	if (!weaponSrcImg) return;
+	const c = document.createElement('canvas');
+	c.width = cropRect.w;
+	c.height = cropRect.h;
+	const ctx = c.getContext('2d');
+	ctx.imageSmoothingEnabled = false;
+	ctx.drawImage(
+		weaponSrcImg,
+		cropRect.x, cropRect.y, cropRect.w, cropRect.h,
+		0, 0, cropRect.w, cropRect.h,
+	);
+	weaponImg = c;
+	weaponInfo.textContent = `${cropRect.w}×${cropRect.h}px (đã cắt từ ${weaponSrcImg.width}×${weaponSrcImg.height})`;
+	drawAnchorEditor();
+	updateBakePreview();
+}
+
+// Auto-detect: find bounding box of non-transparent pixels
+$('crop-auto').addEventListener('click', () => {
+	if (!weaponSrcImg) return;
+	const c = document.createElement('canvas');
+	c.width = weaponSrcImg.width;
+	c.height = weaponSrcImg.height;
+	const ctx = c.getContext('2d');
+	ctx.drawImage(weaponSrcImg, 0, 0);
+	let imgData;
+	try {
+		imgData = ctx.getImageData(0, 0, c.width, c.height);
+	} catch (err) {
+		alert('Không thể đọc pixel — có thể do CORS. Kéo thủ công thay thế.');
+		return;
+	}
+	const d = imgData.data;
+	const W = c.width, H = c.height;
+	let minX = W, minY = H, maxX = -1, maxY = -1;
+	const ALPHA_THRESH = 16;
+	for (let y = 0; y < H; y++) {
+		for (let x = 0; x < W; x++) {
+			const a = d[(y * W + x) * 4 + 3];
+			if (a > ALPHA_THRESH) {
+				if (x < minX) minX = x;
+				if (y < minY) minY = y;
+				if (x > maxX) maxX = x;
+				if (y > maxY) maxY = y;
+			}
+		}
+	}
+	if (maxX < 0) {
+		alert('Không tìm thấy pixel nào (ảnh có thể toàn trắng đặc, không trong suốt).');
+		return;
+	}
+	// Small padding around the detected bbox
+	const PAD = 2;
+	cropRect = {
+		x: Math.max(0, minX - PAD),
+		y: Math.max(0, minY - PAD),
+		w: Math.min(W, maxX + PAD + 1) - Math.max(0, minX - PAD),
+		h: Math.min(H, maxY + PAD + 1) - Math.max(0, minY - PAD),
+	};
+	drawCropEditor();
+	applyCrop();
+});
+
+$('crop-reset').addEventListener('click', () => {
+	if (!weaponSrcImg) return;
+	cropRect = { x: 0, y: 0, w: weaponSrcImg.width, h: weaponSrcImg.height };
+	drawCropEditor();
+	applyCrop();
+});
+
+$('crop-apply').addEventListener('click', applyCrop);
+$('crop-skip').addEventListener('click', () => {
+	weaponImg = weaponSrcImg;
+	weaponInfo.textContent = `${weaponSrcImg.width}×${weaponSrcImg.height}px (gốc, không cắt)`;
+	drawAnchorEditor();
+	updateBakePreview();
+});
 
 // ============================================================
 // Export
