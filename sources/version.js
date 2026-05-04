@@ -1,2 +1,2 @@
 // Bump on every commit. Shown in the TopBar next to the brand name.
-export const APP_VERSION = "0.2.4";
+export const APP_VERSION = "0.2.5";

@@ -523,22 +523,12 @@
 			/* Land again — squash hard */
 			100% { transform: translateY(0)    scaleX(1.18) scaleY(0.78); }
 		}
-		/* Strip the white frosted box when hop is active — show just the
-		   bouncing sprite on the checkered canvas background. */
-		.tung-tung-active {
-			background: transparent !important;
-			backdrop-filter: none !important;
-			-webkit-backdrop-filter: none !important;
-			border: none !important;
-			box-shadow: none !important;
-			padding: 0 !important;
-		}
 		.tung-tung-active #previewAnimations {
 			animation: tomi-hop 600ms cubic-bezier(0.5, 0, 0.5, 1) infinite;
 			transform-origin: 50% 100%;
 			will-change: transform;
 		}
-		/* Soft shadow that pulses with the hop, anchored to the sprite's feet */
+		/* Soft shadow that pulses with the hop */
 		@keyframes tomi-hop-shadow {
 			0%, 100% { transform: translateX(-50%) scale(1.1, 1);   opacity: 0.55; }
 			50%      { transform: translateX(-50%) scale(0.55, 1);  opacity: 0.22; }
@@ -547,10 +537,10 @@
 			content: "";
 			position: absolute;
 			left: 50%;
-			bottom: 4px;
-			width: 64px;
-			height: 8px;
-			background: radial-gradient(ellipse at center, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0) 70%);
+			bottom: 14px;
+			width: 88px;
+			height: 10px;
+			background: radial-gradient(ellipse at center, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0) 70%);
 			border-radius: 999px;
 			animation: tomi-hop-shadow 600ms cubic-bezier(0.5, 0, 0.5, 1) infinite;
 			pointer-events: none;
