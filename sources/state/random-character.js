@@ -8,6 +8,7 @@ import { BODY_TYPES } from "./constants.ts";
 import * as catalog from "./catalog.js";
 import { dismissToast, showToast } from "./toast.js";
 import { BROKEN_ASSET_IDS } from "./broken-assets-data.js";
+import { getWeaponClass } from "./weapon-classes-data.js";
 
 const REQUIRED_TYPES = ["body", "head"];
 
@@ -110,7 +111,15 @@ export async function randomizeCharacter() {
   applyMutex(enabledTypes);
 
   // Pick body first so we can mirror its recolor onto match_body_color items.
-  const bodyChoice = pick(candidates.get("body"));
+  // Bias toward bodies classified as "BodyFull" (have full anim coverage).
+  // Fall back to any body if no Full-class candidate is available.
+  const bodyCandidates = candidates.get("body");
+  const fullBodies = bodyCandidates.filter(
+    (c) => getWeaponClass(c.itemId) === "BodyFull",
+  );
+  const bodyChoice = fullBodies.length
+    ? pick(fullBodies)
+    : pick(bodyCandidates);
   const bodyVariants = bodyChoice.meta.recolors?.[0]?.variants ?? [];
   const bodyRecolor = bodyVariants.length ? pick(bodyVariants) : "";
 

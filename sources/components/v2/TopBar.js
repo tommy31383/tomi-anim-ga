@@ -1,5 +1,5 @@
 import m from "mithril";
-import { resetAll, state } from "../../state/state.js";
+import { resetAll, resetBodyToFull, state } from "../../state/state.js";
 import { randomizeCharacter } from "../../state/random-character.js";
 import { quickSaveCurrent } from "../../state/projects.js";
 import { showToast } from "../../state/toast.js";
@@ -132,6 +132,13 @@ export const TopBar = {
               title: "Đặt lại tất cả",
               onclick: () => {
                 if (confirm("Đặt lại tất cả lựa chọn?")) resetAll();
+              },
+            }),
+            iconBtn("accessibility", {
+              title: "Đổi body về Body Color (đầy đủ anim)",
+              onclick: async () => {
+                await resetBodyToFull();
+                showToast("✅ Body chuẩn (đầy đủ anim)", { kind: "success" });
               },
             }),
             iconBtn("share", {

@@ -32,7 +32,7 @@ const CLASS_LABEL = {
 
 function classBadge(itemId) {
   const cls = getWeaponClass(itemId);
-  if (!cls || cls === "Unknown" || cls === "BodyFull") return null;
+  if (!cls || cls === "Unknown") return null;
   return m(
     "span",
     {
