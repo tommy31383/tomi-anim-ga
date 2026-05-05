@@ -112,15 +112,20 @@ export function getSubSelectionGroup(itemId, idx) {
 // Replace ONLY the body slot with the default full-anim body ("Body Color"),
 // keeping all other selections intact. Use when user picks Zombie/Skeleton
 // and wants to bail back to the canonical body without losing their outfit.
+//
+// Body Color uses palette `recolor` (skin tones light/tan/dark/...), NOT
+// `variant`. So we must clear the previous variant ("zombie"/"skeleton")
+// and only carry over the previous recolor if it exists.
 export async function resetBodyToFull() {
   const bodyItemId = "body";
   const bodySelectionGroup = getSelectionGroup(bodyItemId);
   const prev = state.selections[bodySelectionGroup];
+  const recolor = prev?.recolor || "light";
   state.selections[bodySelectionGroup] = {
     itemId: bodyItemId,
-    variant: prev?.variant ?? "",
-    recolor: prev?.recolor ?? "light",
-    name: `Body color (${prev?.recolor ?? "light"})`,
+    variant: "",
+    recolor,
+    name: `Body color (${recolor})`,
   };
   stateDeps.syncSelectionsToHash();
   await stateDeps.renderCharacter(state.selections, state.bodyType);
