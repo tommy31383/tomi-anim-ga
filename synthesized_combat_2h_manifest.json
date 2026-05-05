@@ -1,0 +1,1018 @@
+{
+  "synthesized": [
+    {
+      "weapon": "Longsword",
+      "layer": 1,
+      "base": "weapon/sword/longsword/",
+      "walk": "spritesheets/weapon/sword/longsword/walk/longsword.png",
+      "combat": "spritesheets/weapon/sword/longsword/combat_idle/longsword.png"
+    },
+    {
+      "weapon": "Longsword",
+      "layer": 2,
+      "base": "weapon/sword/longsword/universal_behind/",
+      "walk": "spritesheets/weapon/sword/longsword/universal_behind/walk/longsword.png",
+      "combat": "spritesheets/weapon/sword/longsword/universal_behind/combat_idle/longsword.png"
+    },
+    {
+      "weapon": "Glowsword",
+      "layer": 1,
+      "base": "weapon/sword/glowsword/",
+      "walk": "spritesheets/weapon/sword/glowsword/walk/blue.png",
+      "combat": "spritesheets/weapon/sword/glowsword/combat_idle/blue.png"
+    },
+    {
+      "weapon": "Glowsword",
+      "layer": 1,
+      "base": "weapon/sword/glowsword/",
+      "walk": "spritesheets/weapon/sword/glowsword/walk/red.png",
+      "combat": "spritesheets/weapon/sword/glowsword/combat_idle/red.png"
+    },
+    {
+      "weapon": "Glowsword",
+      "layer": 2,
+      "base": "weapon/sword/glowsword/universal_behind/",
+      "walk": "spritesheets/weapon/sword/glowsword/universal_behind/walk/blue.png",
+      "combat": "spritesheets/weapon/sword/glowsword/universal_behind/combat_idle/blue.png"
+    },
+    {
+      "weapon": "Glowsword",
+      "layer": 2,
+      "base": "weapon/sword/glowsword/universal_behind/",
+      "walk": "spritesheets/weapon/sword/glowsword/universal_behind/walk/red.png",
+      "combat": "spritesheets/weapon/sword/glowsword/universal_behind/combat_idle/red.png"
+    },
+    {
+      "weapon": "Rapier",
+      "layer": 1,
+      "base": "weapon/sword/rapier/",
+      "walk": "spritesheets/weapon/sword/rapier/walk/rapier.png",
+      "combat": "spritesheets/weapon/sword/rapier/combat_idle/rapier.png"
+    },
+    {
+      "weapon": "Rapier",
+      "layer": 2,
+      "base": "weapon/sword/rapier/universal_behind/",
+      "walk": "spritesheets/weapon/sword/rapier/universal_behind/walk/rapier.png",
+      "combat": "spritesheets/weapon/sword/rapier/universal_behind/combat_idle/rapier.png"
+    },
+    {
+      "weapon": "Saber",
+      "layer": 1,
+      "base": "weapon/sword/saber/",
+      "walk": "spritesheets/weapon/sword/saber/walk/saber.png",
+      "combat": "spritesheets/weapon/sword/saber/combat_idle/saber.png"
+    },
+    {
+      "weapon": "Saber",
+      "layer": 2,
+      "base": "weapon/sword/saber/universal_behind/",
+      "walk": "spritesheets/weapon/sword/saber/universal_behind/walk/saber.png",
+      "combat": "spritesheets/weapon/sword/saber/universal_behind/combat_idle/saber.png"
+    },
+    {
+      "weapon": "Diamond staff",
+      "layer": 1,
+      "base": "weapon/magic/diamond/universal/foreground/",
+      "walk": "spritesheets/weapon/magic/diamond/universal/foreground/walk/brass.png",
+      "combat": "spritesheets/weapon/magic/diamond/universal/foreground/combat_idle/brass.png"
+    },
+    {
+      "weapon": "Diamond staff",
+      "layer": 1,
+      "base": "weapon/magic/diamond/universal/foreground/",
+      "walk": "spritesheets/weapon/magic/diamond/universal/foreground/walk/bronze.png",
+      "combat": "spritesheets/weapon/magic/diamond/universal/foreground/combat_idle/bronze.png"
+    },
+    {
+      "weapon": "Diamond staff",
+      "layer": 1,
+      "base": "weapon/magic/diamond/universal/foreground/",
+      "walk": "spritesheets/weapon/magic/diamond/universal/foreground/walk/ceramic.png",
+      "combat": "spritesheets/weapon/magic/diamond/universal/foreground/combat_idle/ceramic.png"
+    },
+    {
+      "weapon": "Diamond staff",
+      "layer": 1,
+      "base": "weapon/magic/diamond/universal/foreground/",
+      "walk": "spritesheets/weapon/magic/diamond/universal/foreground/walk/copper.png",
+      "combat": "spritesheets/weapon/magic/diamond/universal/foreground/combat_idle/copper.png"
+    },
+    {
+      "weapon": "Diamond staff",
+      "layer": 1,
+      "base": "weapon/magic/diamond/universal/foreground/",
+      "walk": "spritesheets/weapon/magic/diamond/universal/foreground/walk/dark.png",
+      "combat": "spritesheets/weapon/magic/diamond/universal/foreground/combat_idle/dark.png"
+    },
+    {
+      "weapon": "Diamond staff",
+      "layer": 1,
+      "base": "weapon/magic/diamond/universal/foreground/",
+      "walk": "spritesheets/weapon/magic/diamond/universal/foreground/walk/diamond.png",
+      "combat": "spritesheets/weapon/magic/diamond/universal/foreground/combat_idle/diamond.png"
+    },
+    {
+      "weapon": "Diamond staff",
+      "layer": 1,
+      "base": "weapon/magic/diamond/universal/foreground/",
+      "walk": "spritesheets/weapon/magic/diamond/universal/foreground/walk/gold.png",
+      "combat": "spritesheets/weapon/magic/diamond/universal/foreground/combat_idle/gold.png"
+    },
+    {
+      "weapon": "Diamond staff",
+      "layer": 1,
+      "base": "weapon/magic/diamond/universal/foreground/",
+      "walk": "spritesheets/weapon/magic/diamond/universal/foreground/walk/iron.png",
+      "combat": "spritesheets/weapon/magic/diamond/universal/foreground/combat_idle/iron.png"
+    },
+    {
+      "weapon": "Diamond staff",
+      "layer": 1,
+      "base": "weapon/magic/diamond/universal/foreground/",
+      "walk": "spritesheets/weapon/magic/diamond/universal/foreground/walk/light.png",
+      "combat": "spritesheets/weapon/magic/diamond/universal/foreground/combat_idle/light.png"
+    },
+    {
+      "weapon": "Diamond staff",
+      "layer": 1,
+      "base": "weapon/magic/diamond/universal/foreground/",
+      "walk": "spritesheets/weapon/magic/diamond/universal/foreground/walk/medium.png",
+      "combat": "spritesheets/weapon/magic/diamond/universal/foreground/combat_idle/medium.png"
+    },
+    {
+      "weapon": "Diamond staff",
+      "layer": 1,
+      "base": "weapon/magic/diamond/universal/foreground/",
+      "walk": "spritesheets/weapon/magic/diamond/universal/foreground/walk/red.png",
+      "combat": "spritesheets/weapon/magic/diamond/universal/foreground/combat_idle/red.png"
+    },
+    {
+      "weapon": "Diamond staff",
+      "layer": 1,
+      "base": "weapon/magic/diamond/universal/foreground/",
+      "walk": "spritesheets/weapon/magic/diamond/universal/foreground/walk/silver.png",
+      "combat": "spritesheets/weapon/magic/diamond/universal/foreground/combat_idle/silver.png"
+    },
+    {
+      "weapon": "Diamond staff",
+      "layer": 1,
+      "base": "weapon/magic/diamond/universal/foreground/",
+      "walk": "spritesheets/weapon/magic/diamond/universal/foreground/walk/steel.png",
+      "combat": "spritesheets/weapon/magic/diamond/universal/foreground/combat_idle/steel.png"
+    },
+    {
+      "weapon": "Diamond staff",
+      "layer": 2,
+      "base": "weapon/magic/diamond/universal/background/",
+      "walk": "spritesheets/weapon/magic/diamond/universal/background/walk/brass.png",
+      "combat": "spritesheets/weapon/magic/diamond/universal/background/combat_idle/brass.png"
+    },
+    {
+      "weapon": "Diamond staff",
+      "layer": 2,
+      "base": "weapon/magic/diamond/universal/background/",
+      "walk": "spritesheets/weapon/magic/diamond/universal/background/walk/bronze.png",
+      "combat": "spritesheets/weapon/magic/diamond/universal/background/combat_idle/bronze.png"
+    },
+    {
+      "weapon": "Diamond staff",
+      "layer": 2,
+      "base": "weapon/magic/diamond/universal/background/",
+      "walk": "spritesheets/weapon/magic/diamond/universal/background/walk/ceramic.png",
+      "combat": "spritesheets/weapon/magic/diamond/universal/background/combat_idle/ceramic.png"
+    },
+    {
+      "weapon": "Diamond staff",
+      "layer": 2,
+      "base": "weapon/magic/diamond/universal/background/",
+      "walk": "spritesheets/weapon/magic/diamond/universal/background/walk/copper.png",
+      "combat": "spritesheets/weapon/magic/diamond/universal/background/combat_idle/copper.png"
+    },
+    {
+      "weapon": "Diamond staff",
+      "layer": 2,
+      "base": "weapon/magic/diamond/universal/background/",
+      "walk": "spritesheets/weapon/magic/diamond/universal/background/walk/dark.png",
+      "combat": "spritesheets/weapon/magic/diamond/universal/background/combat_idle/dark.png"
+    },
+    {
+      "weapon": "Diamond staff",
+      "layer": 2,
+      "base": "weapon/magic/diamond/universal/background/",
+      "walk": "spritesheets/weapon/magic/diamond/universal/background/walk/diamond.png",
+      "combat": "spritesheets/weapon/magic/diamond/universal/background/combat_idle/diamond.png"
+    },
+    {
+      "weapon": "Diamond staff",
+      "layer": 2,
+      "base": "weapon/magic/diamond/universal/background/",
+      "walk": "spritesheets/weapon/magic/diamond/universal/background/walk/gold.png",
+      "combat": "spritesheets/weapon/magic/diamond/universal/background/combat_idle/gold.png"
+    },
+    {
+      "weapon": "Diamond staff",
+      "layer": 2,
+      "base": "weapon/magic/diamond/universal/background/",
+      "walk": "spritesheets/weapon/magic/diamond/universal/background/walk/iron.png",
+      "combat": "spritesheets/weapon/magic/diamond/universal/background/combat_idle/iron.png"
+    },
+    {
+      "weapon": "Diamond staff",
+      "layer": 2,
+      "base": "weapon/magic/diamond/universal/background/",
+      "walk": "spritesheets/weapon/magic/diamond/universal/background/walk/light.png",
+      "combat": "spritesheets/weapon/magic/diamond/universal/background/combat_idle/light.png"
+    },
+    {
+      "weapon": "Diamond staff",
+      "layer": 2,
+      "base": "weapon/magic/diamond/universal/background/",
+      "walk": "spritesheets/weapon/magic/diamond/universal/background/walk/medium.png",
+      "combat": "spritesheets/weapon/magic/diamond/universal/background/combat_idle/medium.png"
+    },
+    {
+      "weapon": "Diamond staff",
+      "layer": 2,
+      "base": "weapon/magic/diamond/universal/background/",
+      "walk": "spritesheets/weapon/magic/diamond/universal/background/walk/red.png",
+      "combat": "spritesheets/weapon/magic/diamond/universal/background/combat_idle/red.png"
+    },
+    {
+      "weapon": "Diamond staff",
+      "layer": 2,
+      "base": "weapon/magic/diamond/universal/background/",
+      "walk": "spritesheets/weapon/magic/diamond/universal/background/walk/silver.png",
+      "combat": "spritesheets/weapon/magic/diamond/universal/background/combat_idle/silver.png"
+    },
+    {
+      "weapon": "Diamond staff",
+      "layer": 2,
+      "base": "weapon/magic/diamond/universal/background/",
+      "walk": "spritesheets/weapon/magic/diamond/universal/background/walk/steel.png",
+      "combat": "spritesheets/weapon/magic/diamond/universal/background/combat_idle/steel.png"
+    },
+    {
+      "weapon": "Crystal",
+      "layer": 1,
+      "base": "weapon/magic/crystal/universal/foreground/",
+      "walk": "spritesheets/weapon/magic/crystal/universal/foreground/walk/blue.png",
+      "combat": "spritesheets/weapon/magic/crystal/universal/foreground/combat_idle/blue.png"
+    },
+    {
+      "weapon": "Crystal",
+      "layer": 1,
+      "base": "weapon/magic/crystal/universal/foreground/",
+      "walk": "spritesheets/weapon/magic/crystal/universal/foreground/walk/crystal.png",
+      "combat": "spritesheets/weapon/magic/crystal/universal/foreground/combat_idle/crystal.png"
+    },
+    {
+      "weapon": "Crystal",
+      "layer": 1,
+      "base": "weapon/magic/crystal/universal/foreground/",
+      "walk": "spritesheets/weapon/magic/crystal/universal/foreground/walk/green.png",
+      "combat": "spritesheets/weapon/magic/crystal/universal/foreground/combat_idle/green.png"
+    },
+    {
+      "weapon": "Crystal",
+      "layer": 1,
+      "base": "weapon/magic/crystal/universal/foreground/",
+      "walk": "spritesheets/weapon/magic/crystal/universal/foreground/walk/orange.png",
+      "combat": "spritesheets/weapon/magic/crystal/universal/foreground/combat_idle/orange.png"
+    },
+    {
+      "weapon": "Crystal",
+      "layer": 1,
+      "base": "weapon/magic/crystal/universal/foreground/",
+      "walk": "spritesheets/weapon/magic/crystal/universal/foreground/walk/purple.png",
+      "combat": "spritesheets/weapon/magic/crystal/universal/foreground/combat_idle/purple.png"
+    },
+    {
+      "weapon": "Crystal",
+      "layer": 1,
+      "base": "weapon/magic/crystal/universal/foreground/",
+      "walk": "spritesheets/weapon/magic/crystal/universal/foreground/walk/red.png",
+      "combat": "spritesheets/weapon/magic/crystal/universal/foreground/combat_idle/red.png"
+    },
+    {
+      "weapon": "Crystal",
+      "layer": 1,
+      "base": "weapon/magic/crystal/universal/foreground/",
+      "walk": "spritesheets/weapon/magic/crystal/universal/foreground/walk/yellow.png",
+      "combat": "spritesheets/weapon/magic/crystal/universal/foreground/combat_idle/yellow.png"
+    },
+    {
+      "weapon": "Crystal",
+      "layer": 2,
+      "base": "weapon/magic/crystal/universal/background/",
+      "walk": "spritesheets/weapon/magic/crystal/universal/background/walk/blue.png",
+      "combat": "spritesheets/weapon/magic/crystal/universal/background/combat_idle/blue.png"
+    },
+    {
+      "weapon": "Crystal",
+      "layer": 2,
+      "base": "weapon/magic/crystal/universal/background/",
+      "walk": "spritesheets/weapon/magic/crystal/universal/background/walk/crystal.png",
+      "combat": "spritesheets/weapon/magic/crystal/universal/background/combat_idle/crystal.png"
+    },
+    {
+      "weapon": "Crystal",
+      "layer": 2,
+      "base": "weapon/magic/crystal/universal/background/",
+      "walk": "spritesheets/weapon/magic/crystal/universal/background/walk/green.png",
+      "combat": "spritesheets/weapon/magic/crystal/universal/background/combat_idle/green.png"
+    },
+    {
+      "weapon": "Crystal",
+      "layer": 2,
+      "base": "weapon/magic/crystal/universal/background/",
+      "walk": "spritesheets/weapon/magic/crystal/universal/background/walk/orange.png",
+      "combat": "spritesheets/weapon/magic/crystal/universal/background/combat_idle/orange.png"
+    },
+    {
+      "weapon": "Crystal",
+      "layer": 2,
+      "base": "weapon/magic/crystal/universal/background/",
+      "walk": "spritesheets/weapon/magic/crystal/universal/background/walk/purple.png",
+      "combat": "spritesheets/weapon/magic/crystal/universal/background/combat_idle/purple.png"
+    },
+    {
+      "weapon": "Crystal",
+      "layer": 2,
+      "base": "weapon/magic/crystal/universal/background/",
+      "walk": "spritesheets/weapon/magic/crystal/universal/background/walk/red.png",
+      "combat": "spritesheets/weapon/magic/crystal/universal/background/combat_idle/red.png"
+    },
+    {
+      "weapon": "Crystal",
+      "layer": 2,
+      "base": "weapon/magic/crystal/universal/background/",
+      "walk": "spritesheets/weapon/magic/crystal/universal/background/walk/yellow.png",
+      "combat": "spritesheets/weapon/magic/crystal/universal/background/combat_idle/yellow.png"
+    },
+    {
+      "weapon": "S staff",
+      "layer": 1,
+      "base": "weapon/magic/s/universal/foreground/",
+      "walk": "spritesheets/weapon/magic/s/universal/foreground/walk/brass.png",
+      "combat": "spritesheets/weapon/magic/s/universal/foreground/combat_idle/brass.png"
+    },
+    {
+      "weapon": "S staff",
+      "layer": 1,
+      "base": "weapon/magic/s/universal/foreground/",
+      "walk": "spritesheets/weapon/magic/s/universal/foreground/walk/bronze.png",
+      "combat": "spritesheets/weapon/magic/s/universal/foreground/combat_idle/bronze.png"
+    },
+    {
+      "weapon": "S staff",
+      "layer": 1,
+      "base": "weapon/magic/s/universal/foreground/",
+      "walk": "spritesheets/weapon/magic/s/universal/foreground/walk/ceramic.png",
+      "combat": "spritesheets/weapon/magic/s/universal/foreground/combat_idle/ceramic.png"
+    },
+    {
+      "weapon": "S staff",
+      "layer": 1,
+      "base": "weapon/magic/s/universal/foreground/",
+      "walk": "spritesheets/weapon/magic/s/universal/foreground/walk/copper.png",
+      "combat": "spritesheets/weapon/magic/s/universal/foreground/combat_idle/copper.png"
+    },
+    {
+      "weapon": "S staff",
+      "layer": 1,
+      "base": "weapon/magic/s/universal/foreground/",
+      "walk": "spritesheets/weapon/magic/s/universal/foreground/walk/dark.png",
+      "combat": "spritesheets/weapon/magic/s/universal/foreground/combat_idle/dark.png"
+    },
+    {
+      "weapon": "S staff",
+      "layer": 1,
+      "base": "weapon/magic/s/universal/foreground/",
+      "walk": "spritesheets/weapon/magic/s/universal/foreground/walk/gold.png",
+      "combat": "spritesheets/weapon/magic/s/universal/foreground/combat_idle/gold.png"
+    },
+    {
+      "weapon": "S staff",
+      "layer": 1,
+      "base": "weapon/magic/s/universal/foreground/",
+      "walk": "spritesheets/weapon/magic/s/universal/foreground/walk/iron.png",
+      "combat": "spritesheets/weapon/magic/s/universal/foreground/combat_idle/iron.png"
+    },
+    {
+      "weapon": "S staff",
+      "layer": 1,
+      "base": "weapon/magic/s/universal/foreground/",
+      "walk": "spritesheets/weapon/magic/s/universal/foreground/walk/light.png",
+      "combat": "spritesheets/weapon/magic/s/universal/foreground/combat_idle/light.png"
+    },
+    {
+      "weapon": "S staff",
+      "layer": 1,
+      "base": "weapon/magic/s/universal/foreground/",
+      "walk": "spritesheets/weapon/magic/s/universal/foreground/walk/medium.png",
+      "combat": "spritesheets/weapon/magic/s/universal/foreground/combat_idle/medium.png"
+    },
+    {
+      "weapon": "S staff",
+      "layer": 1,
+      "base": "weapon/magic/s/universal/foreground/",
+      "walk": "spritesheets/weapon/magic/s/universal/foreground/walk/red.png",
+      "combat": "spritesheets/weapon/magic/s/universal/foreground/combat_idle/red.png"
+    },
+    {
+      "weapon": "S staff",
+      "layer": 1,
+      "base": "weapon/magic/s/universal/foreground/",
+      "walk": "spritesheets/weapon/magic/s/universal/foreground/walk/s.png",
+      "combat": "spritesheets/weapon/magic/s/universal/foreground/combat_idle/s.png"
+    },
+    {
+      "weapon": "S staff",
+      "layer": 1,
+      "base": "weapon/magic/s/universal/foreground/",
+      "walk": "spritesheets/weapon/magic/s/universal/foreground/walk/silver.png",
+      "combat": "spritesheets/weapon/magic/s/universal/foreground/combat_idle/silver.png"
+    },
+    {
+      "weapon": "S staff",
+      "layer": 1,
+      "base": "weapon/magic/s/universal/foreground/",
+      "walk": "spritesheets/weapon/magic/s/universal/foreground/walk/steel.png",
+      "combat": "spritesheets/weapon/magic/s/universal/foreground/combat_idle/steel.png"
+    },
+    {
+      "weapon": "S staff",
+      "layer": 2,
+      "base": "weapon/magic/s/universal/background/",
+      "walk": "spritesheets/weapon/magic/s/universal/background/walk/brass.png",
+      "combat": "spritesheets/weapon/magic/s/universal/background/combat_idle/brass.png"
+    },
+    {
+      "weapon": "S staff",
+      "layer": 2,
+      "base": "weapon/magic/s/universal/background/",
+      "walk": "spritesheets/weapon/magic/s/universal/background/walk/bronze.png",
+      "combat": "spritesheets/weapon/magic/s/universal/background/combat_idle/bronze.png"
+    },
+    {
+      "weapon": "S staff",
+      "layer": 2,
+      "base": "weapon/magic/s/universal/background/",
+      "walk": "spritesheets/weapon/magic/s/universal/background/walk/ceramic.png",
+      "combat": "spritesheets/weapon/magic/s/universal/background/combat_idle/ceramic.png"
+    },
+    {
+      "weapon": "S staff",
+      "layer": 2,
+      "base": "weapon/magic/s/universal/background/",
+      "walk": "spritesheets/weapon/magic/s/universal/background/walk/copper.png",
+      "combat": "spritesheets/weapon/magic/s/universal/background/combat_idle/copper.png"
+    },
+    {
+      "weapon": "S staff",
+      "layer": 2,
+      "base": "weapon/magic/s/universal/background/",
+      "walk": "spritesheets/weapon/magic/s/universal/background/walk/dark.png",
+      "combat": "spritesheets/weapon/magic/s/universal/background/combat_idle/dark.png"
+    },
+    {
+      "weapon": "S staff",
+      "layer": 2,
+      "base": "weapon/magic/s/universal/background/",
+      "walk": "spritesheets/weapon/magic/s/universal/background/walk/gold.png",
+      "combat": "spritesheets/weapon/magic/s/universal/background/combat_idle/gold.png"
+    },
+    {
+      "weapon": "S staff",
+      "layer": 2,
+      "base": "weapon/magic/s/universal/background/",
+      "walk": "spritesheets/weapon/magic/s/universal/background/walk/iron.png",
+      "combat": "spritesheets/weapon/magic/s/universal/background/combat_idle/iron.png"
+    },
+    {
+      "weapon": "S staff",
+      "layer": 2,
+      "base": "weapon/magic/s/universal/background/",
+      "walk": "spritesheets/weapon/magic/s/universal/background/walk/light.png",
+      "combat": "spritesheets/weapon/magic/s/universal/background/combat_idle/light.png"
+    },
+    {
+      "weapon": "S staff",
+      "layer": 2,
+      "base": "weapon/magic/s/universal/background/",
+      "walk": "spritesheets/weapon/magic/s/universal/background/walk/medium.png",
+      "combat": "spritesheets/weapon/magic/s/universal/background/combat_idle/medium.png"
+    },
+    {
+      "weapon": "S staff",
+      "layer": 2,
+      "base": "weapon/magic/s/universal/background/",
+      "walk": "spritesheets/weapon/magic/s/universal/background/walk/red.png",
+      "combat": "spritesheets/weapon/magic/s/universal/background/combat_idle/red.png"
+    },
+    {
+      "weapon": "S staff",
+      "layer": 2,
+      "base": "weapon/magic/s/universal/background/",
+      "walk": "spritesheets/weapon/magic/s/universal/background/walk/s.png",
+      "combat": "spritesheets/weapon/magic/s/universal/background/combat_idle/s.png"
+    },
+    {
+      "weapon": "S staff",
+      "layer": 2,
+      "base": "weapon/magic/s/universal/background/",
+      "walk": "spritesheets/weapon/magic/s/universal/background/walk/silver.png",
+      "combat": "spritesheets/weapon/magic/s/universal/background/combat_idle/silver.png"
+    },
+    {
+      "weapon": "S staff",
+      "layer": 2,
+      "base": "weapon/magic/s/universal/background/",
+      "walk": "spritesheets/weapon/magic/s/universal/background/walk/steel.png",
+      "combat": "spritesheets/weapon/magic/s/universal/background/combat_idle/steel.png"
+    },
+    {
+      "weapon": "Gnarled staff",
+      "layer": 1,
+      "base": "weapon/magic/gnarled/universal/foreground/",
+      "walk": "spritesheets/weapon/magic/gnarled/universal/foreground/walk/brass.png",
+      "combat": "spritesheets/weapon/magic/gnarled/universal/foreground/combat_idle/brass.png"
+    },
+    {
+      "weapon": "Gnarled staff",
+      "layer": 1,
+      "base": "weapon/magic/gnarled/universal/foreground/",
+      "walk": "spritesheets/weapon/magic/gnarled/universal/foreground/walk/bronze.png",
+      "combat": "spritesheets/weapon/magic/gnarled/universal/foreground/combat_idle/bronze.png"
+    },
+    {
+      "weapon": "Gnarled staff",
+      "layer": 1,
+      "base": "weapon/magic/gnarled/universal/foreground/",
+      "walk": "spritesheets/weapon/magic/gnarled/universal/foreground/walk/ceramic.png",
+      "combat": "spritesheets/weapon/magic/gnarled/universal/foreground/combat_idle/ceramic.png"
+    },
+    {
+      "weapon": "Gnarled staff",
+      "layer": 1,
+      "base": "weapon/magic/gnarled/universal/foreground/",
+      "walk": "spritesheets/weapon/magic/gnarled/universal/foreground/walk/copper.png",
+      "combat": "spritesheets/weapon/magic/gnarled/universal/foreground/combat_idle/copper.png"
+    },
+    {
+      "weapon": "Gnarled staff",
+      "layer": 1,
+      "base": "weapon/magic/gnarled/universal/foreground/",
+      "walk": "spritesheets/weapon/magic/gnarled/universal/foreground/walk/dark.png",
+      "combat": "spritesheets/weapon/magic/gnarled/universal/foreground/combat_idle/dark.png"
+    },
+    {
+      "weapon": "Gnarled staff",
+      "layer": 1,
+      "base": "weapon/magic/gnarled/universal/foreground/",
+      "walk": "spritesheets/weapon/magic/gnarled/universal/foreground/walk/gnarled.png",
+      "combat": "spritesheets/weapon/magic/gnarled/universal/foreground/combat_idle/gnarled.png"
+    },
+    {
+      "weapon": "Gnarled staff",
+      "layer": 1,
+      "base": "weapon/magic/gnarled/universal/foreground/",
+      "walk": "spritesheets/weapon/magic/gnarled/universal/foreground/walk/gold.png",
+      "combat": "spritesheets/weapon/magic/gnarled/universal/foreground/combat_idle/gold.png"
+    },
+    {
+      "weapon": "Gnarled staff",
+      "layer": 1,
+      "base": "weapon/magic/gnarled/universal/foreground/",
+      "walk": "spritesheets/weapon/magic/gnarled/universal/foreground/walk/iron.png",
+      "combat": "spritesheets/weapon/magic/gnarled/universal/foreground/combat_idle/iron.png"
+    },
+    {
+      "weapon": "Gnarled staff",
+      "layer": 1,
+      "base": "weapon/magic/gnarled/universal/foreground/",
+      "walk": "spritesheets/weapon/magic/gnarled/universal/foreground/walk/light.png",
+      "combat": "spritesheets/weapon/magic/gnarled/universal/foreground/combat_idle/light.png"
+    },
+    {
+      "weapon": "Gnarled staff",
+      "layer": 1,
+      "base": "weapon/magic/gnarled/universal/foreground/",
+      "walk": "spritesheets/weapon/magic/gnarled/universal/foreground/walk/medium.png",
+      "combat": "spritesheets/weapon/magic/gnarled/universal/foreground/combat_idle/medium.png"
+    },
+    {
+      "weapon": "Gnarled staff",
+      "layer": 1,
+      "base": "weapon/magic/gnarled/universal/foreground/",
+      "walk": "spritesheets/weapon/magic/gnarled/universal/foreground/walk/red.png",
+      "combat": "spritesheets/weapon/magic/gnarled/universal/foreground/combat_idle/red.png"
+    },
+    {
+      "weapon": "Gnarled staff",
+      "layer": 1,
+      "base": "weapon/magic/gnarled/universal/foreground/",
+      "walk": "spritesheets/weapon/magic/gnarled/universal/foreground/walk/silver.png",
+      "combat": "spritesheets/weapon/magic/gnarled/universal/foreground/combat_idle/silver.png"
+    },
+    {
+      "weapon": "Gnarled staff",
+      "layer": 1,
+      "base": "weapon/magic/gnarled/universal/foreground/",
+      "walk": "spritesheets/weapon/magic/gnarled/universal/foreground/walk/steel.png",
+      "combat": "spritesheets/weapon/magic/gnarled/universal/foreground/combat_idle/steel.png"
+    },
+    {
+      "weapon": "Gnarled staff",
+      "layer": 2,
+      "base": "weapon/magic/gnarled/universal/background/",
+      "walk": "spritesheets/weapon/magic/gnarled/universal/background/walk/brass.png",
+      "combat": "spritesheets/weapon/magic/gnarled/universal/background/combat_idle/brass.png"
+    },
+    {
+      "weapon": "Gnarled staff",
+      "layer": 2,
+      "base": "weapon/magic/gnarled/universal/background/",
+      "walk": "spritesheets/weapon/magic/gnarled/universal/background/walk/bronze.png",
+      "combat": "spritesheets/weapon/magic/gnarled/universal/background/combat_idle/bronze.png"
+    },
+    {
+      "weapon": "Gnarled staff",
+      "layer": 2,
+      "base": "weapon/magic/gnarled/universal/background/",
+      "walk": "spritesheets/weapon/magic/gnarled/universal/background/walk/ceramic.png",
+      "combat": "spritesheets/weapon/magic/gnarled/universal/background/combat_idle/ceramic.png"
+    },
+    {
+      "weapon": "Gnarled staff",
+      "layer": 2,
+      "base": "weapon/magic/gnarled/universal/background/",
+      "walk": "spritesheets/weapon/magic/gnarled/universal/background/walk/copper.png",
+      "combat": "spritesheets/weapon/magic/gnarled/universal/background/combat_idle/copper.png"
+    },
+    {
+      "weapon": "Gnarled staff",
+      "layer": 2,
+      "base": "weapon/magic/gnarled/universal/background/",
+      "walk": "spritesheets/weapon/magic/gnarled/universal/background/walk/dark.png",
+      "combat": "spritesheets/weapon/magic/gnarled/universal/background/combat_idle/dark.png"
+    },
+    {
+      "weapon": "Gnarled staff",
+      "layer": 2,
+      "base": "weapon/magic/gnarled/universal/background/",
+      "walk": "spritesheets/weapon/magic/gnarled/universal/background/walk/gnarled.png",
+      "combat": "spritesheets/weapon/magic/gnarled/universal/background/combat_idle/gnarled.png"
+    },
+    {
+      "weapon": "Gnarled staff",
+      "layer": 2,
+      "base": "weapon/magic/gnarled/universal/background/",
+      "walk": "spritesheets/weapon/magic/gnarled/universal/background/walk/gold.png",
+      "combat": "spritesheets/weapon/magic/gnarled/universal/background/combat_idle/gold.png"
+    },
+    {
+      "weapon": "Gnarled staff",
+      "layer": 2,
+      "base": "weapon/magic/gnarled/universal/background/",
+      "walk": "spritesheets/weapon/magic/gnarled/universal/background/walk/iron.png",
+      "combat": "spritesheets/weapon/magic/gnarled/universal/background/combat_idle/iron.png"
+    },
+    {
+      "weapon": "Gnarled staff",
+      "layer": 2,
+      "base": "weapon/magic/gnarled/universal/background/",
+      "walk": "spritesheets/weapon/magic/gnarled/universal/background/walk/light.png",
+      "combat": "spritesheets/weapon/magic/gnarled/universal/background/combat_idle/light.png"
+    },
+    {
+      "weapon": "Gnarled staff",
+      "layer": 2,
+      "base": "weapon/magic/gnarled/universal/background/",
+      "walk": "spritesheets/weapon/magic/gnarled/universal/background/walk/medium.png",
+      "combat": "spritesheets/weapon/magic/gnarled/universal/background/combat_idle/medium.png"
+    },
+    {
+      "weapon": "Gnarled staff",
+      "layer": 2,
+      "base": "weapon/magic/gnarled/universal/background/",
+      "walk": "spritesheets/weapon/magic/gnarled/universal/background/walk/red.png",
+      "combat": "spritesheets/weapon/magic/gnarled/universal/background/combat_idle/red.png"
+    },
+    {
+      "weapon": "Gnarled staff",
+      "layer": 2,
+      "base": "weapon/magic/gnarled/universal/background/",
+      "walk": "spritesheets/weapon/magic/gnarled/universal/background/walk/silver.png",
+      "combat": "spritesheets/weapon/magic/gnarled/universal/background/combat_idle/silver.png"
+    },
+    {
+      "weapon": "Gnarled staff",
+      "layer": 2,
+      "base": "weapon/magic/gnarled/universal/background/",
+      "walk": "spritesheets/weapon/magic/gnarled/universal/background/walk/steel.png",
+      "combat": "spritesheets/weapon/magic/gnarled/universal/background/combat_idle/steel.png"
+    },
+    {
+      "weapon": "Loop staff",
+      "layer": 1,
+      "base": "weapon/magic/loop/universal/foreground/",
+      "walk": "spritesheets/weapon/magic/loop/universal/foreground/walk/brass.png",
+      "combat": "spritesheets/weapon/magic/loop/universal/foreground/combat_idle/brass.png"
+    },
+    {
+      "weapon": "Loop staff",
+      "layer": 1,
+      "base": "weapon/magic/loop/universal/foreground/",
+      "walk": "spritesheets/weapon/magic/loop/universal/foreground/walk/bronze.png",
+      "combat": "spritesheets/weapon/magic/loop/universal/foreground/combat_idle/bronze.png"
+    },
+    {
+      "weapon": "Loop staff",
+      "layer": 1,
+      "base": "weapon/magic/loop/universal/foreground/",
+      "walk": "spritesheets/weapon/magic/loop/universal/foreground/walk/ceramic.png",
+      "combat": "spritesheets/weapon/magic/loop/universal/foreground/combat_idle/ceramic.png"
+    },
+    {
+      "weapon": "Loop staff",
+      "layer": 1,
+      "base": "weapon/magic/loop/universal/foreground/",
+      "walk": "spritesheets/weapon/magic/loop/universal/foreground/walk/copper.png",
+      "combat": "spritesheets/weapon/magic/loop/universal/foreground/combat_idle/copper.png"
+    },
+    {
+      "weapon": "Loop staff",
+      "layer": 1,
+      "base": "weapon/magic/loop/universal/foreground/",
+      "walk": "spritesheets/weapon/magic/loop/universal/foreground/walk/dark.png",
+      "combat": "spritesheets/weapon/magic/loop/universal/foreground/combat_idle/dark.png"
+    },
+    {
+      "weapon": "Loop staff",
+      "layer": 1,
+      "base": "weapon/magic/loop/universal/foreground/",
+      "walk": "spritesheets/weapon/magic/loop/universal/foreground/walk/gold.png",
+      "combat": "spritesheets/weapon/magic/loop/universal/foreground/combat_idle/gold.png"
+    },
+    {
+      "weapon": "Loop staff",
+      "layer": 1,
+      "base": "weapon/magic/loop/universal/foreground/",
+      "walk": "spritesheets/weapon/magic/loop/universal/foreground/walk/iron.png",
+      "combat": "spritesheets/weapon/magic/loop/universal/foreground/combat_idle/iron.png"
+    },
+    {
+      "weapon": "Loop staff",
+      "layer": 1,
+      "base": "weapon/magic/loop/universal/foreground/",
+      "walk": "spritesheets/weapon/magic/loop/universal/foreground/walk/light.png",
+      "combat": "spritesheets/weapon/magic/loop/universal/foreground/combat_idle/light.png"
+    },
+    {
+      "weapon": "Loop staff",
+      "layer": 1,
+      "base": "weapon/magic/loop/universal/foreground/",
+      "walk": "spritesheets/weapon/magic/loop/universal/foreground/walk/loop.png",
+      "combat": "spritesheets/weapon/magic/loop/universal/foreground/combat_idle/loop.png"
+    },
+    {
+      "weapon": "Loop staff",
+      "layer": 1,
+      "base": "weapon/magic/loop/universal/foreground/",
+      "walk": "spritesheets/weapon/magic/loop/universal/foreground/walk/medium.png",
+      "combat": "spritesheets/weapon/magic/loop/universal/foreground/combat_idle/medium.png"
+    },
+    {
+      "weapon": "Loop staff",
+      "layer": 1,
+      "base": "weapon/magic/loop/universal/foreground/",
+      "walk": "spritesheets/weapon/magic/loop/universal/foreground/walk/red.png",
+      "combat": "spritesheets/weapon/magic/loop/universal/foreground/combat_idle/red.png"
+    },
+    {
+      "weapon": "Loop staff",
+      "layer": 1,
+      "base": "weapon/magic/loop/universal/foreground/",
+      "walk": "spritesheets/weapon/magic/loop/universal/foreground/walk/silver.png",
+      "combat": "spritesheets/weapon/magic/loop/universal/foreground/combat_idle/silver.png"
+    },
+    {
+      "weapon": "Loop staff",
+      "layer": 1,
+      "base": "weapon/magic/loop/universal/foreground/",
+      "walk": "spritesheets/weapon/magic/loop/universal/foreground/walk/steel.png",
+      "combat": "spritesheets/weapon/magic/loop/universal/foreground/combat_idle/steel.png"
+    },
+    {
+      "weapon": "Loop staff",
+      "layer": 2,
+      "base": "weapon/magic/loop/universal/background/",
+      "walk": "spritesheets/weapon/magic/loop/universal/background/walk/brass.png",
+      "combat": "spritesheets/weapon/magic/loop/universal/background/combat_idle/brass.png"
+    },
+    {
+      "weapon": "Loop staff",
+      "layer": 2,
+      "base": "weapon/magic/loop/universal/background/",
+      "walk": "spritesheets/weapon/magic/loop/universal/background/walk/bronze.png",
+      "combat": "spritesheets/weapon/magic/loop/universal/background/combat_idle/bronze.png"
+    },
+    {
+      "weapon": "Loop staff",
+      "layer": 2,
+      "base": "weapon/magic/loop/universal/background/",
+      "walk": "spritesheets/weapon/magic/loop/universal/background/walk/ceramic.png",
+      "combat": "spritesheets/weapon/magic/loop/universal/background/combat_idle/ceramic.png"
+    },
+    {
+      "weapon": "Loop staff",
+      "layer": 2,
+      "base": "weapon/magic/loop/universal/background/",
+      "walk": "spritesheets/weapon/magic/loop/universal/background/walk/copper.png",
+      "combat": "spritesheets/weapon/magic/loop/universal/background/combat_idle/copper.png"
+    },
+    {
+      "weapon": "Loop staff",
+      "layer": 2,
+      "base": "weapon/magic/loop/universal/background/",
+      "walk": "spritesheets/weapon/magic/loop/universal/background/walk/dark.png",
+      "combat": "spritesheets/weapon/magic/loop/universal/background/combat_idle/dark.png"
+    },
+    {
+      "weapon": "Loop staff",
+      "layer": 2,
+      "base": "weapon/magic/loop/universal/background/",
+      "walk": "spritesheets/weapon/magic/loop/universal/background/walk/gold.png",
+      "combat": "spritesheets/weapon/magic/loop/universal/background/combat_idle/gold.png"
+    },
+    {
+      "weapon": "Loop staff",
+      "layer": 2,
+      "base": "weapon/magic/loop/universal/background/",
+      "walk": "spritesheets/weapon/magic/loop/universal/background/walk/iron.png",
+      "combat": "spritesheets/weapon/magic/loop/universal/background/combat_idle/iron.png"
+    },
+    {
+      "weapon": "Loop staff",
+      "layer": 2,
+      "base": "weapon/magic/loop/universal/background/",
+      "walk": "spritesheets/weapon/magic/loop/universal/background/walk/light.png",
+      "combat": "spritesheets/weapon/magic/loop/universal/background/combat_idle/light.png"
+    },
+    {
+      "weapon": "Loop staff",
+      "layer": 2,
+      "base": "weapon/magic/loop/universal/background/",
+      "walk": "spritesheets/weapon/magic/loop/universal/background/walk/loop.png",
+      "combat": "spritesheets/weapon/magic/loop/universal/background/combat_idle/loop.png"
+    },
+    {
+      "weapon": "Loop staff",
+      "layer": 2,
+      "base": "weapon/magic/loop/universal/background/",
+      "walk": "spritesheets/weapon/magic/loop/universal/background/walk/medium.png",
+      "combat": "spritesheets/weapon/magic/loop/universal/background/combat_idle/medium.png"
+    },
+    {
+      "weapon": "Loop staff",
+      "layer": 2,
+      "base": "weapon/magic/loop/universal/background/",
+      "walk": "spritesheets/weapon/magic/loop/universal/background/walk/red.png",
+      "combat": "spritesheets/weapon/magic/loop/universal/background/combat_idle/red.png"
+    },
+    {
+      "weapon": "Loop staff",
+      "layer": 2,
+      "base": "weapon/magic/loop/universal/background/",
+      "walk": "spritesheets/weapon/magic/loop/universal/background/walk/silver.png",
+      "combat": "spritesheets/weapon/magic/loop/universal/background/combat_idle/silver.png"
+    },
+    {
+      "weapon": "Loop staff",
+      "layer": 2,
+      "base": "weapon/magic/loop/universal/background/",
+      "walk": "spritesheets/weapon/magic/loop/universal/background/walk/steel.png",
+      "combat": "spritesheets/weapon/magic/loop/universal/background/combat_idle/steel.png"
+    },
+    {
+      "weapon": "Waraxe",
+      "layer": 1,
+      "base": "weapon/blunt/waraxe/behind/",
+      "walk": "spritesheets/weapon/blunt/waraxe/behind/walk/waraxe.png",
+      "combat": "spritesheets/weapon/blunt/waraxe/behind/combat_idle/waraxe.png"
+    },
+    {
+      "weapon": "Waraxe",
+      "layer": 2,
+      "base": "weapon/blunt/waraxe/",
+      "walk": "spritesheets/weapon/blunt/waraxe/walk/waraxe.png",
+      "combat": "spritesheets/weapon/blunt/waraxe/combat_idle/waraxe.png"
+    },
+    {
+      "weapon": "Mace",
+      "layer": 1,
+      "base": "weapon/blunt/mace/",
+      "walk": "spritesheets/weapon/blunt/mace/walk/mace.png",
+      "combat": "spritesheets/weapon/blunt/mace/combat_idle/mace.png"
+    },
+    {
+      "weapon": "Mace",
+      "layer": 2,
+      "base": "weapon/blunt/mace/universal_behind/",
+      "walk": "spritesheets/weapon/blunt/mace/universal_behind/walk/mace.png",
+      "combat": "spritesheets/weapon/blunt/mace/universal_behind/combat_idle/mace.png"
+    },
+    {
+      "weapon": "Flail",
+      "layer": 1,
+      "base": "weapon/blunt/flail/behind/",
+      "walk": "spritesheets/weapon/blunt/flail/behind/walk/flail.png",
+      "combat": "spritesheets/weapon/blunt/flail/behind/combat_idle/flail.png"
+    },
+    {
+      "weapon": "Flail",
+      "layer": 2,
+      "base": "weapon/blunt/flail/",
+      "walk": "spritesheets/weapon/blunt/flail/walk/flail.png",
+      "combat": "spritesheets/weapon/blunt/flail/combat_idle/flail.png"
+    },
+    {
+      "weapon": "Scythe",
+      "layer": 1,
+      "base": "weapon/polearm/scythe/",
+      "walk": "spritesheets/weapon/polearm/scythe/walk/scythe.png",
+      "combat": "spritesheets/weapon/polearm/scythe/combat_idle/scythe.png"
+    },
+    {
+      "weapon": "Scythe",
+      "layer": 2,
+      "base": "weapon/polearm/scythe/universal_behind/",
+      "walk": "spritesheets/weapon/polearm/scythe/universal_behind/walk/scythe.png",
+      "combat": "spritesheets/weapon/polearm/scythe/universal_behind/combat_idle/scythe.png"
+    },
+    {
+      "weapon": "Halberd",
+      "layer": 1,
+      "base": "weapon/polearm/halberd/behind/",
+      "walk": "spritesheets/weapon/polearm/halberd/behind/walk/halberd.png",
+      "combat": "spritesheets/weapon/polearm/halberd/behind/combat_idle/halberd.png"
+    },
+    {
+      "weapon": "Halberd",
+      "layer": 2,
+      "base": "weapon/polearm/halberd/",
+      "walk": "spritesheets/weapon/polearm/halberd/walk/halberd.png",
+      "combat": "spritesheets/weapon/polearm/halberd/combat_idle/halberd.png"
+    }
+  ],
+  "skipped": [
+    {
+      "weapon": "Recurve",
+      "base": "weapon/ranged/bow/recurve/universal/background/",
+      "reason": "no walk/ dir"
+    },
+    {
+      "weapon": "Recurve",
+      "base": "weapon/ranged/bow/recurve/universal/foreground/",
+      "reason": "no walk/ dir"
+    },
+    {
+      "weapon": "Great",
+      "base": "weapon/ranged/bow/great/universal/background/",
+      "reason": "no walk/ dir"
+    },
+    {
+      "weapon": "Great",
+      "base": "weapon/ranged/bow/great/universal/foreground/",
+      "reason": "no walk/ dir"
+    },
+    {
+      "weapon": "Normal",
+      "base": "weapon/ranged/bow/normal/universal/background/",
+      "reason": "no walk/ dir"
+    },
+    {
+      "weapon": "Normal",
+      "base": "weapon/ranged/bow/normal/universal/foreground/",
+      "reason": "no walk/ dir"
+    }
+  ],
+  "updated_jsons": [
+    "sheet_definitions/weapons/sword/weapon_sword_longsword.json",
+    "sheet_definitions/weapons/sword/weapon_sword_glowsword.json",
+    "sheet_definitions/weapons/sword/weapon_sword_rapier.json",
+    "sheet_definitions/weapons/sword/weapon_sword_saber.json",
+    "sheet_definitions/weapons/magic/weapon_magic_diamond.json",
+    "sheet_definitions/weapons/magic/weapon_magic_crystal.json",
+    "sheet_definitions/weapons/magic/weapon_magic_s.json",
+    "sheet_definitions/weapons/magic/weapon_magic_gnarled.json",
+    "sheet_definitions/weapons/magic/weapon_magic_loop.json",
+    "sheet_definitions/weapons/blunt/weapon_blunt_waraxe.json",
+    "sheet_definitions/weapons/blunt/weapon_blunt_mace.json",
+    "sheet_definitions/weapons/blunt/weapon_blunt_flail.json",
+    "sheet_definitions/weapons/polearm/weapon_polearm_scythe.json",
+    "sheet_definitions/weapons/polearm/weapon_polearm_halberd.json"
+  ]
+}

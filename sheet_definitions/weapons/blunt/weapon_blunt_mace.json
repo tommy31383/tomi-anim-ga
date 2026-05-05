@@ -36,14 +36,15 @@
   "animations": [
     "walk",
     "hurt",
-    "slash_oversize"
+    "slash_oversize",
+    "combat"
   ],
   "credits": [
     {
       "file": "weapon/blunt/mace",
       "notes": "",
       "authors": [
-        "Johannes Sjölund (wulax)",
+        "Johannes Sj\u00f6lund (wulax)",
         "bluecarrot16"
       ],
       "licenses": [

@@ -36,7 +36,8 @@
   "animations": [
     "walk",
     "hurt",
-    "slash_oversize"
+    "slash_oversize",
+    "combat"
   ],
   "credits": [
     {
@@ -44,7 +45,7 @@
       "notes": "",
       "authors": [
         "Daniel Eddeland (daneeklu)",
-        "Johannes Sjölund (wulax)",
+        "Johannes Sj\u00f6lund (wulax)",
         "gr3yh47",
         "bluecarrot16"
       ],

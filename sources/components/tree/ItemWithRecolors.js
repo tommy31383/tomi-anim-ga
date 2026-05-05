@@ -7,6 +7,29 @@ import { drawRecolorPreview } from "../../canvas/palette-recolor.js";
 import { getPaletteOptions } from "../../state/palettes.js";
 import { PaletteSelectModal } from "./PaletteSelectModal.js";
 import { COMPACT_FRAME_SIZE, FRAME_SIZE } from "../../state/constants.ts";
+import { getWeaponClass } from "../../state/weapon-classes-data.js";
+
+const CLASS_BADGE_STYLE = {
+  "1H": "background:rgba(34,197,94,0.18);color:#86efac;",
+  "2H": "background:rgba(168,85,247,0.18);color:#d8b4fe;",
+  Ranged: "background:rgba(251,146,60,0.18);color:#fdba74;",
+  Shield: "background:rgba(56,189,248,0.18);color:#7dd3fc;",
+  Tool: "background:rgba(148,163,184,0.18);color:#cbd5e1;",
+};
+
+function classBadge(itemId) {
+  const cls = getWeaponClass(itemId);
+  if (!cls || cls === "Unknown") return null;
+  return m(
+    "span",
+    {
+      class: "ml-1 px-1 rounded text-[9px] font-mono font-bold align-middle",
+      style: CLASS_BADGE_STYLE[cls] ?? "",
+      title: `Loại: ${cls}`,
+    },
+    cls,
+  );
+}
 
 export const ItemWithRecolors = {
   view: function (vnode) {
@@ -93,6 +116,7 @@ export const ItemWithRecolors = {
               class: isExpanded ? "expanded" : "collapsed",
             }),
             m("span", displayName),
+            classBadge(itemId),
             !isCompatible ? m("span.ml-1", "⚠️") : null,
           ],
         ),

@@ -55,7 +55,8 @@
     "walk",
     "hurt",
     "thrust_oversize",
-    "slash_oversize"
+    "slash_oversize",
+    "combat"
   ],
   "credits": [
     {

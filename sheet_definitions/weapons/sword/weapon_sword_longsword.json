@@ -70,14 +70,15 @@
     "hurt",
     "slash_oversize",
     "slash_reverse_oversize",
-    "thrust_oversize"
+    "thrust_oversize",
+    "combat"
   ],
   "credits": [
     {
       "file": "weapon/sword/longsword",
       "notes": "",
       "authors": [
-        "Johannes Sjölund (wulax)",
+        "Johannes Sj\u00f6lund (wulax)",
         "bluecarrot16"
       ],
       "licenses": [
