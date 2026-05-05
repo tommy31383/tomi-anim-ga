@@ -6,16 +6,30 @@ import { showToast } from "../../state/toast.js";
 import { isOffscreenCanvasInitialized } from "../../canvas/renderer.js";
 import { APP_VERSION } from "../../version.js";
 
-const iconBtn = (icon, attrs = {}) =>
-  m(
+// Icon button with a small visible label below the icon. The `title` attr
+// stays as native tooltip for full description; `label` is the short visible
+// caption (max 1-2 words) that shows always.
+const iconBtn = (icon, attrs = {}) => {
+  const { label, ...rest } = attrs;
+  return m(
     "button",
     {
       class:
-        "p-2 text-slate-400 hover:bg-slate-800 hover:text-white transition-colors active:scale-95 duration-200 rounded-lg",
-      ...attrs,
+        "px-1.5 py-1 text-slate-400 hover:bg-slate-800 hover:text-white transition-colors active:scale-95 duration-200 rounded-lg flex flex-col items-center gap-0.5 min-w-[44px] disabled:opacity-40",
+      ...rest,
     },
-    m("span.material-symbols-outlined", icon),
+    [
+      m(
+        "span.material-symbols-outlined",
+        { style: { fontSize: "18px" } },
+        icon,
+      ),
+      label
+        ? m("span", { class: "text-[9px] leading-none font-medium" }, label)
+        : null,
+    ],
   );
+};
 
 export const TopBar = {
   view: function (vnode) {
@@ -115,34 +129,40 @@ export const TopBar = {
           ),
           m("div.flex.items-center.gap-1.bg-slate-800.p-1.rounded-lg.mr-4", [
             iconBtn("undo", {
+              label: "Undo",
               title: "Hoàn tác (chưa hỗ trợ)",
               disabled: true,
             }),
             iconBtn("redo", {
+              label: "Redo",
               title: "Làm lại (chưa hỗ trợ)",
               disabled: true,
             }),
             iconBtn("casino", {
-              title: "Random nhân vật",
+              label: "Random",
+              title: "Random nhân vật ngẫu nhiên",
               onclick: () => {
                 randomizeCharacter();
               },
             }),
             iconBtn("restart_alt", {
-              title: "Đặt lại tất cả",
+              label: "Reset",
+              title: "Đặt lại tất cả lựa chọn về default",
               onclick: () => {
                 if (confirm("Đặt lại tất cả lựa chọn?")) resetAll();
               },
             }),
             iconBtn("accessibility", {
-              title: "Đổi body về Body Color (đầy đủ anim)",
+              label: "Body chuẩn",
+              title: "Đổi body về Body Color (full anim) — giữ nguyên outfit",
               onclick: async () => {
                 await resetBodyToFull();
                 showToast("✅ Body chuẩn (đầy đủ anim)", { kind: "success" });
               },
             }),
             iconBtn("share", {
-              title: "Sao chép link chia sẻ",
+              label: "Share",
+              title: "Sao chép link chia sẻ char hiện tại",
               onclick: async () => {
                 try {
                   await navigator.clipboard.writeText(window.location.href);
