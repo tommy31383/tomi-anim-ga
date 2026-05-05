@@ -1,6 +1,6 @@
 # Weapons / Shields / Tools Classification
 
-Generated 2026-05-05T09:08:29.940Z. Scanned 101 sheet definitions.
+Generated 2026-05-05T09:23:03.691Z. Scanned 101 sheet definitions.
 
 ## Summary
 - **1H**: 6
@@ -25,33 +25,33 @@ Generated 2026-05-05T09:08:29.940Z. Scanned 101 sheet definitions.
 
 | itemId | name | type | animations |
 |---|---|---|---|
-| `weapons_sword_weapon_sword_arming` | Arming Sword | weapon | walk, hurt, idle, combat, slash_128, backslash_128, halfslash_128 |
+| `weapons_sword_weapon_sword_arming` | Arming Sword | weapon | walk, hurt, idle, combat, slash_128, backslash_128, halfslash_128, climb, emote, sit, run, jump, spellcast |
 | `weapons_ranged_weapon_ranged_boomerang` | Boomerang | weapon | slash_reverse_oversize |
 | `weapons_blunt_weapon_blunt_club` | Club | weapon | slash_reverse_oversize |
-| `weapons_magic_weapon_magic_crystal` | Crystal | weapon_magic_crystal | walk, hurt, thrust_oversize, combat |
-| `weapons_magic_weapon_magic_diamond` | Diamond staff | weapon | walk, hurt, thrust_oversize, combat |
+| `weapons_magic_weapon_magic_crystal` | Crystal | weapon_magic_crystal | walk, hurt, thrust_oversize, combat, climb, emote, sit, idle, run, jump, spellcast |
+| `weapons_magic_weapon_magic_diamond` | Diamond staff | weapon | walk, hurt, thrust_oversize, combat, climb, emote, sit, idle, run, jump, spellcast |
 | `weapons_polearm_weapon_polearm_dragonspear` | Dragon spear | weapon | walk_128, thrust_oversize |
-| `weapons_blunt_weapon_blunt_flail` | Flail | weapon | walk, hurt, slash_oversize, combat |
-| `weapons_sword_weapon_sword_glowsword` | Glowsword | weapon | walk, hurt, slash_oversize, combat |
-| `weapons_magic_weapon_magic_gnarled` | Gnarled staff | weapon | walk, hurt, thrust_oversize, combat |
+| `weapons_blunt_weapon_blunt_flail` | Flail | weapon | walk, hurt, slash_oversize, combat, climb, emote, sit, idle, run, jump, spellcast |
+| `weapons_sword_weapon_sword_glowsword` | Glowsword | weapon | walk, hurt, slash_oversize, combat, climb, emote, sit, idle, run, jump, spellcast |
+| `weapons_magic_weapon_magic_gnarled` | Gnarled staff | weapon | walk, hurt, thrust_oversize, combat, climb, emote, sit, idle, run, jump, spellcast |
 | `weapons_ranged_bow_weapon_ranged_bow_great` | Great | weapon | walk, shoot, hurt, walk_128 |
-| `weapons_polearm_weapon_polearm_halberd` | Halberd | weapon | walk, hurt, thrust_oversize, slash_oversize, combat |
+| `weapons_polearm_weapon_polearm_halberd` | Halberd | weapon | walk, hurt, thrust_oversize, slash_oversize, combat, climb, emote, sit, idle, run, jump, spellcast |
 | `weapons_sword_weapon_sword_katana` | Katana | weapon | walk, hurt, walk_128, slash_128 |
 | `weapons_polearm_weapon_polearm_longspear` | Long spear | weapon | walk_128, thrust_oversize |
-| `weapons_sword_weapon_sword_longsword` | Longsword | weapon | walk, hurt, slash_oversize, slash_reverse_oversize, thrust_oversize, combat |
+| `weapons_sword_weapon_sword_longsword` | Longsword | weapon | walk, hurt, slash_oversize, slash_reverse_oversize, thrust_oversize, combat, climb, emote, sit, idle, run, jump, spellcast |
 | `weapons_sword_weapon_sword_longsword_alt` | Longsword alt | weapon | walk_128, slash_128 |
-| `weapons_magic_weapon_magic_loop` | Loop staff | weapon | walk, hurt, thrust_oversize, combat |
-| `weapons_blunt_weapon_blunt_mace` | Mace | weapon | walk, hurt, slash_oversize, combat |
+| `weapons_magic_weapon_magic_loop` | Loop staff | weapon | walk, hurt, thrust_oversize, combat, climb, emote, sit, idle, run, jump, spellcast |
+| `weapons_blunt_weapon_blunt_mace` | Mace | weapon | walk, hurt, slash_oversize, combat, climb, emote, sit, idle, run, jump, spellcast |
 | `weapons_ranged_bow_weapon_ranged_bow_normal` | Normal | weapon | walk, shoot, hurt, walk_128 |
-| `weapons_sword_weapon_sword_rapier` | Rapier | weapon | walk, hurt, slash_oversize, combat |
+| `weapons_sword_weapon_sword_rapier` | Rapier | weapon | walk, hurt, slash_oversize, combat, climb, emote, sit, idle, run, jump, spellcast |
 | `weapons_ranged_bow_weapon_ranged_bow_recurve` | Recurve | weapon | walk, shoot, hurt, walk_128 |
-| `weapons_magic_weapon_magic_s` | S staff | weapon | walk, hurt, thrust_oversize, combat |
-| `weapons_sword_weapon_sword_saber` | Saber | weapon | walk, hurt, slash_oversize, combat |
+| `weapons_magic_weapon_magic_s` | S staff | weapon | walk, hurt, thrust_oversize, combat, climb, emote, sit, idle, run, jump, spellcast |
+| `weapons_sword_weapon_sword_saber` | Saber | weapon | walk, hurt, slash_oversize, combat, climb, emote, sit, idle, run, jump, spellcast |
 | `weapons_sword_weapon_sword_scimitar` | Scimitar | weapon | walk, walk_128, slash_128 |
-| `weapons_polearm_weapon_polearm_scythe` | Scythe | weapon | walk, hurt, slash_oversize, combat |
+| `weapons_polearm_weapon_polearm_scythe` | Scythe | weapon | walk, hurt, slash_oversize, combat, climb, emote, sit, idle, run, jump, spellcast |
 | `tools_tool_smash` | Smash | weapon | walk, slash_128 |
 | `weapons_polearm_weapon_polearm_trident` | Trident | weapon | walk_128, thrust_oversize |
-| `weapons_blunt_weapon_blunt_waraxe` | Waraxe | weapon | walk, hurt, slash_oversize, combat |
+| `weapons_blunt_weapon_blunt_waraxe` | Waraxe | weapon | walk, hurt, slash_oversize, combat, climb, emote, sit, idle, run, jump, spellcast |
 
 ## Ranged (1)
 

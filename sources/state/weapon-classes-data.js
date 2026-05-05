@@ -106,7 +106,7 @@ export const WEAPON_CLASS_BY_ID = {
   "weapons_sword_weapon_sword_scimitar": "2H"
 };
 
-export const WEAPON_CLASSES_GENERATED_AT = "2026-05-05T09:08:29.953Z";
+export const WEAPON_CLASSES_GENERATED_AT = "2026-05-05T09:23:03.701Z";
 
 /** Quick helper: 1H/2H/Ranged/Shield/Tool/Unknown or null if unknown itemId. */
 export function getWeaponClass(itemId) {

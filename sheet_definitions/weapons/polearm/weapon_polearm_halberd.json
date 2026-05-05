@@ -56,7 +56,14 @@
     "hurt",
     "thrust_oversize",
     "slash_oversize",
-    "combat"
+    "combat",
+    "climb",
+    "emote",
+    "sit",
+    "idle",
+    "run",
+    "jump",
+    "spellcast"
   ],
   "credits": [
     {

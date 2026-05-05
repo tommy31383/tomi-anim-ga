@@ -46,7 +46,14 @@
     "walk",
     "hurt",
     "thrust_oversize",
-    "combat"
+    "combat",
+    "climb",
+    "emote",
+    "sit",
+    "idle",
+    "run",
+    "jump",
+    "spellcast"
   ],
   "credits": [
     {

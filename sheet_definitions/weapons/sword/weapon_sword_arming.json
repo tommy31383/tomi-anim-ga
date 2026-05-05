@@ -87,7 +87,13 @@
     "combat",
     "slash_128",
     "backslash_128",
-    "halfslash_128"
+    "halfslash_128",
+    "climb",
+    "emote",
+    "sit",
+    "run",
+    "jump",
+    "spellcast"
   ],
   "credits": [
     {

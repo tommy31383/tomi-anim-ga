@@ -1,6 +1,45 @@
 import m from "mithril";
 import { state } from "../../state/state.js";
 import { ANIMATIONS, ANIMATION_DEFAULTS } from "../../state/constants.ts";
+
+// Anim → "1H" | "2H" | null. Used for visual badge on tabs.
+const ANIM_HAND_CLASS = {
+  // 1H — needs 1-handed weapon (often + shield)
+  combat: "1H",
+  "1h_slash": "1H",
+  "1h_backslash": "1H",
+  "1h_halfslash": "1H",
+  // 2H — oversize / 128px attack family
+  slash_oversize: "2H",
+  slash_reverse_oversize: "2H",
+  thrust_oversize: "2H",
+  whip_oversize: "2H",
+  slash_128: "2H",
+  backslash_128: "2H",
+  halfslash_128: "2H",
+  thrust_128: "2H",
+  walk_128: "2H",
+};
+
+function animHandClassBadge(animValue, isActive) {
+  const cls = ANIM_HAND_CLASS[animValue];
+  if (!cls) return null;
+  const colorClass =
+    cls === "1H"
+      ? isActive
+        ? "bg-emerald-700/40 text-emerald-100"
+        : "bg-emerald-500/20 text-emerald-300"
+      : isActive
+        ? "bg-violet-700/40 text-violet-100"
+        : "bg-violet-500/20 text-violet-300";
+  return m(
+    "span",
+    {
+      class: `ml-1 px-1 rounded text-[9px] font-mono font-bold ${colorClass}`,
+    },
+    cls,
+  );
+}
 import { layers as renderedLayers } from "../../canvas/renderer.js";
 import {
   setPreviewAnimation,
@@ -107,7 +146,10 @@ const PreviewCanvas = {
 // popover when the user clicks a locked pill.
 const ANIM_REQUIREMENTS = {
   idle: [
-    { key: "body-idle", label: "Body có frame Idle (vd. body biến thể có animation Đứng yên)" },
+    {
+      key: "body-idle",
+      label: "Body có frame Idle (vd. body biến thể có animation Đứng yên)",
+    },
   ],
   jump: [{ key: "body-jump", label: "Body có frame Jump" }],
   sit: [{ key: "body-sit", label: "Body có frame Sit" }],
@@ -132,18 +174,12 @@ const ANIM_REQUIREMENTS = {
   slash_128: [
     { key: "weapon-128", label: "Vũ khí oversize 128px (vd. Greatsword)" },
   ],
-  backslash_128: [
-    { key: "weapon-128", label: "Vũ khí oversize 128px" },
-  ],
-  halfslash_128: [
-    { key: "weapon-128", label: "Vũ khí oversize 128px" },
-  ],
+  backslash_128: [{ key: "weapon-128", label: "Vũ khí oversize 128px" }],
+  halfslash_128: [{ key: "weapon-128", label: "Vũ khí oversize 128px" }],
   thrust_128: [
     { key: "weapon-128", label: "Vũ khí oversize 128px (Spear / Polearm)" },
   ],
-  walk_128: [
-    { key: "weapon-128", label: "Vũ khí oversize 128px" },
-  ],
+  walk_128: [{ key: "weapon-128", label: "Vũ khí oversize 128px" }],
   slash_oversize: [
     { key: "weapon-192", label: "Vũ khí cực lớn 192px (vd. Buster Sword)" },
   ],
@@ -151,7 +187,10 @@ const ANIM_REQUIREMENTS = {
     { key: "weapon-192", label: "Vũ khí cực lớn 192px (Polearm khổng lồ)" },
   ],
   watering: [
-    { key: "tool-watering", label: "Tool tưới nước (Watering Can) trong Dụng cụ" },
+    {
+      key: "tool-watering",
+      label: "Tool tưới nước (Watering Can) trong Dụng cụ",
+    },
   ],
 };
 
@@ -191,7 +230,9 @@ export const CanvasArea = {
     };
     const labelize = (a) =>
       ANIM_LABEL_VI[a.value] ||
-      (a.label || a.value).replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
+      (a.label || a.value)
+        .replace(/_/g, " ")
+        .replace(/\b\w/g, (l) => l.toUpperCase());
     // Show every animation defined in constants + any custom one. Matches the
     // original dropdown. Unsupported ones are kept visible but rendered dim
     // with a tooltip so users see what they could enable.
@@ -233,9 +274,7 @@ export const CanvasArea = {
       if (a.supported === b.supported) return 0;
       return a.supported ? -1 : 1;
     });
-    if (
-      !allAnimations.find((a) => a.value === vnode.state.selectedAnimation)
-    ) {
+    if (!allAnimations.find((a) => a.value === vnode.state.selectedAnimation)) {
       vnode.state.selectedAnimation = "walk";
       state.selectedAnimation = "walk";
     }
@@ -313,13 +352,13 @@ export const CanvasArea = {
               },
               [
                 anim.label,
+                animHandClassBadge(anim.value, isActive),
                 !anim.supported &&
                   !isActive &&
                   m(
                     "span",
                     {
-                      class:
-                        "material-symbols-outlined opacity-70",
+                      class: "material-symbols-outlined opacity-70",
                       style: { fontSize: "12px" },
                       "aria-hidden": "true",
                     },
@@ -372,45 +411,35 @@ export const CanvasArea = {
               "mx-6 mt-3 p-4 bg-slate-900/80 border border-violet-500/40 rounded-xl text-sm text-slate-200 shadow-lg",
           },
           [
-            m(
-              "div",
-              { class: "flex items-center justify-between mb-2" },
-              [
+            m("div", { class: "flex items-center justify-between mb-2" }, [
+              m("div", { class: "flex items-center gap-2 font-semibold" }, [
                 m(
-                  "div",
-                  { class: "flex items-center gap-2 font-semibold" },
-                  [
-                    m(
-                      "span",
-                      {
-                        class:
-                          "material-symbols-outlined text-violet-400",
-                        style: { fontSize: "18px" },
-                      },
-                      "lock",
-                    ),
-                    `Cần thêm để dùng "${labelOf(hintAnim)}"`,
-                  ],
-                ),
-                m(
-                  "button",
+                  "span",
                   {
-                    class:
-                      "text-slate-400 hover:text-white p-1 rounded",
-                    onclick: () => (vnode.state.lockedHint = null),
-                    title: "Đóng",
+                    class: "material-symbols-outlined text-violet-400",
+                    style: { fontSize: "18px" },
                   },
-                  m(
-                    "span",
-                    {
-                      class: "material-symbols-outlined",
-                      style: { fontSize: "18px" },
-                    },
-                    "close",
-                  ),
+                  "lock",
                 ),
-              ],
-            ),
+                `Cần thêm để dùng "${labelOf(hintAnim)}"`,
+              ]),
+              m(
+                "button",
+                {
+                  class: "text-slate-400 hover:text-white p-1 rounded",
+                  onclick: () => (vnode.state.lockedHint = null),
+                  title: "Đóng",
+                },
+                m(
+                  "span",
+                  {
+                    class: "material-symbols-outlined",
+                    style: { fontSize: "18px" },
+                  },
+                  "close",
+                ),
+              ),
+            ]),
             m(
               "ul",
               { class: "space-y-1.5" },
@@ -419,8 +448,7 @@ export const CanvasArea = {
                   m(
                     "span",
                     {
-                      class:
-                        "material-symbols-outlined text-slate-600 mt-0.5",
+                      class: "material-symbols-outlined text-slate-600 mt-0.5",
                       style: { fontSize: "14px" },
                     },
                     "check_box_outline_blank",
@@ -432,8 +460,7 @@ export const CanvasArea = {
             m(
               "p",
               {
-                class:
-                  "text-[11px] text-slate-500 mt-3 leading-relaxed",
+                class: "text-[11px] text-slate-500 mt-3 leading-relaxed",
               },
               "Mở Thư viện tài nguyên bên trái → chọn category phù hợp (Vũ khí / Cơ thể / Dụng cụ) → click item, pill sẽ tự mở khóa.",
             ),
@@ -486,34 +513,30 @@ export const CanvasArea = {
             ),
         ],
       ),
-      m(
-        "div",
-        { class: "mt-3 flex items-center gap-3 w-full max-w-md" },
-        [
-          m(
-            "span",
-            { class: "material-symbols-outlined text-slate-500 text-lg" },
-            "zoom_out",
-          ),
-          m("input[type=range]", {
-            class: "flex-1 accent-cyan-400",
-            min: 0.5,
-            max: 4,
-            step: 0.1,
-            value: zoom,
-            oninput: (e) => {
-              const z = parseFloat(e.target.value);
-              state.previewCanvasZoomLevel = z;
-              if (isOffscreenCanvasInitialized()) setPreviewCanvasZoom(z);
-            },
-          }),
-          m(
-            "span",
-            { class: "material-symbols-outlined text-slate-500 text-lg" },
-            "zoom_in",
-          ),
-        ],
-      ),
+      m("div", { class: "mt-3 flex items-center gap-3 w-full max-w-md" }, [
+        m(
+          "span",
+          { class: "material-symbols-outlined text-slate-500 text-lg" },
+          "zoom_out",
+        ),
+        m("input[type=range]", {
+          class: "flex-1 accent-cyan-400",
+          min: 0.5,
+          max: 4,
+          step: 0.1,
+          value: zoom,
+          oninput: (e) => {
+            const z = parseFloat(e.target.value);
+            state.previewCanvasZoomLevel = z;
+            if (isOffscreenCanvasInitialized()) setPreviewCanvasZoom(z);
+          },
+        }),
+        m(
+          "span",
+          { class: "material-symbols-outlined text-slate-500 text-lg" },
+          "zoom_in",
+        ),
+      ]),
     ]);
 
     // Full sheet block
@@ -535,27 +558,43 @@ export const CanvasArea = {
               { class: "font-bold text-slate-700 text-sm" },
               "Sprite sheet đầy đủ",
             ),
-            m("label", { class: "flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer" }, [
-              m("input[type=checkbox]", {
-                checked: state.showTransparencyGrid,
-                onchange: (e) => {
-                  state.showTransparencyGrid = e.target.checked;
-                },
-              }),
-              "Lưới trong suốt",
-            ]),
-            m("label", { class: "flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer" }, [
-              m("input[type=checkbox]", {
-                checked: state.applyTransparencyMask,
-                onchange: (e) => {
-                  state.applyTransparencyMask = e.target.checked;
-                },
-              }),
-              "Mask hồng",
-            ]),
             m(
               "label",
-              { class: "flex items-center gap-2 ml-auto text-xs text-slate-600" },
+              {
+                class:
+                  "flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer",
+              },
+              [
+                m("input[type=checkbox]", {
+                  checked: state.showTransparencyGrid,
+                  onchange: (e) => {
+                    state.showTransparencyGrid = e.target.checked;
+                  },
+                }),
+                "Lưới trong suốt",
+              ],
+            ),
+            m(
+              "label",
+              {
+                class:
+                  "flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer",
+              },
+              [
+                m("input[type=checkbox]", {
+                  checked: state.applyTransparencyMask,
+                  onchange: (e) => {
+                    state.applyTransparencyMask = e.target.checked;
+                  },
+                }),
+                "Mask hồng",
+              ],
+            ),
+            m(
+              "label",
+              {
+                class: "flex items-center gap-2 ml-auto text-xs text-slate-600",
+              },
               [
                 "Zoom",
                 m("input[type=range]", {
@@ -566,7 +605,8 @@ export const CanvasArea = {
                   value: sheetZoom,
                   oninput: (e) => {
                     vnode.state.sheetZoom = parseFloat(e.target.value);
-                    state.fullSpritesheetCanvasZoomLevel = vnode.state.sheetZoom;
+                    state.fullSpritesheetCanvasZoomLevel =
+                      vnode.state.sheetZoom;
                   },
                 }),
                 m(
@@ -581,8 +621,7 @@ export const CanvasArea = {
         m(
           "div",
           {
-            class:
-              "p-4 overflow-auto scrollbar-thin",
+            class: "p-4 overflow-auto scrollbar-thin",
             style: { maxHeight: "60vh" },
           },
           m(FullSheetCanvas, { zoomLevel: sheetZoom }),
@@ -593,8 +632,7 @@ export const CanvasArea = {
     return m(
       "section",
       {
-        class:
-          "flex-1 bg-slate-100 relative flex flex-col overflow-hidden",
+        class: "flex-1 bg-slate-100 relative flex flex-col overflow-hidden",
       },
       [
         m(
