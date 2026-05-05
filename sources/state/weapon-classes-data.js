@@ -3,6 +3,37 @@
 // Classes: "1H" | "2H" | "Ranged" | "Shield" | "Tool" | "Unknown"
 
 export const WEAPON_CLASS_BY_ID = {
+  "body_body": "BodyFull",
+  "body_lizard_tail_lizard": "Ranged",
+  "body_lizard_wings_lizard": "Ranged",
+  "body_lizard_wings_lizard_bat": "Ranged",
+  "body_prostheses_prosthesis_hook": "Unknown",
+  "body_prostheses_prosthesis_peg_leg": "Unknown",
+  "body_shadow": "Unknown",
+  "body_special_body_skeleton": "BodyFull",
+  "body_special_body_zombie": "BodyFull",
+  "body_tails_tail_cat": "Ranged",
+  "body_tails_tail_lizard_alt": "Ranged",
+  "body_tails_tail_wolf": "Ranged",
+  "body_tails_tail_wolf_fluffy": "Ranged",
+  "body_wheelchair": "Unknown",
+  "body_wings_dragonfly_wings_dragonfly": "Unknown",
+  "body_wings_dragonfly_wings_dragonfly_transparent": "Unknown",
+  "body_wings_monarch_wings_monarch": "Unknown",
+  "body_wings_monarch_wings_monarch_dots": "Unknown",
+  "body_wings_monarch_wings_monarch_edge": "Unknown",
+  "body_wings_pixie_wings_pixie": "Unknown",
+  "body_wings_pixie_wings_pixie_transparent": "Unknown",
+  "body_wings_wings_bat": "Ranged",
+  "body_wings_wings_feathered": "Ranged",
+  "body_wings_wings_lizard_alt": "Ranged",
+  "body_wings_wings_lunar": "Unknown",
+  "body_wounds_wound_arm": "Unknown",
+  "body_wounds_wound_brain": "Ranged",
+  "body_wounds_wound_eye_left": "Ranged",
+  "body_wounds_wound_eye_right": "Ranged",
+  "body_wounds_wound_mouth": "Ranged",
+  "body_wounds_wound_ribs": "Unknown",
   "tools_tool_rod": "Unknown",
   "tools_tool_smash": "2H",
   "tools_tool_thrust": "Unknown",
@@ -106,7 +137,7 @@ export const WEAPON_CLASS_BY_ID = {
   "weapons_sword_weapon_sword_scimitar": "2H"
 };
 
-export const WEAPON_CLASSES_GENERATED_AT = "2026-05-05T09:23:03.701Z";
+export const WEAPON_CLASSES_GENERATED_AT = "2026-05-05T09:35:10.901Z";
 
 /** Quick helper: 1H/2H/Ranged/Shield/Tool/Unknown or null if unknown itemId. */
 export function getWeaponClass(itemId) {

@@ -63,6 +63,12 @@ function classify(def) {
   const anims = def.animations ?? [];
   const tn = (def.type_name ?? "").toLowerCase();
 
+  if (tn === "body") {
+    // Body variants: classify by anim coverage breadth.
+    const has1H = intersect(ANIM_1H, anims);
+    return anims.length >= 12 ? "BodyFull" : has1H ? "BodyMid" : "BodyLimited";
+  }
+
   if (tn.includes("shield") || tn.includes("ammo") || tn.includes("quiver")) {
     return "Shield";
   }
@@ -81,12 +87,12 @@ function classify(def) {
 
 async function main() {
   const all = await walkJsonFiles(SHEET_DEF_DIR);
-  // Focus on weapons/shields/tools subtrees only — other types use this for badges too
-  // but we only auto-classify holdable items.
+  // Classify weapons / shields / tools / bodies so the UI can badge each.
   const targets = all.filter(
     (p) =>
       p.includes(`${path.sep}weapons${path.sep}`) ||
-      p.includes(`${path.sep}tools${path.sep}`),
+      p.includes(`${path.sep}tools${path.sep}`) ||
+      p.includes(`${path.sep}body${path.sep}`),
   );
 
   const byClass = {
@@ -95,6 +101,9 @@ async function main() {
     Ranged: [],
     Shield: [],
     Tool: [],
+    BodyFull: [],
+    BodyMid: [],
+    BodyLimited: [],
     Unknown: [],
   };
   /** @type {Record<string, string>} */
@@ -125,12 +134,12 @@ async function main() {
     `Generated ${new Date().toISOString()}. Scanned ${targets.length} sheet definitions.`,
   );
   md.push(``, `## Summary`);
-  for (const k of ["1H", "2H", "Ranged", "Shield", "Tool", "Unknown"]) {
+  for (const k of ["1H", "2H", "Ranged", "Shield", "Tool", "BodyFull", "BodyMid", "BodyLimited", "Unknown"]) {
     md.push(`- **${k}**: ${byClass[k].length}`);
   }
   md.push(``);
 
-  for (const k of ["1H", "2H", "Ranged", "Shield", "Tool", "Unknown"]) {
+  for (const k of ["1H", "2H", "Ranged", "Shield", "Tool", "BodyFull", "BodyMid", "BodyLimited", "Unknown"]) {
     const items = byClass[k];
     if (!items.length) continue;
     md.push(`## ${k} (${items.length})`);
@@ -172,7 +181,7 @@ export function getWeaponClass(itemId) {
   console.log(`✓ sources/state/weapon-classes-data.js`);
 
   console.log(`\nSummary:`);
-  for (const k of ["1H", "2H", "Ranged", "Shield", "Tool", "Unknown"]) {
+  for (const k of ["1H", "2H", "Ranged", "Shield", "Tool", "BodyFull", "BodyMid", "BodyLimited", "Unknown"]) {
     console.log(`  ${k}: ${byClass[k].length}`);
   }
 }

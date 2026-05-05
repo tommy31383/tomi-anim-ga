@@ -1,0 +1,226 @@
+{
+  "fixed_jsons": [
+    {
+      "json": "sheet_definitions/body/special/body_zombie.json",
+      "name": "Zombie",
+      "derived": [
+        "hurt",
+        "shoot",
+        "slash",
+        "spellcast",
+        "thrust",
+        "walk"
+      ]
+    },
+    {
+      "json": "sheet_definitions/body/special/body_skeleton.json",
+      "name": "Skeleton",
+      "derived": [
+        "hurt",
+        "shoot",
+        "slash",
+        "spellcast",
+        "thrust",
+        "walk"
+      ]
+    }
+  ],
+  "synthesized": [
+    {
+      "body": "Zombie",
+      "anim": "combat",
+      "layer": 1,
+      "base": "body/bodies/zombie/",
+      "walk": "spritesheets/body/bodies/zombie/walk/zombie.png",
+      "synthesized": "spritesheets/body/bodies/zombie/combat_idle/zombie.png"
+    },
+    {
+      "body": "Zombie",
+      "anim": "idle",
+      "layer": 1,
+      "base": "body/bodies/zombie/",
+      "walk": "spritesheets/body/bodies/zombie/walk/zombie.png",
+      "synthesized": "spritesheets/body/bodies/zombie/idle/zombie.png"
+    },
+    {
+      "body": "Zombie",
+      "anim": "sit",
+      "layer": 1,
+      "base": "body/bodies/zombie/",
+      "walk": "spritesheets/body/bodies/zombie/walk/zombie.png",
+      "synthesized": "spritesheets/body/bodies/zombie/sit/zombie.png"
+    },
+    {
+      "body": "Zombie",
+      "anim": "emote",
+      "layer": 1,
+      "base": "body/bodies/zombie/",
+      "walk": "spritesheets/body/bodies/zombie/walk/zombie.png",
+      "synthesized": "spritesheets/body/bodies/zombie/emote/zombie.png"
+    },
+    {
+      "body": "Zombie",
+      "anim": "jump",
+      "layer": 1,
+      "base": "body/bodies/zombie/",
+      "walk": "spritesheets/body/bodies/zombie/walk/zombie.png",
+      "synthesized": "spritesheets/body/bodies/zombie/jump/zombie.png"
+    },
+    {
+      "body": "Zombie",
+      "anim": "climb",
+      "layer": 1,
+      "base": "body/bodies/zombie/",
+      "walk": "spritesheets/body/bodies/zombie/walk/zombie.png",
+      "synthesized": "spritesheets/body/bodies/zombie/climb/zombie.png"
+    },
+    {
+      "body": "Zombie",
+      "anim": "run",
+      "layer": 1,
+      "base": "body/bodies/zombie/",
+      "walk": "spritesheets/body/bodies/zombie/walk/zombie.png",
+      "synthesized": "spritesheets/body/bodies/zombie/run/zombie.png"
+    },
+    {
+      "body": "Zombie",
+      "anim": "1h_slash",
+      "layer": 1,
+      "base": "body/bodies/zombie/",
+      "walk": "spritesheets/body/bodies/zombie/walk/zombie.png",
+      "synthesized": "spritesheets/body/bodies/zombie/1h_slash/zombie.png"
+    },
+    {
+      "body": "Zombie",
+      "anim": "1h_backslash",
+      "layer": 1,
+      "base": "body/bodies/zombie/",
+      "walk": "spritesheets/body/bodies/zombie/walk/zombie.png",
+      "synthesized": "spritesheets/body/bodies/zombie/1h_backslash/zombie.png"
+    },
+    {
+      "body": "Zombie",
+      "anim": "1h_halfslash",
+      "layer": 1,
+      "base": "body/bodies/zombie/",
+      "walk": "spritesheets/body/bodies/zombie/walk/zombie.png",
+      "synthesized": "spritesheets/body/bodies/zombie/1h_halfslash/zombie.png"
+    },
+    {
+      "body": "Skeleton",
+      "anim": "combat",
+      "layer": 1,
+      "base": "body/bodies/skeleton/",
+      "walk": "spritesheets/body/bodies/skeleton/walk/skeleton.png",
+      "synthesized": "spritesheets/body/bodies/skeleton/combat_idle/skeleton.png"
+    },
+    {
+      "body": "Skeleton",
+      "anim": "idle",
+      "layer": 1,
+      "base": "body/bodies/skeleton/",
+      "walk": "spritesheets/body/bodies/skeleton/walk/skeleton.png",
+      "synthesized": "spritesheets/body/bodies/skeleton/idle/skeleton.png"
+    },
+    {
+      "body": "Skeleton",
+      "anim": "sit",
+      "layer": 1,
+      "base": "body/bodies/skeleton/",
+      "walk": "spritesheets/body/bodies/skeleton/walk/skeleton.png",
+      "synthesized": "spritesheets/body/bodies/skeleton/sit/skeleton.png"
+    },
+    {
+      "body": "Skeleton",
+      "anim": "emote",
+      "layer": 1,
+      "base": "body/bodies/skeleton/",
+      "walk": "spritesheets/body/bodies/skeleton/walk/skeleton.png",
+      "synthesized": "spritesheets/body/bodies/skeleton/emote/skeleton.png"
+    },
+    {
+      "body": "Skeleton",
+      "anim": "jump",
+      "layer": 1,
+      "base": "body/bodies/skeleton/",
+      "walk": "spritesheets/body/bodies/skeleton/walk/skeleton.png",
+      "synthesized": "spritesheets/body/bodies/skeleton/jump/skeleton.png"
+    },
+    {
+      "body": "Skeleton",
+      "anim": "climb",
+      "layer": 1,
+      "base": "body/bodies/skeleton/",
+      "walk": "spritesheets/body/bodies/skeleton/walk/skeleton.png",
+      "synthesized": "spritesheets/body/bodies/skeleton/climb/skeleton.png"
+    },
+    {
+      "body": "Skeleton",
+      "anim": "run",
+      "layer": 1,
+      "base": "body/bodies/skeleton/",
+      "walk": "spritesheets/body/bodies/skeleton/walk/skeleton.png",
+      "synthesized": "spritesheets/body/bodies/skeleton/run/skeleton.png"
+    },
+    {
+      "body": "Skeleton",
+      "anim": "1h_slash",
+      "layer": 1,
+      "base": "body/bodies/skeleton/",
+      "walk": "spritesheets/body/bodies/skeleton/walk/skeleton.png",
+      "synthesized": "spritesheets/body/bodies/skeleton/1h_slash/skeleton.png"
+    },
+    {
+      "body": "Skeleton",
+      "anim": "1h_backslash",
+      "layer": 1,
+      "base": "body/bodies/skeleton/",
+      "walk": "spritesheets/body/bodies/skeleton/walk/skeleton.png",
+      "synthesized": "spritesheets/body/bodies/skeleton/1h_backslash/skeleton.png"
+    },
+    {
+      "body": "Skeleton",
+      "anim": "1h_halfslash",
+      "layer": 1,
+      "base": "body/bodies/skeleton/",
+      "walk": "spritesheets/body/bodies/skeleton/walk/skeleton.png",
+      "synthesized": "spritesheets/body/bodies/skeleton/1h_halfslash/skeleton.png"
+    }
+  ],
+  "skipped": [
+    {
+      "name": "Body Color",
+      "base": "body/bodies/male/",
+      "reason": "no walk/ dir"
+    },
+    {
+      "name": "Body Color",
+      "base": "body/bodies/female/",
+      "reason": "no walk/ dir"
+    },
+    {
+      "name": "Body Color",
+      "base": "body/bodies/muscular/",
+      "reason": "no walk/ dir"
+    },
+    {
+      "name": "Body Color",
+      "base": "body/bodies/pregnant/",
+      "reason": "no walk/ dir"
+    },
+    {
+      "name": "Body Color",
+      "base": "body/bodies/teen/",
+      "reason": "no walk/ dir"
+    },
+    {
+      "name": "Body Color",
+      "base": "body/bodies/child/",
+      "reason": "no walk/ dir"
+    }
+  ],
+  "updated_jsons": [
+    "sheet_definitions/body/special/body_zombie.json",
+    "sheet_definitions/body/special/body_skeleton.json"
+  ]
+}

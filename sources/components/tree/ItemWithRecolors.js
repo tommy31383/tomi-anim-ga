@@ -15,11 +15,24 @@ const CLASS_BADGE_STYLE = {
   Ranged: "background:rgba(251,146,60,0.18);color:#fdba74;",
   Shield: "background:rgba(56,189,248,0.18);color:#7dd3fc;",
   Tool: "background:rgba(148,163,184,0.18);color:#cbd5e1;",
+  BodyFull: "background:rgba(34,197,94,0.18);color:#86efac;",
+  BodyMid: "background:rgba(234,179,8,0.18);color:#fde047;",
+  BodyLimited: "background:rgba(244,63,94,0.18);color:#fda4af;",
+};
+const CLASS_LABEL = {
+  "1H": "1H",
+  "2H": "2H",
+  Ranged: "Ranged",
+  Shield: "Shield",
+  Tool: "Tool",
+  BodyFull: "Đủ anim",
+  BodyMid: "Trung",
+  BodyLimited: "Ít anim",
 };
 
 function classBadge(itemId) {
   const cls = getWeaponClass(itemId);
-  if (!cls || cls === "Unknown") return null;
+  if (!cls || cls === "Unknown" || cls === "BodyFull") return null;
   return m(
     "span",
     {
@@ -27,7 +40,7 @@ function classBadge(itemId) {
       style: CLASS_BADGE_STYLE[cls] ?? "",
       title: `Loại: ${cls}`,
     },
-    cls,
+    CLASS_LABEL[cls] ?? cls,
   );
 }
 

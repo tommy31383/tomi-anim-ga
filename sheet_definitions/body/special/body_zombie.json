@@ -15,7 +15,7 @@
       "notes": "",
       "authors": [
         "Stephen Challener (Redshrike)",
-        "Johannes Sjölund (wulax)",
+        "Johannes Sj\u00f6lund (wulax)",
         "Sander Frenken (castelonia)",
         "Benjamin K. Smith (BenCreating)",
         "bluecarrot16"
@@ -33,5 +33,23 @@
       ]
     }
   ],
-  "type_name": "body"
+  "type_name": "body",
+  "animations": [
+    "1h_backslash",
+    "1h_halfslash",
+    "1h_slash",
+    "climb",
+    "combat",
+    "emote",
+    "hurt",
+    "idle",
+    "jump",
+    "run",
+    "shoot",
+    "sit",
+    "slash",
+    "spellcast",
+    "thrust",
+    "walk"
+  ]
 }

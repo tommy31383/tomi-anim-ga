@@ -1,14 +1,17 @@
 # Weapons / Shields / Tools Classification
 
-Generated 2026-05-05T09:23:03.691Z. Scanned 101 sheet definitions.
+Generated 2026-05-05T09:35:10.890Z. Scanned 132 sheet definitions.
 
 ## Summary
 - **1H**: 6
 - **2H**: 27
-- **Ranged**: 1
+- **Ranged**: 15
 - **Shield**: 64
 - **Tool**: 0
-- **Unknown**: 3
+- **BodyFull**: 3
+- **BodyMid**: 0
+- **BodyLimited**: 0
+- **Unknown**: 17
 
 ## 1H (6)
 
@@ -53,11 +56,25 @@ Generated 2026-05-05T09:23:03.691Z. Scanned 101 sheet definitions.
 | `weapons_polearm_weapon_polearm_trident` | Trident | weapon | walk_128, thrust_oversize |
 | `weapons_blunt_weapon_blunt_waraxe` | Waraxe | weapon | walk, hurt, slash_oversize, combat, climb, emote, sit, idle, run, jump, spellcast |
 
-## Ranged (1)
+## Ranged (15)
 
 | itemId | name | type | animations |
 |---|---|---|---|
+| `body_wings_wings_bat` | Bat Wings | wings | spellcast, thrust, walk, slash, shoot, hurt, watering, idle, jump, run, sit, emote, climb, combat, 1h_slash, 1h_backslash, 1h_halfslash |
+| `body_lizard_wings_lizard_bat` | Batlike Lizard Wings | wings | spellcast, thrust, walk, slash, shoot, hurt, watering, idle, jump, run, sit, emote, climb, combat, 1h_slash, 1h_backslash, 1h_halfslash |
+| `body_wounds_wound_brain` | Brain | wound_brain | spellcast, thrust, walk, slash, shoot, hurt, watering, idle, jump, run, sit, emote, climb, combat, 1h_slash, 1h_backslash, 1h_halfslash |
+| `body_tails_tail_cat` | Cat Tail | tail | spellcast, thrust, walk, slash, shoot, hurt, watering, idle, jump, run, sit, emote, climb, combat, 1h_slash, 1h_backslash, 1h_halfslash |
+| `body_wings_wings_feathered` | Feathered Wings | wings | spellcast, thrust, walk, slash, shoot, hurt, watering, idle, jump, run, sit, emote, climb, combat, 1h_slash, 1h_backslash, 1h_halfslash |
+| `body_tails_tail_wolf_fluffy` | Fluffy Wolf Tail | tail | spellcast, thrust, walk, slash, shoot, hurt, watering, idle, jump, run, sit, emote, climb, combat, 1h_slash, 1h_backslash, 1h_halfslash |
+| `body_wounds_wound_eye_left` | Left Eye | wound_eye_left | spellcast, thrust, walk, slash, shoot, hurt, watering, idle, jump, run, sit, emote, climb, combat, 1h_slash, 1h_backslash, 1h_halfslash |
+| `body_lizard_tail_lizard` | Lizard tail | tail | spellcast, thrust, walk, slash, shoot, hurt, watering, idle, jump, run, sit, emote, climb, combat, 1h_slash, 1h_backslash, 1h_halfslash |
+| `body_tails_tail_lizard_alt` | Lizard Tail (Alt Colors) | tail | spellcast, thrust, walk, slash, shoot, hurt, watering, idle, jump, run, sit, emote, climb, combat, 1h_slash, 1h_backslash, 1h_halfslash |
+| `body_lizard_wings_lizard` | Lizard Wings | wings | spellcast, thrust, walk, slash, shoot, hurt, watering, idle, jump, run, sit, emote, climb, combat, 1h_slash, 1h_backslash, 1h_halfslash |
+| `body_wings_wings_lizard_alt` | Lizard Wings (Alt Colors) | wings | spellcast, thrust, walk, slash, shoot, hurt, watering, idle, jump, run, sit, emote, climb, combat, 1h_slash, 1h_backslash, 1h_halfslash |
+| `body_wounds_wound_mouth` | Mouth | wound_mouth | spellcast, thrust, walk, slash, shoot, hurt, watering, idle, jump, run, sit, emote, climb, combat, 1h_slash, 1h_backslash, 1h_halfslash |
+| `body_wounds_wound_eye_right` | Right Eye | wound_eye_right | spellcast, thrust, walk, slash, shoot, hurt, watering, idle, jump, run, sit, emote, climb, combat, 1h_slash, 1h_backslash, 1h_halfslash |
 | `weapons_ranged_weapon_ranged_slingshot` | Slingshot | weapon | walk, shoot, hurt |
+| `body_tails_tail_wolf` | Wolf Tail | tail | spellcast, thrust, walk, slash, shoot, hurt, watering, idle, jump, run, sit, emote, climb, combat, 1h_slash, 1h_backslash, 1h_halfslash |
 
 ## Shield (64)
 
@@ -128,10 +145,32 @@ Generated 2026-05-05T09:23:03.691Z. Scanned 101 sheet definitions.
 | `weapons_shields_engrailed_shield_two_engrailed` | Two engrailed shield | shield |  |
 | `weapons_shields_engrailed_shield_two_engrailed_trim` | Two engrailed shield trim | shield_trim |  |
 
-## Unknown (3)
+## BodyFull (3)
 
 | itemId | name | type | animations |
 |---|---|---|---|
+| `body_body` | Body Color | body | spellcast, thrust, walk, slash, shoot, hurt, watering, idle, jump, run, sit, emote, climb, combat, 1h_slash, 1h_backslash, 1h_halfslash |
+| `body_special_body_skeleton` | Skeleton | body | 1h_backslash, 1h_halfslash, 1h_slash, climb, combat, emote, hurt, idle, jump, run, shoot, sit, slash, spellcast, thrust, walk |
+| `body_special_body_zombie` | Zombie | body | 1h_backslash, 1h_halfslash, 1h_slash, climb, combat, emote, hurt, idle, jump, run, shoot, sit, slash, spellcast, thrust, walk |
+
+## Unknown (17)
+
+| itemId | name | type | animations |
+|---|---|---|---|
+| `body_wounds_wound_arm` | Arm | wound_arm |  |
+| `body_wings_dragonfly_wings_dragonfly` | Dragonfly Wings | wings |  |
+| `body_prostheses_prosthesis_hook` | Hook hand | prosthesis_hand |  |
+| `body_wings_wings_lunar` | Lunar Wings | wings |  |
+| `body_wings_monarch_wings_monarch` | Monarch Wings | wings |  |
+| `body_wings_monarch_wings_monarch_dots` | Monarch Wings Dots | wings_dots |  |
+| `body_wings_monarch_wings_monarch_edge` | Monarch Wings Edge | wings_edge |  |
+| `body_prostheses_prosthesis_peg_leg` | Peg leg | prosthesis_leg |  |
+| `body_wings_pixie_wings_pixie` | Pixie Wings | wings |  |
+| `body_wounds_wound_ribs` | Ribs | wound_ribs |  |
 | `tools_tool_rod` | Rod | weapon | tool_rod |
+| `body_shadow` | Shadow | shadow |  |
 | `tools_tool_thrust` | Thrust | weapon | walk, hurt |
+| `body_wings_dragonfly_wings_dragonfly_transparent` | Transparent Dragonfly Wings | wings |  |
+| `body_wings_pixie_wings_pixie_transparent` | Transparent Pixie Wings | wings |  |
+| `body_wheelchair` | Wheelchair | wheelchair | wheelchair |
 | `tools_tool_whip` | Whip | weapon | tool_whip |
