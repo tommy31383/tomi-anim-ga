@@ -60,7 +60,11 @@ let testemConfig = {
   disable_watching: true,
   launch_in_ci: availableLaunchers.filter((name) => name !== "Safari"),
   launch_in_dev: availableLaunchers,
-  browser_start_timeout: 30,
+  browser_start_timeout: 60,
+  // Firefox under CI Xvfb often loses heartbeat for 10-15s during heavy
+  // catalog load. Default is 10s — bump to 30s to avoid spurious "browser
+  // disconnect" failures.
+  browser_disconnect_timeout: 30,
   src_files: [
     "tests/**/*.js",
     "sources/**/*.js",
