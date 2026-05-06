@@ -1,0 +1,58 @@
+name: JS syntax check
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  check:
+    name: Syntax check inline JS + sources/
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Extract Bouncer inline JS
+        run: |
+          python3 - <<'PY'
+          import re
+          html = open('bouncer/index.html').read()
+          scripts = re.findall(
+              r'<script(?![^>]*\bsrc=)[^>]*>(.*?)</script>',
+              html,
+              re.DOTALL,
+          )
+          combined = '\n//---SCRIPT-BOUNDARY---\n'.join(scripts)
+          open('/tmp/bouncer-inline.js', 'w').write(combined)
+          print(f'Extracted {len(scripts)} blocks, {len(combined)} chars')
+          PY
+
+      - name: Syntax-check Bouncer inline JS
+        run: node --check /tmp/bouncer-inline.js
+
+      - name: Syntax-check sources/**/*.js
+        run: |
+          fail=0
+          while IFS= read -r f; do
+            if ! node --check "$f" 2>/dev/null; then
+              echo "::error file=$f::Syntax error"
+              fail=1
+            fi
+          done < <(find sources -name '*.js' -type f)
+          exit $fail
+
+      - name: Syntax-check scripts/**/*.js
+        run: |
+          fail=0
+          while IFS= read -r f; do
+            if ! node --check "$f" 2>/dev/null; then
+              echo "::error file=$f::Syntax error"
+              fail=1
+            fi
+          done < <(find scripts -name '*.js' -type f)
+          exit $fail
