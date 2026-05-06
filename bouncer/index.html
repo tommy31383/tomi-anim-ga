@@ -3972,7 +3972,7 @@ function drawBodyCropEditor() {
 	ctx.drawImage(_bodyCropBgCache, 0, 0);
 	ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 	ctx.imageSmoothingEnabled = false;
-	const r = bodyCropRect;
+	// NOTE: `r` already declared above (drawKey computation) — reuse it.
 	const dx = r.x * scale, dy = r.y * scale;
 	const dw = r.w * scale, dh = r.h * scale;
 	ctx.fillStyle = 'rgba(11, 19, 38, 0.65)';
@@ -4489,8 +4489,7 @@ function drawCropEditor() {
 	ctx.drawImage(_cropBgCache, 0, 0);
 	ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 	ctx.imageSmoothingEnabled = false;
-	// Dim outside the crop rect
-	const r = cropRect;
+	// Dim outside the crop rect — `r` already declared above (drawKey).
 	const dx = r.x * scale, dy = r.y * scale;
 	const dw = r.w * scale, dh = r.h * scale;
 	ctx.fillStyle = 'rgba(11, 19, 38, 0.65)';
