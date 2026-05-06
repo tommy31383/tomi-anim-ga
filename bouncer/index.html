@@ -530,7 +530,7 @@ const PRESETS = {
 		defaults: { frames: 10, duration: 420, lunge: 14, windup: 8, swing: 110 },
 		sliders: ['frames', 'duration', 'lunge', 'windup', 'swing'],
 		transform: (t, s) => {
-			let tx = 0, sx = 1, sy = 1, weaponRot = 0;
+			let tx = 0, sx = 1, sy = 1, weaponRot = 0, weaponTx = 0;
 			if (t < 0.3) {
 				// Wind up: lean back, raise weapon
 				const p = t / 0.3;
@@ -542,20 +542,21 @@ const PRESETS = {
 				// Lunge: forward burst, weapon slashes down/forward
 				const p = (t - 0.3) / 0.3;
 				const e = easeOutCubic(p);
-				tx = lerp(-s.windup, s.lunge, e);
+				tx = lerp(-s.windup, 0, e);
 				sx = lerp(0.88, 1.18, e);
 				sy = lerp(1.05, 0.88, e);
+				weaponTx = s.lunge * e;
 				weaponRot = lerp(-s.swing * 0.45, s.swing * 0.55, e); // slash through arc
 			} else {
 				// Recover: settle
 				const p = (t - 0.6) / 0.4;
 				const e = easeOutCubic(p);
-				tx = lerp(s.lunge, 0, e);
 				sx = lerp(1.18, 1, e);
 				sy = lerp(0.88, 1, e);
+				weaponTx = lerp(s.lunge, 0, e);
 				weaponRot = lerp(s.swing * 0.55, 0, e);
 			}
-			return { tx, sx, sy, weaponRot };
+			return { tx, sx, sy, weaponRot, weaponTx };
 		},
 	},
 	heavy: {
@@ -579,23 +580,24 @@ const PRESETS = {
 			if (t < 0.64) {
 				const p = easeOutCubic((t - 0.42) / 0.22);
 				return {
-					tx: lerp(-s.windup * 0.7, s.lunge, p),
+					tx: lerp(-s.windup * 0.7, 0, p),
 					ty: p * s.impact * 0.05,
 					rot: lerp(-5, 7, p),
 					sx: lerp(0.9, 1.2, p),
 					sy: lerp(1.08, 0.78, p),
 					weaponRot: lerp(-s.swing * 0.55, s.swing * 0.62, p),
+					weaponTx: s.lunge * p,
 					filter: `brightness(${(1 + p * 0.28).toFixed(2)})`,
 				};
 			}
 			const p = easeOutCubic((t - 0.64) / 0.36);
 			return {
-				tx: lerp(s.lunge, 0, p),
 				ty: lerp(s.impact * 0.05, 0, p),
 				rot: lerp(7, 0, p),
 				sx: lerp(1.2, 1, p),
 				sy: lerp(0.78, 1, p),
 				weaponRot: lerp(s.swing * 0.62, 0, p),
+				weaponTx: lerp(s.lunge, 0, p),
 			};
 		},
 	},
@@ -612,10 +614,10 @@ const PRESETS = {
 			}
 			if (t < 0.55) {
 				const p = easeOutCubic((t - 0.28) / 0.27);
-				return { tx: lerp(-s.windup, s.lunge, p), sx: lerp(0.88, 1.28, p), sy: lerp(1.08, 0.82, p), weaponRot: lerp(-18, 8, p), weaponTx: s.lunge * 0.7 * p };
+				return { tx: lerp(-s.windup, 0, p), sx: lerp(0.88, 1.28, p), sy: lerp(1.08, 0.82, p), weaponRot: lerp(-18, 8, p), weaponTx: s.lunge * 1.35 * p };
 			}
 			const p = easeOutCubic((t - 0.55) / 0.45);
-			return { tx: lerp(s.lunge, -s.recoil * 0.2, p), sx: lerp(1.28, 1, p), sy: lerp(0.82, 1, p), weaponRot: lerp(8, 0, p), weaponTx: lerp(s.lunge * 0.7, 0, p) };
+			return { tx: lerp(0, -s.recoil * 0.2, p), sx: lerp(1.28, 1, p), sy: lerp(0.82, 1, p), weaponRot: lerp(8, 0, p), weaponTx: lerp(s.lunge * 1.35, 0, p) };
 		},
 	},
 	spinAttack: {
@@ -651,10 +653,10 @@ const PRESETS = {
 			}
 			if (t < 0.58) {
 				const p = easeOutCubic((t - 0.24) / 0.34);
-				return { tx: lerp(-s.windup, s.lunge, p), ty: -Math.sin(p * Math.PI) * 3, rot: lerp(-4, 6, p), sx: lerp(0.86, 1.2, p), sy: lerp(1.08, 0.88, p), weaponRot: lerp(-s.swing * 0.35, s.swing * 0.72, p), weaponTx: p * 8 };
+				return { tx: lerp(-s.windup, 0, p), ty: -Math.sin(p * Math.PI) * 3, rot: lerp(-4, 6, p), sx: lerp(0.86, 1.2, p), sy: lerp(1.08, 0.88, p), weaponRot: lerp(-s.swing * 0.35, s.swing * 0.72, p), weaponTx: s.lunge * 1.55 * p };
 			}
 			const p = easeOutCubic((t - 0.58) / 0.42);
-			return { tx: lerp(s.lunge, 0, p), rot: lerp(6, 0, p), sx: lerp(1.2, 1, p), sy: lerp(0.88, 1, p), weaponRot: lerp(s.swing * 0.72, 0, p), weaponTx: lerp(8, 0, p) };
+			return { rot: lerp(6, 0, p), sx: lerp(1.2, 1, p), sy: lerp(0.88, 1, p), weaponRot: lerp(s.swing * 0.72, 0, p), weaponTx: lerp(s.lunge * 1.55, 0, p) };
 		},
 	},
 	groundSlam: {
@@ -689,12 +691,13 @@ const PRESETS = {
 			const dir = hit === 1 ? -1 : 1;
 			const settle = Math.max(0, 1 - p);
 			return {
-				tx: Math.sin(t * Math.PI * 3) * s.lunge * 0.45,
+				tx: Math.sin(t * Math.PI * 3) * 2,
 				ty: -Math.sin(Math.min(1, p) * Math.PI) * 2,
 				rot: dir * Math.sin(e * Math.PI) * 5,
 				sx: 1 + Math.sin(e * Math.PI) * 0.12,
 				sy: 1 - Math.sin(e * Math.PI) * 0.08,
 				weaponRot: (hit - 1) * s.swing * 0.36 + dir * lerp(-s.swing * 0.45, s.swing * 0.55, e) + settle * 6,
+				weaponTx: s.lunge * (0.35 + hit * 0.28) * Math.sin(e * Math.PI),
 			};
 		},
 	},
@@ -936,13 +939,12 @@ const PRESETS = {
 			const p = phaseUp(t);
 			const wave = Math.sin(t * Math.PI * 4);
 			return {
-				tx: p * s.lunge * 0.8,
 				ty: -Math.abs(wave) * 3,
 				rot: wave * s.sway * 0.45,
 				sx: lerp(1, 1.08, p),
 				sy: lerp(1, 0.94, p),
 				weaponRot: wave * s.swing * 0.35,
-				weaponTx: p * 4,
+				weaponTx: p * s.lunge,
 			};
 		},
 	},
@@ -982,7 +984,7 @@ const SLIDER_CONFIG = {
 	dieAngle: { label: 'Góc gục', min: 0, max: 45, step: 1, suffix: '°' },
 	collapse: { label: 'Độ xẹp thân', min: 0, max: 55, step: 1, suffix: '%' },
 	fade: { label: 'Độ mờ cuối', min: 0, max: 80, step: 5, suffix: '%' },
-	lunge: { label: 'Khoảng lao', min: 4, max: 48, step: 1, suffix: 'px' },
+	lunge: { label: 'Tầm vũ khí', min: 0, max: 180, step: 2, suffix: 'px' },
 	recoil: { label: 'Độ bật lùi', min: 0, max: 24, step: 1, suffix: 'px' },
 	windup: { label: 'Wind-up', min: 0, max: 16, step: 1, suffix: 'px' },
 	swing: { label: 'Góc vung vũ khí', min: 30, max: 180, step: 5, suffix: '°' },
@@ -1704,7 +1706,6 @@ function autoDetectAnchors(img) {
 // ============================================================
 // Preview stage size mirrors the bake tile (call bake() lightly only for
 // dimensions). Cached per-input-tick so we don't re-bake every frame.
-let _stageCache = null;
 function preferredStageSize() {
 	if (!bodyImg) return { w: 280, h: 280 };
 	// Try matching the actual bake tile dimensions so the live preview
@@ -1723,14 +1724,41 @@ function preferredStageSize() {
 	};
 }
 
+// Cache key for extent computation. Bumped whenever any input that
+// can change extents mutates — preset switch, slider drag, weapon
+// move, direction toggle, dust intensity, frameScale, framePadding.
+let _extentCacheKey = '';
+let _extentCache = null;
+function invalidateExtentCache() {
+	_extentCache = null;
+	_extentCacheKey = '';
+}
+
 // Light-weight version of bake() that only computes tile dimensions —
 // avoids drawing N frames just to get extents. Mirrors bake's extent
-// logic so they always agree.
+// logic so they always agree. Cached by a hash of the inputs.
 function bakeTileDimsOnly() {
 	if (!bodyImg) return null;
 	const preset = PRESETS[activePresetKey];
 	const N = settings.frames;
 	const contentScale = (typeof frameScale !== 'undefined' ? frameScale : 100) / 100;
+
+	// Cache lookup — re-use last result when none of the inputs changed.
+	const key = JSON.stringify({
+		p: activePresetKey,
+		s: settings,
+		w: weaponImg ? [weapon.x, weapon.y, weapon.scale, weapon.rot, weapon.grip, weapon.tip] : null,
+		dir: direction,
+		both: bakeBothDirs,
+		hit: hitFrame,
+		flash: showFlash,
+		shake: showShake,
+		fp: typeof framePadding !== 'undefined' ? framePadding : 0,
+		fs: typeof frameScale !== 'undefined' ? frameScale : 100,
+		bw: bodyImg.width, bh: bodyImg.height,
+		ww: weaponImg ? weaponImg.width : 0, wh: weaponImg ? weaponImg.height : 0,
+	});
+	if (key === _extentCacheKey && _extentCache) return _extentCache;
 	let extLeft = 0, extRight = 0, extTop = 0, extBottom = 0;
 	const SAMPLES = N * 4;
 	for (let i = 0; i <= SAMPLES; i++) {
@@ -1807,15 +1835,27 @@ function bakeTileDimsOnly() {
 	const padR = Math.ceil(extRight * contentScale + extraPad);
 	const padTop = Math.ceil(extTop * contentScale + extraPad);
 	const padBottom = Math.ceil(extBottom * contentScale + extraPad);
-	return { tileW: padL + padR, tileH: padTop + padBottom };
+	const result = { tileW: padL + padR, tileH: padTop + padBottom };
+	_extentCacheKey = key;
+	_extentCache = result;
+	return result;
 }
 
 let lastDpr = 1;
 function setupPreviewCanvas() {
 	const { w, h } = preferredStageSize();
 	const dpr = window.devicePixelRatio || 1;
-	previewCanvas.width = w * dpr;
-	previewCanvas.height = h * dpr;
+	const targetW = w * dpr, targetH = h * dpr;
+	// Early-out: avoid the GPU texture realloc + clear if dims unchanged
+	if (
+		previewCanvas.width === targetW &&
+		previewCanvas.height === targetH &&
+		lastDpr === dpr
+	) {
+		return;
+	}
+	previewCanvas.width = targetW;
+	previewCanvas.height = targetH;
 	previewCanvas.style.width = w + 'px';
 	previewCanvas.style.height = h + 'px';
 	lastDpr = dpr;
@@ -2289,11 +2329,19 @@ function bake() {
 	const tileH = padTop + padBottom;
 
 	const rows = bakeBothDirs ? 2 : 1;
-	const out = document.createElement('canvas');
-	out.width = tileW * N;
-	out.height = tileH * rows;
+	// Reuse the same canvas buffer across bake calls — only resize/realloc
+	// when the target dimensions actually change. Saves a several-MB GPU
+	// upload + clear on every settings tweak.
+	if (!bake._cv) bake._cv = document.createElement('canvas');
+	const out = bake._cv;
+	const targetW = tileW * N, targetH = tileH * rows;
+	if (out.width !== targetW || out.height !== targetH) {
+		out.width = targetW;
+		out.height = targetH;
+	}
 	const ctx = out.getContext('2d');
 	ctx.imageSmoothingEnabled = false;
+	ctx.clearRect(0, 0, targetW, targetH);
 
 	const dirRows = bakeBothDirs ? ['right', 'left'] : [direction];
 	for (let r = 0; r < dirRows.length; r++) {
@@ -2338,6 +2386,10 @@ function renderBakePreviewNow() {
 
 function updateBakePreview(options = {}) {
 	scheduleAutoSave();
+	// Inputs may have changed — drop the cached extent computation so the
+	// next bakeTileDimsOnly call recomputes (cheap thanks to the JSON-key
+	// cache hit-check inside the function).
+	invalidateExtentCache();
 	// Resize the live preview canvas to match the new bake tile so
 	// effects (dust, trail, particles) never get clipped at the edge.
 	if (bodyImg) setupPreviewCanvas();
@@ -2396,6 +2448,9 @@ function handleFile(file, isWeapon) {
 				persistHistoryImage('body');
 				bodyCropRect = { x: 0, y: 0, w: i.width, h: i.height };
 				bodyImg = i;
+				_bodyCropBgCache = null;
+				invalidateExtentCache();
+				initBodyCropCanvas();
 				bodyName = file.name.replace(/\.[^.]+$/, '').replace(/\W+/g, '_').slice(0, 40) || 'sprite';
 				bodyInfo.textContent = `${file.name} · ${i.width}×${i.height}px (chưa cắt)`;
 				emptyState.classList.add('hidden');
@@ -3271,30 +3326,60 @@ function scheduleBodyCropEditor() {
 	});
 }
 
-function drawBodyCropEditor() {
+// Body crop uses the same 2-layer cache pattern as the weapon crop:
+// background (checker + source image) painted once, overlay each draw.
+let _bodyCropBgCache = null;
+function initBodyCropCanvas() {
 	if (!bodySrcImg) return;
 	const maxW = 380;
 	const scale = Math.min(1, maxW / Math.max(bodySrcImg.width, bodySrcImg.height));
 	const w = Math.round(bodySrcImg.width * scale);
 	const h = Math.round(bodySrcImg.height * scale);
 	const dpr = window.devicePixelRatio || 1;
-	bodyCropCanvas.width = w * dpr;
-	bodyCropCanvas.height = h * dpr;
-	bodyCropCanvas.style.width = w + 'px';
-	bodyCropCanvas.style.height = h + 'px';
+	if (
+		bodyCropCanvas.width !== w * dpr ||
+		bodyCropCanvas.height !== h * dpr
+	) {
+		bodyCropCanvas.width = w * dpr;
+		bodyCropCanvas.height = h * dpr;
+		bodyCropCanvas.style.width = w + 'px';
+		bodyCropCanvas.style.height = h + 'px';
+	}
 	bodyCropCanvas.dataset.scale = scale;
-	const ctx = bodyCropCanvas.getContext('2d');
-	ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-	ctx.imageSmoothingEnabled = false;
-	ctx.fillStyle = '#1e293b'; ctx.fillRect(0, 0, w, h);
+	bodyCropCanvas.dataset.dispW = w;
+	bodyCropCanvas.dataset.dispH = h;
+	const bg = document.createElement('canvas');
+	bg.width = w * dpr;
+	bg.height = h * dpr;
+	const bctx = bg.getContext('2d');
+	bctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+	bctx.imageSmoothingEnabled = false;
+	bctx.fillStyle = '#1e293b';
+	bctx.fillRect(0, 0, w, h);
+	bctx.fillStyle = '#0f172a';
 	const tile = 8;
-	ctx.fillStyle = '#0f172a';
 	for (let yy = 0; yy < h; yy += tile) {
 		for (let xx = (yy / tile) % 2 === 0 ? 0 : tile; xx < w; xx += tile * 2) {
-			ctx.fillRect(xx, yy, tile, tile);
+			bctx.fillRect(xx, yy, tile, tile);
 		}
 	}
-	ctx.drawImage(bodySrcImg, 0, 0, w, h);
+	bctx.drawImage(bodySrcImg, 0, 0, w, h);
+	_bodyCropBgCache = bg;
+}
+
+function drawBodyCropEditor() {
+	if (!bodySrcImg) return;
+	if (!_bodyCropBgCache) initBodyCropCanvas();
+	if (!_bodyCropBgCache) return;
+	const dpr = window.devicePixelRatio || 1;
+	const w = parseFloat(bodyCropCanvas.dataset.dispW);
+	const h = parseFloat(bodyCropCanvas.dataset.dispH);
+	const scale = parseFloat(bodyCropCanvas.dataset.scale);
+	const ctx = bodyCropCanvas.getContext('2d');
+	ctx.setTransform(1, 0, 0, 1, 0, 0);
+	ctx.drawImage(_bodyCropBgCache, 0, 0);
+	ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+	ctx.imageSmoothingEnabled = false;
 	const r = bodyCropRect;
 	const dx = r.x * scale, dy = r.y * scale;
 	const dw = r.w * scale, dh = r.h * scale;
