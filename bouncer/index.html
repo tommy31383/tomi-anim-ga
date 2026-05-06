@@ -318,6 +318,17 @@
 	<aside class="space-y-3 xl:sticky xl:top-4 xl:self-start">
 		<div class="bg-slate-900 rounded-xl border border-slate-700 p-3 space-y-3">
 			<p class="text-[10px] font-mono uppercase tracking-widest text-cyan-400">Khung export</p>
+			<label class="flex items-center gap-2 text-xs text-slate-300 cursor-pointer">
+				<input id="frame-auto-fit" type="checkbox" checked class="rounded">
+				<span>Auto fit, không cắt hình</span>
+			</label>
+			<div>
+				<div class="flex justify-between text-xs mb-1">
+					<span class="text-slate-300">Max tile engine</span>
+					<span class="slider-label text-cyan-400"><span id="frame-max-tile-val">384</span>px</span>
+				</div>
+				<input id="frame-max-tile" type="range" min="128" max="768" step="16" value="384" class="w-full">
+			</div>
 			<div>
 				<div class="flex justify-between text-xs mb-1">
 					<span class="text-slate-300">Scale trong khung</span>
@@ -1034,6 +1045,8 @@ let showFlash = true;     // white flash filter at hit frame
 let showShake = true;     // camera shake offset on hit frame
 let useSpring = true;     // spring physics easing for cyclic anims
 let cinematicTiming = false; // hold key frame for snappier game-feel
+let frameAutoFit = true;  // auto scale/pad export tiles to avoid clipping and giant textures
+let frameMaxTile = 384;   // target max tile dimension for game-engine friendly sheets
 let frameScale = 90;      // export/bake content scale inside each tile
 let framePadding = 18;    // extra export/bake pixels around each tile
 let hitFrame = -1;        // index of frame that triggers damage (-1 = none)
@@ -1649,10 +1662,16 @@ function autoDetectAnchors(img) {
 		return null;
 	}
 	const W = c.width, H = c.height;
+	// Subsample: at 512×512 the original loop visited 262 144 pixels.
+	// PCA + bbox detection is unaffected by ~6× density reduction; we use
+	// stride = max(1, floor(min(W,H)/96)) so a 512×512 image uses stride 5
+	// → ~10 000 sample points, and a 96×96 sprite uses stride 1 (lossless).
+	const stride = Math.max(1, Math.floor(Math.min(W, H) / 96));
 	const pixels = [];
-	for (let y = 0; y < H; y++) {
-		for (let x = 0; x < W; x++) {
-			if (data[(y * W + x) * 4 + 3] > 32) pixels.push([x, y]);
+	for (let y = 0; y < H; y += stride) {
+		const rowBase = y * W * 4;
+		for (let x = 0; x < W; x += stride) {
+			if (data[rowBase + x * 4 + 3] > 32) pixels.push([x, y]);
 		}
 	}
 	if (pixels.length < 16) return null;
@@ -1734,6 +1753,30 @@ function invalidateExtentCache() {
 	_extentCacheKey = '';
 }
 
+function resolveFrameFit(extLeft, extRight, extTop, extBottom) {
+	if (!frameAutoFit) {
+		return {
+			contentScale: frameScale / 100,
+			extraPad: Math.max(0, framePadding),
+			autoScale: frameScale,
+			autoPad: framePadding,
+		};
+	}
+	const maxExt = Math.max(extLeft, extRight, extTop, extBottom);
+	const autoPad = Math.max(8, Math.min(32, Math.ceil(maxExt * 0.045)));
+	const rawW = extLeft + extRight;
+	const rawH = extTop + extBottom;
+	const cap = Math.max(128, frameMaxTile || 384);
+	const drawableCap = Math.max(32, cap - autoPad * 2);
+	const contentScale = Math.min(1, drawableCap / Math.max(rawW, rawH));
+	return {
+		contentScale,
+		extraPad: autoPad,
+		autoScale: Math.round(contentScale * 100),
+		autoPad,
+	};
+}
+
 // Light-weight version of bake() that only computes tile dimensions —
 // avoids drawing N frames just to get extents. Mirrors bake's extent
 // logic so they always agree. Cached by a hash of the inputs.
@@ -1741,8 +1784,6 @@ function bakeTileDimsOnly() {
 	if (!bodyImg) return null;
 	const preset = PRESETS[activePresetKey];
 	const N = settings.frames;
-	const contentScale = (typeof frameScale !== 'undefined' ? frameScale : 100) / 100;
-
 	// Cache lookup — re-use last result when none of the inputs changed.
 	const key = JSON.stringify({
 		p: activePresetKey,
@@ -1753,8 +1794,10 @@ function bakeTileDimsOnly() {
 		hit: hitFrame,
 		flash: showFlash,
 		shake: showShake,
-		fp: typeof framePadding !== 'undefined' ? framePadding : 0,
-		fs: typeof frameScale !== 'undefined' ? frameScale : 100,
+		autoFit: frameAutoFit,
+		maxTile: frameMaxTile,
+		fp: framePadding,
+		fs: frameScale,
 		bw: bodyImg.width, bh: bodyImg.height,
 		ww: weaponImg ? weaponImg.width : 0, wh: weaponImg ? weaponImg.height : 0,
 	});
@@ -1830,12 +1873,13 @@ function bakeTileDimsOnly() {
 		extTop = Math.max(extTop, fxExt);
 		extBottom = Math.max(extBottom, 40 * fxScale);
 	}
-	const extraPad = Math.max(0, typeof framePadding !== 'undefined' ? framePadding : 0);
+	const fit = resolveFrameFit(extLeft, extRight, extTop, extBottom);
+	const { contentScale, extraPad } = fit;
 	const padL = Math.ceil(extLeft * contentScale + extraPad);
 	const padR = Math.ceil(extRight * contentScale + extraPad);
 	const padTop = Math.ceil(extTop * contentScale + extraPad);
 	const padBottom = Math.ceil(extBottom * contentScale + extraPad);
-	const result = { tileW: padL + padR, tileH: padTop + padBottom };
+	const result = { tileW: padL + padR, tileH: padTop + padBottom, ...fit };
 	_extentCacheKey = key;
 	_extentCache = result;
 	return result;
@@ -1881,26 +1925,54 @@ function canvasToLocal(cx, cy) {
 }
 
 // Where the weapon attach (grip) point lands on the preview canvas.
-function weaponScreenPos() {
+// Cached weapon screen positions. Mouse handlers can fire 60+/sec; the
+// underlying math (especially bodyLocalTip with atan2 + sin/cos) is cheap
+// individually but adds up. Cache per-input hash; invalidated when any
+// weapon attribute, direction, or canvas size changes.
+let _wPosCache = null;
+let _wPosKey = '';
+function _weaponPosKey() {
+	return weaponImg
+		? `${direction}|${weapon.x}|${weapon.y}|${weapon.scale}|${weapon.rot}|${weapon.grip.x},${weapon.grip.y}|${weapon.tip.x},${weapon.tip.y}|${activePresetKey}|${previewCanvas.width}|${previewCanvas.height}|${weaponImg.width}x${weaponImg.height}`
+		: 'no-weapon';
+}
+function _weaponPosRecompute() {
 	const v = getViewTransform();
 	const dirSign = direction === 'left' ? -1 : 1;
-	return {
+	const grip = {
 		x: v.baselineX + dirSign * weapon.x * v.fit,
 		y: v.baselineY - weapon.y * v.fit,
 	};
+	let tip = null;
+	if (weaponImg) {
+		const tipLocal = bodyLocalTip(0, dirSign);
+		if (tipLocal) {
+			tip = {
+				x: v.baselineX + tipLocal.x * v.fit,
+				y: v.baselineY + tipLocal.y * v.fit,
+			};
+		}
+	}
+	return { grip, tip };
+}
+function _weaponPosGet() {
+	const key = _weaponPosKey();
+	if (key === _wPosKey && _wPosCache) return _wPosCache;
+	_wPosCache = _weaponPosRecompute();
+	_wPosKey = key;
+	return _wPosCache;
+}
+function invalidateWeaponPosCache() {
+	_wPosCache = null;
+	_wPosKey = '';
 }
 
-// Where the weapon's tip lands on the preview canvas (frame 0 pose).
+function weaponScreenPos() {
+	return _weaponPosGet().grip;
+}
 function weaponTipScreenPos() {
 	if (!weaponImg) return null;
-	const v = getViewTransform();
-	const dirSign = direction === 'left' ? -1 : 1;
-	const tip = bodyLocalTip(0, dirSign);
-	if (!tip) return null;
-	return {
-		x: v.baselineX + tip.x * v.fit,
-		y: v.baselineY + tip.y * v.fit,
-	};
+	return _weaponPosGet().tip;
 }
 
 // Hit-test which weapon handle (grip or tip) is under the cursor.
@@ -2236,7 +2308,6 @@ function bake() {
 	if (!bodyImg) return null;
 	const preset = PRESETS[activePresetKey];
 	const N = settings.frames;
-	const contentScale = frameScale / 100;
 
 	// Sample N*4 to find extents (and account for weapon swing)
 	let extLeft = 0, extRight = 0, extTop = 0, extBottom = 0;
@@ -2319,7 +2390,8 @@ function bake() {
 		extTop = Math.max(extTop, fxExt);
 		extBottom = Math.max(extBottom, 40 * fxScale);
 	}
-	const extraPad = Math.max(0, framePadding);
+	const fit = resolveFrameFit(extLeft, extRight, extTop, extBottom);
+	const { contentScale, extraPad } = fit;
 	const padL = Math.ceil(extLeft * contentScale + extraPad);
 	const padR = Math.ceil(extRight * contentScale + extraPad);
 	const padTop = Math.ceil(extTop * contentScale + extraPad);
@@ -2359,7 +2431,18 @@ function bake() {
 			drawFullFrame(ctx, t, cx, cy, dir, contentScale);
 		}
 	}
-	return { canvas: out, tileW, tileH, frames: N, rows, dirs: dirRows, frameScale, framePadding };
+	return {
+		canvas: out,
+		tileW,
+		tileH,
+		frames: N,
+		rows,
+		dirs: dirRows,
+		frameScale: fit.autoScale,
+		framePadding: fit.autoPad,
+		frameAutoFit,
+		frameMaxTile,
+	};
 }
 
 let bakePreviewTimer = null;
@@ -2381,15 +2464,18 @@ function renderBakePreviewNow() {
 	const msPerFrame = Math.round(settings.duration / settings.frames);
 	const preset = PRESETS[activePresetKey];
 	const rowDesc = r.rows === 2 ? ' · 2 hàng (P/T)' : '';
-	sheetInfo.textContent = `${r.frames}f · ${r.tileW}×${r.tileH}px / tile · ${r.canvas.width}×${r.canvas.height}px tổng · ${msPerFrame}ms/frame · scale ${frameScale}% · pad ${framePadding}px · ${preset.loop ? 'loop' : 'one-shot'}${weaponImg ? ' · ⚔ vũ khí' : ''}${rowDesc}`;
+	const fitDesc = frameAutoFit
+		? `auto scale ${r.frameScale}% · pad ${r.framePadding}px · max ${frameMaxTile}px`
+		: `scale ${r.frameScale}% · pad ${r.framePadding}px`;
+	sheetInfo.textContent = `${r.frames}f · ${r.tileW}×${r.tileH}px / tile · ${r.canvas.width}×${r.canvas.height}px tổng · ${msPerFrame}ms/frame · ${fitDesc} · ${preset.loop ? 'loop' : 'one-shot'}${weaponImg ? ' · ⚔ vũ khí' : ''}${rowDesc}`;
 }
 
 function updateBakePreview(options = {}) {
 	scheduleAutoSave();
-	// Inputs may have changed — drop the cached extent computation so the
-	// next bakeTileDimsOnly call recomputes (cheap thanks to the JSON-key
-	// cache hit-check inside the function).
+	// Inputs may have changed — drop cached extent + weapon-pos so next
+	// access recomputes. Both caches are key-checked so re-keying is cheap.
 	invalidateExtentCache();
+	invalidateWeaponPosCache();
 	// Resize the live preview canvas to match the new bake tile so
 	// effects (dust, trail, particles) never get clipped at the edge.
 	if (bodyImg) setupPreviewCanvas();
@@ -2630,17 +2716,39 @@ $('cinematic-timing').addEventListener('change', (e) => {
 	updateBakePreview();
 });
 
+const frameAutoFitInput = $('frame-auto-fit');
+const frameMaxTileInput = $('frame-max-tile');
+const frameMaxTileVal = $('frame-max-tile-val');
 const frameScaleInput = $('frame-scale');
 const frameScaleVal = $('frame-scale-val');
 const framePaddingInput = $('frame-padding');
 const framePaddingVal = $('frame-padding-val');
 
 function syncFrameControls() {
+	frameAutoFitInput.checked = frameAutoFit;
+	frameMaxTileInput.value = frameMaxTile;
+	frameMaxTileVal.textContent = frameMaxTile;
 	frameScaleInput.value = frameScale;
 	frameScaleVal.textContent = frameScale;
 	framePaddingInput.value = framePadding;
 	framePaddingVal.textContent = framePadding;
+	frameScaleInput.disabled = frameAutoFit;
+	framePaddingInput.disabled = frameAutoFit;
+	frameScaleInput.classList.toggle('opacity-40', frameAutoFit);
+	framePaddingInput.classList.toggle('opacity-40', frameAutoFit);
 }
+
+frameAutoFitInput.addEventListener('change', (e) => {
+	frameAutoFit = e.target.checked;
+	syncFrameControls();
+	updateBakePreview();
+});
+
+frameMaxTileInput.addEventListener('input', (e) => {
+	frameMaxTile = Number(e.target.value);
+	frameMaxTileVal.textContent = frameMaxTile;
+	updateBakePreview();
+});
 
 frameScaleInput.addEventListener('input', (e) => {
 	frameScale = Number(e.target.value);
@@ -2756,6 +2864,8 @@ function makeSessionConfig(options = {}) {
 		showShake,
 		useSpring,
 		cinematicTiming,
+		frameAutoFit,
+		frameMaxTile,
 		frameScale,
 		framePadding,
 		weapon: weaponImg
@@ -2907,6 +3017,8 @@ async function applySessionConfig(cfg, sourceLabel = 'preset') {
 		showShake = cfg.showShake ?? true;
 		useSpring = cfg.useSpring ?? true;
 		cinematicTiming = !!cfg.cinematicTiming;
+		frameAutoFit = cfg.frameAutoFit ?? true;
+		frameMaxTile = cfg.frameMaxTile ?? 384;
 		frameScale = cfg.frameScale ?? 90;
 		framePadding = cfg.framePadding ?? 18;
 		$('bake-both-dirs').checked = bakeBothDirs;
@@ -3008,6 +3120,8 @@ $('export-bundle-btn').addEventListener('click', () => {
 		sheet_height: r.canvas.height,
 		frame_scale_percent: r.frameScale,
 		frame_padding_px: r.framePadding,
+		frame_auto_fit: r.frameAutoFit,
+		frame_max_tile_px: r.frameMaxTile,
 		duration_ms: settings.duration,
 		ms_per_frame: Math.round(settings.duration / r.frames),
 		fps: Math.round(1000 / (settings.duration / r.frames)),
@@ -3267,11 +3381,16 @@ function autoCropRectForImage(img, pad = 2) {
 	}
 	const d = imgData.data;
 	const W = c.width, H = c.height;
+	// Quick alpha-presence probe: look at every Nth pixel instead of all.
 	let hasTransparentPixels = false;
-	for (let i = 3; i < d.length; i += 4) {
-		if (d[i] < 250) {
-			hasTransparentPixels = true;
-			break;
+	const probeStride = 16; // sample every 16 pixels (4 bytes each)
+	for (let i = 3; i < d.length; i += 4 * probeStride) {
+		if (d[i] < 250) { hasTransparentPixels = true; break; }
+	}
+	if (!hasTransparentPixels) {
+		// Re-check with full stride only if nothing found yet
+		for (let i = 3; i < d.length; i += 4) {
+			if (d[i] < 250) { hasTransparentPixels = true; break; }
 		}
 	}
 
@@ -3284,15 +3403,22 @@ function autoCropRectForImage(img, pad = 2) {
 	const cornerColors = cornerSamples.map((idx) => [d[idx], d[idx + 1], d[idx + 2]]);
 	const BG_THRESH_SQ = 36 * 36;
 	const ALPHA_THRESH = 16;
+
+	// Two-pass strategy: coarse stride to find approximate bbox, then refine
+	// only along the edges of that bbox. ~10× faster than full scan on large
+	// images, identical bbox accuracy after refinement.
+	const stride = Math.max(1, Math.floor(Math.min(W, H) / 128));
+	const isFg = (idx) => {
+		const a = d[idx + 3];
+		return hasTransparentPixels
+			? a > ALPHA_THRESH
+			: cornerColors.every((rgb) => colorDistanceSq(d, idx, rgb) > BG_THRESH_SQ);
+	};
 	let minX = W, minY = H, maxX = -1, maxY = -1;
-	for (let y = 0; y < H; y++) {
-		for (let x = 0; x < W; x++) {
-			const idx = (y * W + x) * 4;
-			const a = d[idx + 3];
-			const isForeground = hasTransparentPixels
-				? a > ALPHA_THRESH
-				: cornerColors.every((rgb) => colorDistanceSq(d, idx, rgb) > BG_THRESH_SQ);
-			if (!isForeground) continue;
+	for (let y = 0; y < H; y += stride) {
+		const rowBase = y * W * 4;
+		for (let x = 0; x < W; x += stride) {
+			if (!isFg(rowBase + x * 4)) continue;
 			if (x < minX) minX = x;
 			if (y < minY) minY = y;
 			if (x > maxX) maxX = x;
@@ -3300,6 +3426,57 @@ function autoCropRectForImage(img, pad = 2) {
 		}
 	}
 	if (maxX < 0) return null;
+
+	// Refine: scan only the (stride×4)-px band around each detected edge
+	if (stride > 1) {
+		const REFINE = stride * 2;
+		// Refine left edge: x in [max(0, minX - REFINE), minX + REFINE)
+		const xL = Math.max(0, minX - REFINE);
+		const xR = Math.min(W, maxX + REFINE + 1);
+		const yT = Math.max(0, minY - REFINE);
+		const yB = Math.min(H, maxY + REFINE + 1);
+		// Top band
+		for (let y = yT; y < Math.min(yB, minY + REFINE); y++) {
+			const rowBase = y * W * 4;
+			for (let x = xL; x < xR; x++) {
+				if (isFg(rowBase + x * 4)) {
+					if (y < minY) minY = y;
+					if (x < minX) minX = x;
+					if (x > maxX) maxX = x;
+				}
+			}
+		}
+		// Bottom band
+		for (let y = Math.max(yT, maxY - REFINE); y < yB; y++) {
+			const rowBase = y * W * 4;
+			for (let x = xL; x < xR; x++) {
+				if (isFg(rowBase + x * 4)) {
+					if (y > maxY) maxY = y;
+					if (x < minX) minX = x;
+					if (x > maxX) maxX = x;
+				}
+			}
+		}
+		// Left band (only the slice not already covered by top/bottom)
+		for (let y = minY + REFINE; y < maxY - REFINE; y++) {
+			const rowBase = y * W * 4;
+			for (let x = xL; x < Math.min(xR, minX + REFINE); x++) {
+				if (isFg(rowBase + x * 4)) {
+					if (x < minX) minX = x;
+				}
+			}
+		}
+		// Right band
+		for (let y = minY + REFINE; y < maxY - REFINE; y++) {
+			const rowBase = y * W * 4;
+			for (let x = Math.max(xL, maxX - REFINE); x < xR; x++) {
+				if (isFg(rowBase + x * 4)) {
+					if (x > maxX) maxX = x;
+				}
+			}
+		}
+	}
+
 	const x = Math.max(0, minX - pad);
 	const y = Math.max(0, minY - pad);
 	return {
