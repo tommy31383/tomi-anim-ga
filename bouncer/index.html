@@ -1197,6 +1197,9 @@ const weaponInfo = $('weapon-info');
 const weaponClearBtn = $('weapon-clear');
 const weaponCtrls = $('weapon-controls');
 const previewCanvas = $('preview-canvas');
+// Cache the 2D context once at init — main RAF loop runs at 60fps, fetching
+// context per frame is wasted overhead.
+const previewCtx = previewCanvas.getContext('2d');
 const emptyState = $('empty-state');
 const bakeCanvas = $('bake-canvas');
 const exportBtn = $('export-btn');
@@ -2219,7 +2222,7 @@ function loop(now) {
 		$('scrub-info').textContent = `frame ${fIdx} / ${N}`;
 	}
 
-	const ctx = previewCanvas.getContext('2d');
+	const ctx = previewCtx; // cached at init (was: previewCanvas.getContext('2d'))
 	ctx.imageSmoothingEnabled = false;
 	ctx.setTransform(lastDpr, 0, 0, lastDpr, 0, 0);
 	const v = getViewTransform();
@@ -3825,10 +3828,16 @@ function initBodyCropCanvas() {
 	_bodyCropBgCache = bg;
 }
 
+// See drawCropEditor — same diff-skip optimization for body crop overlay.
+let _lastBodyCropDrawKey = '';
 function drawBodyCropEditor() {
 	if (!bodySrcImg) return;
 	if (!_bodyCropBgCache) initBodyCropCanvas();
 	if (!_bodyCropBgCache) return;
+	const r = bodyCropRect;
+	const drawKey = `${r.x}|${r.y}|${r.w}|${r.h}|${bodyCropCanvas.dataset.dispW}|${bodyCropCanvas.dataset.dispH}`;
+	if (drawKey === _lastBodyCropDrawKey) return;
+	_lastBodyCropDrawKey = drawKey;
 	const dpr = window.devicePixelRatio || 1;
 	const w = parseFloat(bodyCropCanvas.dataset.dispW);
 	const h = parseFloat(bodyCropCanvas.dataset.dispH);
@@ -4046,10 +4055,31 @@ $('body-crop-reset').addEventListener('click', () => {
 	applyBodyCrop();
 });
 
+// Defer a heavy synchronous task to the next browser idle slot so the click
+// handler returns immediately and the UI stays responsive. Falls back to
+// setTimeout 0 in browsers without requestIdleCallback (Safari < 17.5).
+function whenIdle(fn, timeoutMs = 800) {
+	return new Promise((resolve, reject) => {
+		const run = () => {
+			try { resolve(fn()); } catch (e) { reject(e); }
+		};
+		if (typeof requestIdleCallback === 'function') {
+			requestIdleCallback(run, { timeout: timeoutMs });
+		} else {
+			setTimeout(run, 0);
+		}
+	});
+}
+
 // Auto-remove background: pick the average of the 4 corner pixels as bg color,
 // then clear (alpha=0) any pixel within `tolerance` Euclidean distance of it.
 // Returns a Promise<HTMLImageElement> with the cleaned image.
+// Wrapped in `whenIdle` so the heavy pixel walk + PNG encode happens off the
+// click handler tick — UI stays responsive even on 2K+ images.
 function autoRemoveBg(img, tolerance = 30) {
+	return whenIdle(() => _autoRemoveBgSync(img, tolerance)).then((res) => res);
+}
+function _autoRemoveBgSync(img, tolerance) {
 	const c = document.createElement('canvas');
 	c.width = img.width;
 	c.height = img.height;
@@ -4200,10 +4230,18 @@ function initCropCanvas() {
 	_cropBgCache = bg;
 }
 
+// Skip overlay redraw when the crop rect (and canvas size) haven't changed.
+// During mousemove drag, the rect may not move every event — gating cuts
+// 30-50% of redraws.
+let _lastWeaponCropDrawKey = '';
 function drawCropEditor() {
 	if (!weaponSrcImg) return;
 	if (!_cropBgCache) initCropCanvas();
 	if (!_cropBgCache) return;
+	const r = cropRect;
+	const drawKey = `${r.x}|${r.y}|${r.w}|${r.h}|${cropCanvas.dataset.dispW}|${cropCanvas.dataset.dispH}`;
+	if (drawKey === _lastWeaponCropDrawKey) return;
+	_lastWeaponCropDrawKey = drawKey;
 	const dpr = window.devicePixelRatio || 1;
 	const w = parseFloat(cropCanvas.dataset.dispW);
 	const h = parseFloat(cropCanvas.dataset.dispH);
