@@ -1,5 +1,3 @@
-/* eslint-disable no-console */
-
 /**
  * Debug logging for Node scripts under `scripts/`.
  * Enable with `DEBUG=1` (or `true`, `yes`) in the environment:

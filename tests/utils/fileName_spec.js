@@ -92,13 +92,7 @@ describe("getItemFileName", () => {
   });
 
   it("should preserve a zOverride of 0", () => {
-    const result = getItemFileName(
-      1,
-      "variant1",
-      "body_male_light.png",
-      1,
-      0,
-    );
+    const result = getItemFileName(1, "variant1", "body_male_light.png", 1, 0);
     expect(result).to.equal("000 body_male_light.png");
   });
 });

@@ -67,6 +67,6 @@ export function writeZPositionsFromSheetsSync(opts = {}) {
   const outPath = path.join(root, "scripts", "zPositioning", "z_positions.csv");
   const csvToWrite = "json,layer,zPos,images\n" + csvEntries.sort().join("\n");
   writeFileSync(outPath, csvToWrite, "utf8");
-  // eslint-disable-next-line no-console -- progress
+
   console.log("Updated z_positions.csv!");
 }

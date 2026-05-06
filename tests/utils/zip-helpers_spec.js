@@ -21,6 +21,7 @@ import {
   zipGenerateBlobWithProfiler,
 } from "../../sources/utils/zip-helpers.js";
 import { DIRECTIONS } from "../../sources/state/constants.ts";
+import { setOffscreenCanvasInitializedForTests } from "../../sources/canvas/renderer.js";
 
 function createCanvas(width, height) {
   const canvas = document.createElement("canvas");
@@ -567,44 +568,43 @@ describe("utils/zip-helpers.js", () => {
     });
 
     describe("guardZipExportEnvironment", () => {
-      let canvasRendererOrig;
       let jsZipOrig;
+      let alertSpy;
 
       beforeEach(() => {
-        canvasRendererOrig = window.canvasRenderer;
         jsZipOrig = window.JSZip;
+        // Stub alert ONCE in beforeEach so it always restores in afterEach
+        // even if a test assertion throws mid-flight (avoids cascade
+        // "Attempted to wrap alert which is already wrapped" errors).
+        alertSpy = sinon.stub(window, "alert");
       });
 
       afterEach(() => {
-        window.canvasRenderer = canvasRendererOrig;
         window.JSZip = jsZipOrig;
+        if (alertSpy && alertSpy.restore) alertSpy.restore();
+        // Reset the offscreen canvas init flag we toggled in tests.
+        setOffscreenCanvasInitializedForTests(false);
       });
 
       it("returns true and does not alert when prerequisites exist", () => {
-        window.canvasRenderer = {};
+        setOffscreenCanvasInitializedForTests(true);
         window.JSZip = function FakeJSZip() {};
-        const alertSpy = sinon.stub(window, "alert");
         expect(guardZipExportEnvironment()).to.be.true;
         expect(alertSpy.called).to.be.false;
-        alertSpy.restore();
       });
 
       it("returns false and alerts when JSZip is missing", () => {
-        window.canvasRenderer = {};
+        setOffscreenCanvasInitializedForTests(true);
         window.JSZip = undefined;
-        const alertSpy = sinon.stub(window, "alert");
         expect(guardZipExportEnvironment()).to.be.false;
         expect(alertSpy.firstCall.args[0]).to.equal("JSZip library not loaded");
-        alertSpy.restore();
       });
 
       it("returns false and alerts when canvasRenderer is missing", () => {
-        window.canvasRenderer = undefined;
+        setOffscreenCanvasInitializedForTests(false);
         window.JSZip = function FakeJSZip() {};
-        const alertSpy = sinon.stub(window, "alert");
         expect(guardZipExportEnvironment()).to.be.false;
         expect(alertSpy.calledOnce).to.be.true;
-        alertSpy.restore();
       });
     });
 

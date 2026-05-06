@@ -1,10 +1,7 @@
 // Download component
 import m from "mithril";
 import { state } from "../../state/state.js";
-import {
-  layers,
-  isOffscreenCanvasInitialized,
-} from "../../canvas/renderer.js";
+import { layers, isOffscreenCanvasInitialized } from "../../canvas/renderer.js";
 import {
   getAllCredits,
   creditsToCsv,

@@ -92,7 +92,7 @@ async function ensureDistItemMetadata() {
   const { generateSources } = await import(genUrl);
   const distDir = path.join(REPO_ROOT, "dist");
   fs.mkdirSync(distDir, { recursive: true });
-  // eslint-disable-next-line no-console -- progress
+
   console.log("Generating dist/*-metadata.js (generate sources)…");
   generateSources({
     writeMetadata: true,
@@ -230,7 +230,6 @@ async function main() {
 
   const wanted = collectItemIdsFromExport(data);
   if (wanted.size === 0) {
-    // eslint-disable-next-line no-console -- always visible (not gated on DEBUG)
     console.warn("No itemId values found in input JSON; output will be empty.");
   }
 
@@ -252,7 +251,6 @@ async function main() {
   }
 
   if (missing.length > 0) {
-    // eslint-disable-next-line no-console -- missing itemIds should always be visible
     console.warn(
       "itemId(s) not found in generated item metadata (skipped):",
       missing.join(", "),
@@ -265,19 +263,19 @@ async function main() {
   fs.mkdirSync(TESTS_FIXTURES, { recursive: true });
 
   writeItemdataModule(outPath, filtered, sourceLabel, itemCount);
-  // eslint-disable-next-line no-console -- success path should always print
+
   console.log(
     `Wrote ${path.relative(REPO_ROOT, outPath)} (${itemCount} items)`,
   );
 
   const testsItemdata = path.join(TESTS_FIXTURES, "issue-382-itemdata.js");
   writeItemdataModule(testsItemdata, filtered, sourceLabel, itemCount);
-  // eslint-disable-next-line no-console
+
   console.log(`Wrote ${path.relative(REPO_ROOT, testsItemdata)}`);
 
   const testsSelections = path.join(TESTS_FIXTURES, "issue-382-selections.js");
   writeSelectionsModule(testsSelections, data, sourceLabel);
-  // eslint-disable-next-line no-console
+
   console.log(`Wrote ${path.relative(REPO_ROOT, testsSelections)}`);
 
   if (!skipGolden) {
@@ -288,7 +286,7 @@ async function main() {
     const { generateIssue382GoldenZipFixtures } = await import(modUrl);
     debugLog("Generating golden zip path fixtures (Playwright)…");
     await generateIssue382GoldenZipFixtures(rel);
-    // eslint-disable-next-line no-console
+
     console.log(
       "Wrote tests/fixtures/issue-382/issue-382-zip-paths-*.js (four files)",
     );

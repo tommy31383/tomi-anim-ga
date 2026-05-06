@@ -176,6 +176,33 @@ export default [
     rules: commonRules,
   },
   {
+    // CLI helpers under scripts/ — allow console.log for output, allow
+    // unused vars (often kept around for clarity in script-style code).
+    files: ["scripts/**/*.js"],
+    languageOptions: {
+      parserOptions: {
+        ...sharedParserOptions,
+        sourceType: "module",
+      },
+      globals: {
+        ...globals.node,
+        ...globals.es2021,
+      },
+    },
+    rules: {
+      ...commonRules,
+      "no-console": "off",
+      "no-unused-vars": [
+        "error",
+        {
+          argsIgnorePattern: "^_",
+          varsIgnorePattern: "^(_|[A-Z][A-Z_]*$)",
+          caughtErrorsIgnorePattern: "^_",
+        },
+      ],
+    },
+  },
+  {
     files: ["issue382-golden-runner.js"],
     languageOptions: {
       parserOptions: {

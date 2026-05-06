@@ -134,12 +134,32 @@ async function main() {
     `Generated ${new Date().toISOString()}. Scanned ${targets.length} sheet definitions.`,
   );
   md.push(``, `## Summary`);
-  for (const k of ["1H", "2H", "Ranged", "Shield", "Tool", "BodyFull", "BodyMid", "BodyLimited", "Unknown"]) {
+  for (const k of [
+    "1H",
+    "2H",
+    "Ranged",
+    "Shield",
+    "Tool",
+    "BodyFull",
+    "BodyMid",
+    "BodyLimited",
+    "Unknown",
+  ]) {
     md.push(`- **${k}**: ${byClass[k].length}`);
   }
   md.push(``);
 
-  for (const k of ["1H", "2H", "Ranged", "Shield", "Tool", "BodyFull", "BodyMid", "BodyLimited", "Unknown"]) {
+  for (const k of [
+    "1H",
+    "2H",
+    "Ranged",
+    "Shield",
+    "Tool",
+    "BodyFull",
+    "BodyMid",
+    "BodyLimited",
+    "Unknown",
+  ]) {
     const items = byClass[k];
     if (!items.length) continue;
     md.push(`## ${k} (${items.length})`);
@@ -181,7 +201,17 @@ export function getWeaponClass(itemId) {
   console.log(`✓ sources/state/weapon-classes-data.js`);
 
   console.log(`\nSummary:`);
-  for (const k of ["1H", "2H", "Ranged", "Shield", "Tool", "BodyFull", "BodyMid", "BodyLimited", "Unknown"]) {
+  for (const k of [
+    "1H",
+    "2H",
+    "Ranged",
+    "Shield",
+    "Tool",
+    "BodyFull",
+    "BodyMid",
+    "BodyLimited",
+    "Unknown",
+  ]) {
     console.log(`  ${k}: ${byClass[k].length}`);
   }
 }

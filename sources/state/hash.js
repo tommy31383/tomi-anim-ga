@@ -384,7 +384,8 @@ export function initHashChangeListener(listener) {
     // Our afterStateChange() will update the hash, but we don't want to reload from it
     // We can detect external changes by checking if the hash is different from what we expect
     const expectedHash =
-      "#" + createHashStringFromParams(getHashParamsforSelections(state.selections));
+      "#" +
+      createHashStringFromParams(getHashParamsforSelections(state.selections));
 
     // If the hash matches what we expect from current state, ignore (it's our own update)
     if (currentHash === expectedHash) {

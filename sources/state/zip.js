@@ -63,7 +63,6 @@ export const exportSplitAnimations = async (deps = {}) => {
 
   if (!guardZipExportEnvironment()) return;
 
-
   const profiler = createZipExportProfiler("splitAnimations");
 
   try {
@@ -205,7 +204,6 @@ export const exportSplitItemSheets = async (deps = {}) => {
 
   if (!guardZipExportEnvironment()) return;
 
-
   try {
     const zip = new window.JSZip();
     const timestamp = zipExportTimestamp();
@@ -325,7 +323,6 @@ export const exportSplitItemAnimations = async (deps = {}) => {
   const getImageToDrawFn = deps.getImageToDraw ?? getImageToDraw;
 
   if (!guardZipExportEnvironment()) return;
-
 
   try {
     const zip = new window.JSZip();
@@ -570,7 +567,6 @@ export const exportIndividualFrames = async (deps = {}) => {
   };
 
   if (!guardZipExportEnvironment()) return;
-
 
   const profiler = createZipExportProfiler("individualFrames");
 

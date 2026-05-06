@@ -25,7 +25,7 @@ export const CollapsibleSection = {
       }
     };
 
-    const titleId = `collapsible-title-${vnode.state.titleId ||= Math.random().toString(36).slice(2, 9)}`;
+    const titleId = `collapsible-title-${(vnode.state.titleId ||= Math.random().toString(36).slice(2, 9))}`;
     const onHeaderKey = (e) => {
       if (e.key === "Enter" || e.key === " ") {
         e.preventDefault();

@@ -42,7 +42,7 @@ export const BROKEN_ASSET_IDS = new Set([
   "weapons_shields_heater_pattern_shield_heater_pattern_saltire",
   "weapons_shields_heater_shield_heater_paint",
   "weapons_shields_heater_shield_heater_wood",
-  "weapons_shields_shield_kite"
+  "weapons_shields_shield_kite",
 ]);
 
 export const BROKEN_ASSETS_GENERATED_AT = "2026-05-01T13:29:47.877Z";

@@ -524,7 +524,10 @@ export function extractAnimationFromCanvas(animationName) {
   // Reject if region is fully transparent — caller can fall back to custom
   // extractor or show a helpful alert instead of saving an empty PNG.
   const srcCtx = get2DContext(canvas, true);
-  const sampleStep = Math.max(1, Math.floor(Math.min(SHEET_WIDTH, srcHeight) / 32));
+  const sampleStep = Math.max(
+    1,
+    Math.floor(Math.min(SHEET_WIDTH, srcHeight) / 32),
+  );
   let hasPixel = false;
   outer: for (let dy = 0; dy < srcHeight; dy += sampleStep) {
     for (let dx = 0; dx < SHEET_WIDTH; dx += sampleStep) {
