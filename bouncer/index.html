@@ -572,42 +572,56 @@ const PRESETS = {
 	},
 	heavy: {
 		key: 'heavy', emoji: '🔨', label: 'Heavy smash',
-		desc: 'Gồng chậm rồi bổ mạnh, thân nén xuống và bật impact lớn.',
+		desc: 'Bật lên cao rồi bổ xuống, có vệt chém và nứt đất tại điểm impact.',
 		loop: false,
-		defaults: { frames: 12, duration: 620, lunge: 18, windup: 12, swing: 145, impact: 90 },
-		sliders: ['frames', 'duration', 'lunge', 'windup', 'swing', 'impact'],
+		defaults: { frames: 14, duration: 720, lunge: 18, windup: 12, hop: 34, swing: 160, impact: 110, skillSize: 150 },
+		sliders: ['frames', 'duration', 'lunge', 'windup', 'hop', 'swing', 'impact', 'skillSize'],
 		transform: (t, s) => {
-			if (t < 0.42) {
-				const p = easeOutCubic(t / 0.42);
+			if (t < 0.28) {
+				const p = easeOutCubic(t / 0.28);
 				return {
 					tx: -s.windup * 0.7 * p,
-					ty: p * 3,
+					ty: -s.hop * 0.25 * p,
 					rot: -p * 5,
-					sx: lerp(1, 0.9, p),
-					sy: lerp(1, 1.08, p),
-					weaponRot: -s.swing * 0.55 * p,
+					sx: lerp(1, 0.92, p),
+					sy: lerp(1, 1.12, p),
+					weaponRot: -s.swing * 0.45 * p,
 				};
 			}
-			if (t < 0.64) {
-				const p = easeOutCubic((t - 0.42) / 0.22);
+			if (t < 0.52) {
+				const p = easeOutCubic((t - 0.28) / 0.24);
 				return {
-					tx: lerp(-s.windup * 0.7, 0, p),
-					ty: p * s.impact * 0.05,
-					rot: lerp(-5, 7, p),
-					sx: lerp(0.9, 1.2, p),
-					sy: lerp(1.08, 0.78, p),
-					weaponRot: lerp(-s.swing * 0.55, s.swing * 0.62, p),
-					weaponTx: s.lunge * p,
-					filter: `brightness(${(1 + p * 0.28).toFixed(2)})`,
+					tx: lerp(-s.windup * 0.7, -s.windup * 0.25, p),
+					ty: lerp(-s.hop * 0.25, -s.hop, p),
+					rot: lerp(-5, -9, p),
+					sx: lerp(0.92, 0.96, p),
+					sy: lerp(1.12, 1.04, p),
+					weaponRot: lerp(-s.swing * 0.45, -s.swing * 0.68, p),
+					weaponTx: s.lunge * 0.25 * p,
+					filter: `brightness(${(1 + p * 0.12).toFixed(2)})`,
 				};
 			}
-			const p = easeOutCubic((t - 0.64) / 0.36);
+			if (t < 0.66) {
+				const raw = (t - 0.52) / 0.14;
+				const p = raw * raw;
+				return {
+					tx: lerp(-s.windup * 0.25, 0, p),
+					ty: lerp(-s.hop, s.impact * 0.07, p),
+					rot: lerp(-9, 8, p),
+					sx: lerp(0.96, 1.26, p),
+					sy: lerp(1.04, 0.68, p),
+					weaponRot: lerp(-s.swing * 0.68, s.swing * 0.7, p),
+					weaponTx: lerp(s.lunge * 0.25, s.lunge, p),
+					filter: `brightness(${(1 + p * 0.38).toFixed(2)})`,
+				};
+			}
+			const p = easeOutCubic((t - 0.66) / 0.34);
 			return {
 				ty: lerp(s.impact * 0.05, 0, p),
 				rot: lerp(7, 0, p),
 				sx: lerp(1.2, 1, p),
 				sy: lerp(0.78, 1, p),
-				weaponRot: lerp(s.swing * 0.62, 0, p),
+				weaponRot: lerp(s.swing * 0.7, 0, p),
 				weaponTx: lerp(s.lunge, 0, p),
 			};
 		},
@@ -1004,7 +1018,7 @@ const SLIDER_CONFIG = {
 	skillSize: { label: 'Cỡ hiệu ứng', min: 60, max: 260, step: 10, suffix: '%' },
 	pulse: { label: 'Cường độ pulse', min: 2, max: 20, step: 1, suffix: '%' },
 	glow: { label: 'Cường độ glow', min: 0, max: 30, step: 1, suffix: 'px' },
-	hop: { label: 'Độ cao nhảy', min: 4, max: 30, step: 1, suffix: 'px' },
+	hop: { label: 'Độ cao nhảy', min: 4, max: 300, step: 2, suffix: 'px' },
 	hop2: { label: 'Nhảy 2 nhịp', min: 4, max: 36, step: 1, suffix: 'px' },
 	sway: { label: 'Lắc lư', min: 0, max: 16, step: 1, suffix: 'px/deg' },
 	tilt: { label: 'Nghiêng', min: 0, max: 14, step: 1, suffix: '°' },
@@ -1474,6 +1488,25 @@ function drawCombatSkillFx(ctx, t, cx, cy, dir) {
 	if (key === 'heavy' || key === 'groundSlam') {
 		const start = key === 'heavy' ? 0.5 : 0.48;
 		const age = (t - start) / 0.45;
+		if (key === 'heavy') {
+			const slash = Math.sin(Math.max(0, Math.min(1, (t - 0.47) / 0.22)) * Math.PI);
+			if (slash > 0) {
+				const y = cy - (bodyImg ? bodyImg.height * 0.52 : 48);
+				const len = (bodyImg ? bodyImg.height * 1.05 : 88) * size;
+				ctx.strokeStyle = `rgba(255, 255, 255, ${(slash * 0.78).toFixed(3)})`;
+				ctx.lineWidth = 7 * size;
+				ctx.beginPath();
+				ctx.moveTo(cx - dirSign * len * 0.42, y - len * 0.42);
+				ctx.quadraticCurveTo(cx + dirSign * len * 0.08, y - len * 0.06, cx + dirSign * len * 0.42, groundY + 6);
+				ctx.stroke();
+				ctx.strokeStyle = `rgba(68, 250, 208, ${(slash * 0.46).toFixed(3)})`;
+				ctx.lineWidth = 13 * size;
+				ctx.beginPath();
+				ctx.moveTo(cx - dirSign * len * 0.46, y - len * 0.45);
+				ctx.quadraticCurveTo(cx + dirSign * len * 0.05, y - len * 0.1, cx + dirSign * len * 0.46, groundY + 8);
+				ctx.stroke();
+			}
+		}
 		if (age >= 0 && age <= 1) {
 			const a = (1 - age) * impact;
 			const rx = (28 + age * 58) * size;
@@ -1489,6 +1522,33 @@ function drawCombatSkillFx(ctx, t, cx, cy, dir) {
 				ctx.beginPath();
 				ctx.moveTo(px - 8 * size, groundY + 3 + Math.abs(i) * 2);
 				ctx.lineTo(px + 7 * size, groundY - 2 - age * 8);
+				ctx.stroke();
+			}
+			if (key === 'heavy') {
+				ctx.strokeStyle = `rgba(45, 35, 28, ${(a * 0.95).toFixed(3)})`;
+				ctx.lineWidth = Math.max(1, 2.2 * size * (1 - age * 0.35));
+				const crackLen = (42 + age * 54) * size;
+				for (let i = -3; i <= 3; i++) {
+					const side = i < 0 ? -1 : 1;
+					const spread = Math.abs(i) / 3;
+					const startX = cx + side * 8 * size;
+					const midX = cx + side * crackLen * (0.35 + spread * 0.25);
+					const endX = cx + side * crackLen * (0.62 + spread * 0.24);
+					const midY = groundY + (i % 2) * 3 + spread * 5;
+					const endY = groundY + 4 + spread * 12;
+					ctx.beginPath();
+					ctx.moveTo(startX, groundY + 2);
+					ctx.lineTo(midX, midY);
+					ctx.lineTo(endX, endY);
+					ctx.stroke();
+				}
+				ctx.strokeStyle = `rgba(255, 240, 180, ${(a * 0.38).toFixed(3)})`;
+				ctx.lineWidth = 1.4 * size;
+				ctx.beginPath();
+				ctx.moveTo(cx - crackLen * 0.75, groundY + 2);
+				ctx.lineTo(cx - crackLen * 0.2, groundY + 9);
+				ctx.lineTo(cx + crackLen * 0.18, groundY + 5);
+				ctx.lineTo(cx + crackLen * 0.75, groundY + 11);
 				ctx.stroke();
 			}
 		}
@@ -1870,8 +1930,8 @@ function bakeTileDimsOnly() {
 		const fxExt = Math.max(120, 125 * fxScale + (settings.lunge ?? 0));
 		extLeft = Math.max(extLeft, fxExt);
 		extRight = Math.max(extRight, fxExt);
-		extTop = Math.max(extTop, fxExt);
-		extBottom = Math.max(extBottom, 40 * fxScale);
+		extTop = Math.max(extTop, fxExt + (preset.key === 'heavy' ? (settings.hop ?? 0) * 0.8 : 0));
+		extBottom = Math.max(extBottom, (preset.key === 'heavy' ? 76 : 40) * fxScale);
 	}
 	const fit = resolveFrameFit(extLeft, extRight, extTop, extBottom);
 	const { contentScale, extraPad } = fit;
@@ -2400,8 +2460,8 @@ function bake() {
 		const fxExt = Math.max(120, 125 * fxScale + (settings.lunge ?? 0));
 		extLeft = Math.max(extLeft, fxExt);
 		extRight = Math.max(extRight, fxExt);
-		extTop = Math.max(extTop, fxExt);
-		extBottom = Math.max(extBottom, 40 * fxScale);
+		extTop = Math.max(extTop, fxExt + (PRESETS[activePresetKey].key === 'heavy' ? (settings.hop ?? 0) * 0.8 : 0));
+		extBottom = Math.max(extBottom, (PRESETS[activePresetKey].key === 'heavy' ? 76 : 40) * fxScale);
 	}
 	const fit = resolveFrameFit(extLeft, extRight, extTop, extBottom);
 	const { contentScale, extraPad } = fit;
