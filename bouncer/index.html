@@ -95,7 +95,7 @@
 					<div class="flex gap-1.5" onclick="event.stopPropagation()">
 						<button id="body-bg-remove" class="text-[10px] px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-emerald-300 border border-slate-700" title="Xoá nền (auto-detect màu góc, alpha=0)">🧹 Xoá nền</button>
 						<button id="body-crop-auto" class="text-[10px] px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-slate-700" title="Auto crop nhanh — bbox của tất cả pixel non-bg (kể cả noise rời rạc)">🪄 Auto</button>
-						<button id="body-best-fit" class="text-[10px] px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700" title="Best fit — tight bbox của cluster lớn nhất, ignore noise. Aseprite-style.">🎯 Best fit</button>
+						<button id="body-best-fit" class="text-[10px] px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700" title="Best fit — tight bbox của cluster lớn nhất TRONG vùng crop hiện tại. Không nhảy ra cluster khác.">🎯 Best fit</button>
 						<button id="body-crop-reset" class="text-[10px] px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700">↻</button>
 					</div>
 				</summary>
@@ -151,7 +151,7 @@
 					<div class="flex gap-1.5" onclick="event.stopPropagation()">
 						<button id="weapon-bg-remove" class="text-[10px] px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-emerald-300 border border-slate-700" title="Xoá nền (auto-detect màu góc, alpha=0)">🧹 Xoá nền</button>
 						<button id="crop-auto" class="text-[10px] px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-slate-700" title="Auto crop nhanh — bbox của tất cả pixel non-bg (kể cả noise rời rạc)">🪄 Auto</button>
-						<button id="weapon-best-fit" class="text-[10px] px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700" title="Best fit — tight bbox của cluster lớn nhất, ignore noise. Aseprite-style.">🎯 Best fit</button>
+						<button id="weapon-best-fit" class="text-[10px] px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700" title="Best fit — tight bbox của cluster lớn nhất TRONG vùng crop hiện tại. Không nhảy ra cluster khác.">🎯 Best fit</button>
 						<button id="crop-reset" class="text-[10px] px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700">↻</button>
 					</div>
 				</summary>
@@ -3669,9 +3669,12 @@ function autoCropRectForImage(img, pad = 2) {
 
 // "Best fit" crop — Aseprite-style: find LARGEST connected component of
 // foreground pixels (4-neighbor flood fill) and return its tight bbox + pad.
-// Rejects floating noise / stray dots that fast `autoCropRectForImage` would
-// include in the bbox. Slower (single full scan + flood fill) but accurate.
-function bestFitCropRect(img, pad = 1) {
+//
+// `region` (optional) constrains the search to a rectangle in image coords.
+// When set, only fg pixels inside `region` are considered; flood fill won't
+// escape the region. This stops Best fit from jumping to a bigger cluster
+// outside the user's current crop selection.
+function bestFitCropRect(img, pad = 1, region = null) {
 	const c = document.createElement('canvas');
 	c.width = img.width;
 	c.height = img.height;
@@ -3687,6 +3690,12 @@ function bestFitCropRect(img, pad = 1) {
 	const W = c.width;
 	const H = c.height;
 	const total = W * H;
+	// Region bounds — default to full image when not provided.
+	const rx0 = region ? Math.max(0, Math.floor(region.x)) : 0;
+	const ry0 = region ? Math.max(0, Math.floor(region.y)) : 0;
+	const rx1 = region ? Math.min(W, Math.floor(region.x + region.w)) : W;
+	const ry1 = region ? Math.min(H, Math.floor(region.y + region.h)) : H;
+	if (rx1 <= rx0 || ry1 <= ry0) return null;
 
 	// Detect bg via 4-corner average color (skip already-transparent corners).
 	let bgR = 0, bgG = 0, bgB = 0, bgN = 0;
@@ -3701,60 +3710,67 @@ function bestFitCropRect(img, pad = 1) {
 	const ALPHA_THRESH = 4;
 	const BG_DIST_SQ = 20 * 20;
 
-	// Foreground mask: 1 byte per pixel.
+	// Foreground mask: 1 byte per pixel. Only set for pixels INSIDE region.
 	const fg = new Uint8Array(total);
-	for (let i = 0, p = 0; i < d.length; i += 4, p++) {
-		if (d[i + 3] < ALPHA_THRESH) continue;
-		if (hasOpaqueBg) {
-			const dr = d[i] - bgR;
-			const dg = d[i + 1] - bgG;
-			const db = d[i + 2] - bgB;
-			if (dr * dr + dg * dg + db * db < BG_DIST_SQ) continue;
+	for (let y = ry0; y < ry1; y++) {
+		for (let x = rx0; x < rx1; x++) {
+			const p = y * W + x;
+			const i = p * 4;
+			if (d[i + 3] < ALPHA_THRESH) continue;
+			if (hasOpaqueBg) {
+				const dr = d[i] - bgR;
+				const dg = d[i + 1] - bgG;
+				const db = d[i + 2] - bgB;
+				if (dr * dr + dg * dg + db * db < BG_DIST_SQ) continue;
+			}
+			fg[p] = 1;
 		}
-		fg[p] = 1;
 	}
 
-	// 4-connected flood fill: find largest component, track its bbox.
+	// 4-connected flood fill: find largest component INSIDE region, track its bbox.
 	const visited = new Uint8Array(total);
 	const queue = new Int32Array(total);
 	let bestSize = 0;
 	let bestBbox = null;
-	for (let p = 0; p < total; p++) {
-		if (!fg[p] || visited[p]) continue;
-		let qStart = 0, qEnd = 0;
-		queue[qEnd++] = p;
-		visited[p] = 1;
-		let minX = W, minY = H, maxX = -1, maxY = -1;
-		let size = 0;
-		while (qStart < qEnd) {
-			const cur = queue[qStart++];
-			const x = cur % W;
-			const y = (cur - x) / W;
-			if (x < minX) minX = x;
-			if (y < minY) minY = y;
-			if (x > maxX) maxX = x;
-			if (y > maxY) maxY = y;
-			size++;
-			if (x > 0) {
-				const np = cur - 1;
-				if (fg[np] && !visited[np]) { visited[np] = 1; queue[qEnd++] = np; }
+	for (let y = ry0; y < ry1; y++) {
+		for (let x = rx0; x < rx1; x++) {
+			const startP = y * W + x;
+			if (!fg[startP] || visited[startP]) continue;
+			let qStart = 0, qEnd = 0;
+			queue[qEnd++] = startP;
+			visited[startP] = 1;
+			let minX = W, minY = H, maxX = -1, maxY = -1;
+			let size = 0;
+			while (qStart < qEnd) {
+				const cur = queue[qStart++];
+				const cx = cur % W;
+				const cy = (cur - cx) / W;
+				if (cx < minX) minX = cx;
+				if (cy < minY) minY = cy;
+				if (cx > maxX) maxX = cx;
+				if (cy > maxY) maxY = cy;
+				size++;
+				if (cx > rx0) {
+					const np = cur - 1;
+					if (fg[np] && !visited[np]) { visited[np] = 1; queue[qEnd++] = np; }
+				}
+				if (cx < rx1 - 1) {
+					const np = cur + 1;
+					if (fg[np] && !visited[np]) { visited[np] = 1; queue[qEnd++] = np; }
+				}
+				if (cy > ry0) {
+					const np = cur - W;
+					if (fg[np] && !visited[np]) { visited[np] = 1; queue[qEnd++] = np; }
+				}
+				if (cy < ry1 - 1) {
+					const np = cur + W;
+					if (fg[np] && !visited[np]) { visited[np] = 1; queue[qEnd++] = np; }
+				}
 			}
-			if (x < W - 1) {
-				const np = cur + 1;
-				if (fg[np] && !visited[np]) { visited[np] = 1; queue[qEnd++] = np; }
+			if (size > bestSize) {
+				bestSize = size;
+				bestBbox = { minX, minY, maxX, maxY };
 			}
-			if (y > 0) {
-				const np = cur - W;
-				if (fg[np] && !visited[np]) { visited[np] = 1; queue[qEnd++] = np; }
-			}
-			if (y < H - 1) {
-				const np = cur + W;
-				if (fg[np] && !visited[np]) { visited[np] = 1; queue[qEnd++] = np; }
-			}
-		}
-		if (size > bestSize) {
-			bestSize = size;
-			bestBbox = { minX, minY, maxX, maxY };
 		}
 	}
 	if (!bestBbox) return null;
@@ -3767,7 +3783,8 @@ function bestFitCropRect(img, pad = 1) {
 		w: Math.min(W, bestBbox.maxX + pad + 1) - x,
 		h: Math.min(H, bestBbox.maxY + pad + 1) - y,
 		_clusterPixels: bestSize,
-		_imageTotal: total,
+		_imageTotal: (rx1 - rx0) * (ry1 - ry0),
+		_constrained: !!region,
 	};
 }
 
@@ -4036,16 +4053,18 @@ $('body-crop-auto').addEventListener('click', () => {
 $('body-best-fit').addEventListener('click', () => {
 	if (!bodySrcImg) return;
 	const t0 = performance.now();
-	const next = bestFitCropRect(bodySrcImg, 1);
+	// Constrain Best fit to user's current crop rect — don't jump out to a
+	// bigger cluster elsewhere in the image.
+	const next = bestFitCropRect(bodySrcImg, 1, bodyCropRect);
 	const ms = Math.round(performance.now() - t0);
 	if (!next) {
-		alert('Best fit không tìm được cluster fg. Thử Xoá nền trước rồi Best fit.');
+		alert('Best fit không tìm được cluster fg trong vùng đang chọn. Mở rộng vùng crop hoặc Xoá nền trước.');
 		return;
 	}
 	bodyCropRect = clampCropRect(next, bodySrcImg);
 	drawBodyCropEditor();
 	applyBodyCrop();
-	console.log(`[best-fit body] ${ms}ms · cluster ${next._clusterPixels}/${next._imageTotal} px · bbox ${next.w}x${next.h}`);
+	console.log(`[best-fit body] ${ms}ms · cluster ${next._clusterPixels}/${next._imageTotal} px · bbox ${next.w}x${next.h} (constrained=${next._constrained})`);
 });
 
 $('body-crop-reset').addEventListener('click', () => {
@@ -4571,16 +4590,17 @@ $('crop-auto').addEventListener('click', () => {
 $('weapon-best-fit').addEventListener('click', () => {
 	if (!weaponSrcImg) return;
 	const t0 = performance.now();
-	const next = bestFitCropRect(weaponSrcImg, 1);
+	// Constrain Best fit to the user's current crop rect.
+	const next = bestFitCropRect(weaponSrcImg, 1, cropRect);
 	const ms = Math.round(performance.now() - t0);
 	if (!next) {
-		alert('Best fit không tìm được cluster fg. Thử Xoá nền trước rồi Best fit.');
+		alert('Best fit không tìm được cluster fg trong vùng đang chọn. Mở rộng vùng crop hoặc Xoá nền trước.');
 		return;
 	}
 	cropRect = clampCropRect(next, weaponSrcImg);
 	drawCropEditor();
 	applyCrop();
-	console.log(`[best-fit weapon] ${ms}ms · cluster ${next._clusterPixels}/${next._imageTotal} px · bbox ${next.w}x${next.h}`);
+	console.log(`[best-fit weapon] ${ms}ms · cluster ${next._clusterPixels}/${next._imageTotal} px · bbox ${next.w}x${next.h} (constrained=${next._constrained})`);
 });
 
 $('crop-reset').addEventListener('click', () => {
