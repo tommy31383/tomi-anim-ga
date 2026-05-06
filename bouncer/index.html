@@ -391,7 +391,7 @@
 					<span class="text-slate-300 font-semibold">🎆 Hiệu ứng bổ sung</span>
 					<button id="fx-clear-all" class="text-[10px] text-slate-500 hover:text-white">Bỏ hết</button>
 				</div>
-				<p class="text-[9px] text-slate-500 mb-2">Trigger theo Frame sát thương. Bật combo vô tư.</p>
+				<p class="text-[9px] text-slate-500 mb-2">Tự bật <span class="text-rose-400">Frame sát thương</span> (giữa anim) khi tick checkbox đầu tiên. Combo vô tư.</p>
 				<div id="fx-grid" class="grid grid-cols-2 gap-x-2 gap-y-1 text-[11px]"></div>
 			</div>
 		</div>
@@ -3371,7 +3371,19 @@ function _renderFxGrid() {
 		cb.className = 'rounded fx-cb';
 		cb.checked = enabledFx.has(id);
 		cb.addEventListener('change', () => {
-			if (cb.checked) enabledFx.add(id); else enabledFx.delete(id);
+			if (cb.checked) {
+				enabledFx.add(id);
+				// FX trigger requires hitFrame >= 0. If user hasn't set it
+				// yet, auto-pick the middle frame so they see the effect
+				// immediately (no "tôi bật mà không thấy gì" confusion).
+				if (hitFrame < 0) {
+					hitFrame = Math.max(0, Math.floor(settings.frames / 2));
+					$('hit-frame').value = hitFrame;
+					$('hit-val').textContent = `frame ${hitFrame}`;
+				}
+			} else {
+				enabledFx.delete(id);
+			}
 			updateBakePreview();
 		});
 		const span = document.createElement('span');
