@@ -1865,20 +1865,46 @@ function weaponScreenPos() {
 	};
 }
 
-// Hit-test the weapon (rough — bounding circle around weapon's grip point)
-function isWeaponNearMouse(cx, cy) {
-	if (!weaponImg) return false;
+// Where the weapon's tip lands on the preview canvas (frame 0 pose).
+function weaponTipScreenPos() {
+	if (!weaponImg) return null;
 	const v = getViewTransform();
-	const wScale = weapon.scale / 100;
-	const { x: wsx, y: wsy } = weaponScreenPos();
-	const radius = Math.max(weaponImg.width, weaponImg.height) * wScale * v.fit * 0.6;
-	const dx = cx - wsx;
-	const dy = cy - wsy;
-	return dx * dx + dy * dy <= radius * radius;
+	const dirSign = direction === 'left' ? -1 : 1;
+	const tip = bodyLocalTip(0, dirSign);
+	if (!tip) return null;
+	return {
+		x: v.baselineX + tip.x * v.fit,
+		y: v.baselineY + tip.y * v.fit,
+	};
 }
 
-let drag = null; // { kind, startMouse, startWeapon }
-let hovering = false;
+// Hit-test which weapon handle (grip or tip) is under the cursor.
+// Returns 'move' (drag grip → translate), 'rotate' (drag tip → rotate),
+// or null.
+function weaponHandleHit(cx, cy) {
+	if (!weaponImg) return null;
+	const v = getViewTransform();
+	const wScale = weapon.scale / 100;
+	const tipPos = weaponTipScreenPos();
+	const gripPos = weaponScreenPos();
+	const tipR2 = (16 * v.fit + 4) ** 2;
+	if (tipPos) {
+		const dx = cx - tipPos.x, dy = cy - tipPos.y;
+		if (dx * dx + dy * dy <= tipR2) return 'rotate';
+	}
+	const gripRadius = Math.max(weaponImg.width, weaponImg.height) * wScale * v.fit * 0.6;
+	const dx = cx - gripPos.x, dy = cy - gripPos.y;
+	if (dx * dx + dy * dy <= gripRadius * gripRadius) return 'move';
+	return null;
+}
+
+// Back-compat
+function isWeaponNearMouse(cx, cy) {
+	return weaponHandleHit(cx, cy) !== null;
+}
+
+let drag = null; // { kind: 'move'|'rotate', startMouse, startWeapon, startRot }
+let hoveringHandle = null; // 'move' | 'rotate' | null
 
 function loop(now) {
 	requestAnimationFrame(loop);
@@ -1967,33 +1993,87 @@ function loop(now) {
 	}
 	ctx.restore();
 
-	// Drag handle indicator (cyan ring at weapon attach point)
+	// Drag handles: cyan ring at GRIP (move), rose ring at TIP (rotate)
 	if (weaponImg) {
-		const { x: wsx, y: wsy } = weaponScreenPos();
-		ctx.save();
-		ctx.strokeStyle = drag ? '#44fad0' : (hovering ? 'rgba(68,250,208,0.7)' : 'rgba(148,125,255,0.3)');
-		ctx.lineWidth = drag ? 2 : 1;
-		ctx.setLineDash(drag ? [] : [4, 3]);
-		ctx.beginPath();
-		ctx.arc(wsx, wsy, 6, 0, Math.PI * 2);
-		ctx.stroke();
-		// Crosshair when hovering
-		if (hovering || drag) {
+		const isMoving = drag && drag.kind === 'move';
+		const isRotating = drag && drag.kind === 'rotate';
+		const hoverKind = hoveringHandle; // 'move' | 'rotate' | null
+
+		// Connecting line grip → tip (helps user see the rotation axis)
+		const gripPos = weaponScreenPos();
+		const tipPos = weaponTipScreenPos();
+		if (tipPos) {
+			ctx.save();
+			ctx.strokeStyle = 'rgba(68, 250, 208, 0.25)';
+			ctx.lineWidth = 1;
+			ctx.setLineDash([3, 3]);
 			ctx.beginPath();
-			ctx.moveTo(wsx - 10, wsy); ctx.lineTo(wsx + 10, wsy);
-			ctx.moveTo(wsx, wsy - 10); ctx.lineTo(wsx, wsy + 10);
+			ctx.moveTo(gripPos.x, gripPos.y);
+			ctx.lineTo(tipPos.x, tipPos.y);
+			ctx.stroke();
+			ctx.restore();
+		}
+
+		// Grip handle (cyan)
+		ctx.save();
+		ctx.strokeStyle = isMoving
+			? '#44fad0'
+			: (hoverKind === 'move' ? 'rgba(68,250,208,0.85)' : 'rgba(148,125,255,0.35)');
+		ctx.lineWidth = isMoving ? 2 : 1;
+		ctx.setLineDash(isMoving ? [] : [4, 3]);
+		ctx.beginPath();
+		ctx.arc(gripPos.x, gripPos.y, 7, 0, Math.PI * 2);
+		ctx.stroke();
+		if (hoverKind === 'move' || isMoving) {
+			ctx.beginPath();
+			ctx.moveTo(gripPos.x - 10, gripPos.y); ctx.lineTo(gripPos.x + 10, gripPos.y);
+			ctx.moveTo(gripPos.x, gripPos.y - 10); ctx.lineTo(gripPos.x, gripPos.y + 10);
 			ctx.stroke();
 		}
 		ctx.restore();
+
+		// Tip handle (rose) — drag to rotate around grip
+		if (tipPos) {
+			ctx.save();
+			ctx.strokeStyle = isRotating
+				? '#fb7185'
+				: (hoverKind === 'rotate' ? 'rgba(251,113,133,0.9)' : 'rgba(251,113,133,0.45)');
+			ctx.fillStyle = isRotating
+				? 'rgba(251,113,133,0.4)'
+				: (hoverKind === 'rotate' ? 'rgba(251,113,133,0.25)' : 'rgba(251,113,133,0.1)');
+			ctx.lineWidth = isRotating ? 2 : 1.5;
+			ctx.setLineDash(isRotating ? [] : [4, 3]);
+			ctx.beginPath();
+			ctx.arc(tipPos.x, tipPos.y, 8, 0, Math.PI * 2);
+			ctx.fill();
+			ctx.stroke();
+			// Curved arrow icon when hovering/rotating to hint the gesture
+			if (hoverKind === 'rotate' || isRotating) {
+				ctx.setLineDash([]);
+				ctx.strokeStyle = '#fff';
+				ctx.lineWidth = 1.5;
+				ctx.beginPath();
+				ctx.arc(tipPos.x, tipPos.y, 12, -0.6, 2.4);
+				ctx.stroke();
+				// arrowhead
+				ctx.beginPath();
+				ctx.moveTo(tipPos.x + 12 * Math.cos(2.4), tipPos.y + 12 * Math.sin(2.4));
+				ctx.lineTo(tipPos.x + 12 * Math.cos(2.4) - 4, tipPos.y + 12 * Math.sin(2.4) - 1);
+				ctx.moveTo(tipPos.x + 12 * Math.cos(2.4), tipPos.y + 12 * Math.sin(2.4));
+				ctx.lineTo(tipPos.x + 12 * Math.cos(2.4) + 1, tipPos.y + 12 * Math.sin(2.4) - 4);
+				ctx.stroke();
+			}
+			ctx.restore();
+		}
 	}
 
 	// Hint text
-	if (weaponImg && !drag && !hovering) {
+	if (weaponImg && !drag && !hoveringHandle) {
 		ctx.save();
 		ctx.fillStyle = 'rgba(148, 163, 184, 0.6)';
 		ctx.font = '11px Inter, system-ui';
 		ctx.textAlign = 'center';
-		ctx.fillText('Kéo chấm tím để gắn vũ khí vào tay', v.w / 2, 18);
+		ctx.fillText('Kéo cyan = di chuyển · Kéo hồng = xoay vũ khí', v.w / 2, 18);
 		ctx.restore();
 	}
 }
@@ -2024,31 +2104,56 @@ function updateWeaponXYFromMouse(cx, cy) {
 	updateBakePreview();
 }
 
+// Update weapon.rot from a mouse position. Computes the angle of the
+// vector grip→mouse (in canvas pixels) and back-solves weapon.rot so
+// the tip points along that vector.
+function updateWeaponRotFromMouse(cx, cy) {
+	const v = getViewTransform();
+	const grip = weaponScreenPos();
+	const dirSign = direction === 'left' ? -1 : 1;
+	const vx = cx - grip.x;
+	const vy = cy - grip.y;
+	if (vx === 0 && vy === 0) return;
+	// In screen-canvas coords: y goes DOWN. weapon.rot=0 → tip up (vy<0).
+	// Solving the transform chain (see drawWeapon): tip dir = (sin(rot),
+	// -cos(rot)) for dir=right. rot = atan2(vx, -vy). Mirror flips x sign.
+	const rotRad = Math.atan2(dirSign * vx, -vy);
+	weapon.rot = Math.round((rotRad * 180) / Math.PI);
+	$('weapon-rot').value = weapon.rot;
+	$('wrot-val').textContent = weapon.rot;
+	updateBakePreview();
+}
+
 previewCanvas.addEventListener('mousemove', (e) => {
 	const { cx, cy } = getCanvasMouse(e);
 	if (drag) {
-		updateWeaponXYFromMouse(cx, cy);
+		if (drag.kind === 'rotate') updateWeaponRotFromMouse(cx, cy);
+		else updateWeaponXYFromMouse(cx, cy);
 	} else {
-		hovering = isWeaponNearMouse(cx, cy);
-		previewCanvas.style.cursor = hovering ? 'grab' : 'default';
+		hoveringHandle = weaponHandleHit(cx, cy);
+		previewCanvas.style.cursor = hoveringHandle ? 'grab' : 'default';
 	}
 });
 
 previewCanvas.addEventListener('mousedown', (e) => {
 	if (!weaponImg) return;
 	const { cx, cy } = getCanvasMouse(e);
-	if (!isWeaponNearMouse(cx, cy)) return;
+	const kind = weaponHandleHit(cx, cy);
+	if (!kind) return;
 	const local = canvasToLocal(cx, cy);
 	const dirSign = direction === 'left' ? -1 : 1;
-	// Store grabOffset in canvas-local space (so it adds correctly to mouse
-	// during the drag). Convert weapon.x from body-local to canvas-local.
-	drag = {
-		kind: 'weapon',
-		grabOffset: {
-			x: local.x - dirSign * weapon.x,
-			y: local.y - weapon.y,
-		},
-	};
+	if (kind === 'rotate') {
+		drag = { kind: 'rotate' };
+		updateWeaponRotFromMouse(cx, cy);
+	} else {
+		drag = {
+			kind: 'move',
+			grabOffset: {
+				x: local.x - dirSign * weapon.x,
+				y: local.y - weapon.y,
+			},
+		};
+	}
 	previewCanvas.style.cursor = 'grabbing';
 	e.preventDefault();
 });
@@ -2056,7 +2161,7 @@ previewCanvas.addEventListener('mousedown', (e) => {
 window.addEventListener('mouseup', () => {
 	if (drag) {
 		drag = null;
-		previewCanvas.style.cursor = hovering ? 'grab' : 'default';
+		previewCanvas.style.cursor = hoveringHandle ? 'grab' : 'default';
 		animStart = performance.now(); // restart anim from drag pose
 	}
 });
@@ -2065,23 +2170,30 @@ window.addEventListener('mouseup', () => {
 previewCanvas.addEventListener('touchstart', (e) => {
 	if (!weaponImg) return;
 	const { cx, cy } = getCanvasMouse(e);
-	if (!isWeaponNearMouse(cx, cy)) return;
+	const kind = weaponHandleHit(cx, cy);
+	if (!kind) return;
 	const local = canvasToLocal(cx, cy);
 	const dirSign = direction === 'left' ? -1 : 1;
-	drag = {
-		kind: 'weapon',
-		grabOffset: {
-			x: local.x - dirSign * weapon.x,
-			y: local.y - weapon.y,
-		},
-	};
+	if (kind === 'rotate') {
+		drag = { kind: 'rotate' };
+		updateWeaponRotFromMouse(cx, cy);
+	} else {
+		drag = {
+			kind: 'move',
+			grabOffset: {
+				x: local.x - dirSign * weapon.x,
+				y: local.y - weapon.y,
+			},
+		};
+	}
 	e.preventDefault();
 }, { passive: false });
 
 previewCanvas.addEventListener('touchmove', (e) => {
 	if (!drag) return;
 	const { cx, cy } = getCanvasMouse(e);
-	updateWeaponXYFromMouse(cx, cy);
+	if (drag.kind === 'rotate') updateWeaponRotFromMouse(cx, cy);
+	else updateWeaponXYFromMouse(cx, cy);
 	e.preventDefault();
 }, { passive: false });
 
