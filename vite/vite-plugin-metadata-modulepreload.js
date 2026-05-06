@@ -21,6 +21,8 @@ export function vitePluginMetadataModulePreload() {
     transformIndexHtml: {
       order: "post",
       handler(html, ctx) {
+        if (ctx.path?.includes("/bouncer/")) return html;
+
         if (ctx.bundle) {
           /** @type {Map<string, { fileName: string, size: number }>} */
           const best = new Map();
