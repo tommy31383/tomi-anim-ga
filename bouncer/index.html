@@ -386,6 +386,14 @@
 				<input id="hit-frame" type="range" min="-1" max="0" step="1" value="-1" class="w-full">
 				<p class="text-[9px] text-slate-500 mt-0.5">−1 = không đánh dấu</p>
 			</div>
+			<div class="pt-2 border-t border-slate-800">
+				<div class="flex justify-between items-center text-xs mb-1.5">
+					<span class="text-slate-300 font-semibold">🎆 Hiệu ứng bổ sung</span>
+					<button id="fx-clear-all" class="text-[10px] text-slate-500 hover:text-white">Bỏ hết</button>
+				</div>
+				<p class="text-[9px] text-slate-500 mb-2">Trigger theo Frame sát thương. Bật combo vô tư.</p>
+				<div id="fx-grid" class="grid grid-cols-2 gap-x-2 gap-y-1 text-[11px]"></div>
+			</div>
 		</div>
 
 		<!-- Save / Load -->
@@ -1646,6 +1654,342 @@ function drawShootMuzzleFx(ctx, t, cx, cy, dir) {
 	ctx.restore();
 }
 
+// =====================================================================
+// Optional FX library — user-toggleable from sidebar checkboxes.
+// Each entry: { label, draw: (ctx, t, cx, cy, dir, ext) => void }.
+// Anchored at body center (cx, cy) by default. Timing tied to hitFrame
+// when set, otherwise the effect's own duration window inside t∈[0,1].
+// =====================================================================
+const FX_REGISTRY = {};
+let enabledFx = new Set();
+
+function _fxHash(seed) {
+	const s = Math.sin(seed * 12.9898 + 78.233) * 43758.5453;
+	return s - Math.floor(s);
+}
+
+// Returns 0..1 progress through the hit window (3 frames). Negative if
+// hitFrame not set or current frame outside window.
+function _hitProgress(t) {
+	if (hitFrame < 0) return -1;
+	const N = settings.frames;
+	const ageF = t * N - hitFrame;
+	if (ageF < 0 || ageF > 3) return -1;
+	return Math.min(1, ageF / 3);
+}
+
+// Slash arc — single cyan arc swooping across body center, fades.
+FX_REGISTRY.slashArc = {
+	label: "⚔️ Chém arc",
+	draw: (ctx, t, cx, cy, dir) => {
+		const p = _hitProgress(t);
+		if (p < 0) return;
+		const dirSign = dir === 'left' ? -1 : 1;
+		const size = 60;
+		const fade = 1 - p;
+		const a0 = Math.PI * 0.35;
+		const a1 = Math.PI * -0.1;
+		ctx.save();
+		ctx.translate(cx, cy - 32);
+		ctx.scale(dirSign, 1);
+		ctx.strokeStyle = `rgba(120,240,255,${(fade * 0.95).toFixed(3)})`;
+		ctx.lineWidth = 4 * fade + 1;
+		ctx.lineCap = 'round';
+		ctx.beginPath();
+		ctx.arc(0, 0, size + p * 8, a0, a1, true);
+		ctx.stroke();
+		ctx.strokeStyle = `rgba(255,255,255,${(fade * 0.6).toFixed(3)})`;
+		ctx.lineWidth = 1.5;
+		ctx.stroke();
+		ctx.restore();
+	},
+};
+
+// Cross slash — 2 arcs at 90° offset, simultaneous "X".
+FX_REGISTRY.crossSlash = {
+	label: "❌ Chém X",
+	draw: (ctx, t, cx, cy, dir) => {
+		const p = _hitProgress(t);
+		if (p < 0) return;
+		const fade = 1 - p;
+		const len = 50 + p * 10;
+		ctx.save();
+		ctx.translate(cx, cy - 32);
+		ctx.lineCap = 'round';
+		ctx.strokeStyle = `rgba(255,90,90,${(fade * 0.9).toFixed(3)})`;
+		ctx.lineWidth = 5 * fade + 1.5;
+		// First diagonal
+		ctx.beginPath(); ctx.moveTo(-len, -len); ctx.lineTo(len, len); ctx.stroke();
+		// Second diagonal
+		ctx.beginPath(); ctx.moveTo(len, -len); ctx.lineTo(-len, len); ctx.stroke();
+		ctx.strokeStyle = `rgba(255,255,255,${(fade * 0.7).toFixed(3)})`;
+		ctx.lineWidth = 2;
+		ctx.beginPath(); ctx.moveTo(-len, -len); ctx.lineTo(len, len); ctx.stroke();
+		ctx.beginPath(); ctx.moveTo(len, -len); ctx.lineTo(-len, len); ctx.stroke();
+		ctx.restore();
+	},
+};
+
+// Bullet trail — fading line from grip extending forward.
+FX_REGISTRY.bulletTrail = {
+	label: "➡️ Tia đạn",
+	draw: (ctx, t, cx, cy, dir) => {
+		const p = _hitProgress(t);
+		if (p < 0) return;
+		const dirSign = dir === 'left' ? -1 : 1;
+		const fade = 1 - p;
+		const len = 90 + p * 30;
+		const y = cy - (bodyImg ? bodyImg.height * 0.45 : 36);
+		ctx.save();
+		const grad = ctx.createLinearGradient(cx, y, cx + dirSign * len, y);
+		grad.addColorStop(0, `rgba(255,240,180,${(fade * 0.9).toFixed(3)})`);
+		grad.addColorStop(1, 'rgba(255,200,80,0)');
+		ctx.strokeStyle = grad;
+		ctx.lineWidth = 3 * fade + 0.5;
+		ctx.lineCap = 'round';
+		ctx.beginPath();
+		ctx.moveTo(cx, y);
+		ctx.lineTo(cx + dirSign * len, y);
+		ctx.stroke();
+		ctx.restore();
+	},
+};
+
+// Single ring shockwave — expanding white circle at body center.
+FX_REGISTRY.ringShockwave = {
+	label: "⭕ Sóng nổ",
+	draw: (ctx, t, cx, cy) => {
+		const p = _hitProgress(t);
+		if (p < 0) return;
+		const fade = 1 - p;
+		const r = 8 + p * 70;
+		ctx.save();
+		ctx.strokeStyle = `rgba(255,255,255,${(fade * 0.85).toFixed(3)})`;
+		ctx.lineWidth = 4 * fade + 1;
+		ctx.beginPath();
+		ctx.arc(cx, cy - 16, r, 0, Math.PI * 2);
+		ctx.stroke();
+		ctx.strokeStyle = `rgba(255,200,80,${(fade * 0.5).toFixed(3)})`;
+		ctx.lineWidth = 2;
+		ctx.beginPath();
+		ctx.arc(cx, cy - 16, r * 1.18, 0, Math.PI * 2);
+		ctx.stroke();
+		ctx.restore();
+	},
+};
+
+// Multi shockwave — 3 concentric rings expanding at offset times.
+FX_REGISTRY.multiRing = {
+	label: "🌊 Sóng x3",
+	draw: (ctx, t, cx, cy) => {
+		const p = _hitProgress(t);
+		if (p < 0) return;
+		ctx.save();
+		for (let i = 0; i < 3; i++) {
+			const offset = i * 0.18;
+			const localP = (p - offset) / (1 - offset);
+			if (localP <= 0 || localP >= 1) continue;
+			const fade = 1 - localP;
+			const r = 6 + localP * (60 + i * 20);
+			ctx.strokeStyle = `rgba(120,200,255,${(fade * 0.7).toFixed(3)})`;
+			ctx.lineWidth = 3 * fade + 0.5;
+			ctx.beginPath();
+			ctx.arc(cx, cy - 16, r, 0, Math.PI * 2);
+			ctx.stroke();
+		}
+		ctx.restore();
+	},
+};
+
+// Explosion — radial particle burst, orange/yellow.
+FX_REGISTRY.explosion = {
+	label: "💥 Nổ tung",
+	draw: (ctx, t, cx, cy) => {
+		const p = _hitProgress(t);
+		if (p < 0) return;
+		const fade = 1 - p;
+		const ax = cx;
+		const ay = cy - 20;
+		ctx.save();
+		// Bright core
+		ctx.fillStyle = `rgba(255,255,200,${(fade * 0.8).toFixed(3)})`;
+		ctx.beginPath();
+		ctx.arc(ax, ay, 16 * fade + 2, 0, Math.PI * 2);
+		ctx.fill();
+		// Particle ring
+		const NUM = 18;
+		for (let i = 0; i < NUM; i++) {
+			const angle = (i / NUM) * Math.PI * 2;
+			const r = 10 + p * 45 * (0.7 + _fxHash(i) * 0.6);
+			const px = ax + Math.cos(angle) * r;
+			const py = ay + Math.sin(angle) * r * 0.85 - p * 4;
+			const sz = 1.5 + fade * 3.5;
+			ctx.fillStyle = `rgba(255,${Math.round(140 + _fxHash(i + 5) * 90)},60,${(fade * 0.95).toFixed(3)})`;
+			ctx.beginPath();
+			ctx.arc(px, py, sz, 0, Math.PI * 2);
+			ctx.fill();
+		}
+		ctx.restore();
+	},
+};
+
+// Blood drip — drops fall from body, hit ground splat.
+FX_REGISTRY.bloodDrip = {
+	label: "🩸 Chảy máu",
+	draw: (ctx, t, cx, cy) => {
+		const p = _hitProgress(t);
+		if (p < 0) return;
+		const groundY = cy + 4;
+		const dropTop = cy - (bodyImg ? bodyImg.height * 0.4 : 32);
+		const NUM = 5;
+		ctx.save();
+		ctx.fillStyle = `rgba(180,20,30,${0.85})`;
+		for (let i = 0; i < NUM; i++) {
+			const seed = _fxHash(i + 1);
+			const xJitter = (_fxHash(i + 7) - 0.5) * 28;
+			const localT = Math.max(0, Math.min(1, p * 1.4 - seed * 0.4));
+			const dropY = dropTop + (groundY - dropTop) * localT;
+			const dropX = cx + xJitter;
+			if (localT < 1) {
+				ctx.beginPath();
+				ctx.ellipse(dropX, dropY, 2.2, 3.5, 0, 0, Math.PI * 2);
+				ctx.fill();
+			} else {
+				// Splat on ground
+				const splatT = (p - (1 - seed * 0.4) / 1.4) / 0.3;
+				if (splatT > 0 && splatT < 1) {
+					const sR = 3 + splatT * 5;
+					ctx.fillStyle = `rgba(140,15,20,${(1 - splatT * 0.5).toFixed(3)})`;
+					ctx.beginPath();
+					ctx.ellipse(dropX, groundY, sR, sR * 0.4, 0, 0, Math.PI * 2);
+					ctx.fill();
+					ctx.fillStyle = `rgba(180,20,30,${0.85})`;
+				}
+			}
+		}
+		ctx.restore();
+	},
+};
+
+// Blood spray — cone burst of red drops from body center.
+FX_REGISTRY.bloodSpray = {
+	label: "💉 Xịt máu",
+	draw: (ctx, t, cx, cy, dir) => {
+		const p = _hitProgress(t);
+		if (p < 0) return;
+		const dirSign = dir === 'left' ? -1 : 1;
+		const fade = 1 - p;
+		const ax = cx;
+		const ay = cy - (bodyImg ? bodyImg.height * 0.5 : 32);
+		const NUM = 16;
+		const coneA = -dirSign > 0 ? Math.PI : 0; // sprays opposite to facing
+		ctx.save();
+		for (let i = 0; i < NUM; i++) {
+			const seed = _fxHash(i);
+			const angle = coneA + (seed - 0.5) * Math.PI * 0.7;
+			const speed = 25 + seed * 60;
+			const r = speed * p;
+			const px = ax + Math.cos(angle) * r;
+			const py = ay + Math.sin(angle) * r * 0.7 + p * p * 30; // gravity
+			const sz = 1.5 + fade * 2.5;
+			ctx.fillStyle = `rgba(${160 + Math.floor(seed * 40)},${20 + Math.floor(seed * 20)},${30 + Math.floor(seed * 20)},${(fade * 0.95).toFixed(3)})`;
+			ctx.beginPath();
+			ctx.ellipse(px, py, sz, sz * 1.3, angle, 0, Math.PI * 2);
+			ctx.fill();
+		}
+		ctx.restore();
+	},
+};
+
+// Damage number — red "-99" pops up + floats above body.
+FX_REGISTRY.damageNumber = {
+	label: "🔢 Số dame",
+	draw: (ctx, t, cx, cy) => {
+		const p = _hitProgress(t);
+		if (p < 0) return;
+		const fade = 1 - p * 0.85;
+		const popScale = p < 0.15 ? p / 0.15 : 1 + (1 - p) * 0.05;
+		const y = cy - 60 - p * 28;
+		const num = -Math.floor(20 + _fxHash(hitFrame) * 80);
+		ctx.save();
+		ctx.translate(cx, y);
+		ctx.scale(popScale, popScale);
+		ctx.font = 'bold 22px system-ui, sans-serif';
+		ctx.textAlign = 'center';
+		ctx.textBaseline = 'middle';
+		ctx.lineWidth = 4;
+		ctx.strokeStyle = `rgba(0,0,0,${(fade * 0.85).toFixed(3)})`;
+		ctx.strokeText(String(num), 0, 0);
+		ctx.fillStyle = `rgba(255,200,40,${fade.toFixed(3)})`;
+		ctx.fillText(String(num), 0, 0);
+		ctx.restore();
+	},
+};
+
+// Smoke puff — 3 grey puffs rise + dilate.
+FX_REGISTRY.smokePuff = {
+	label: "💨 Khói",
+	draw: (ctx, t, cx, cy) => {
+		const p = _hitProgress(t);
+		if (p < 0) return;
+		const ax = cx;
+		const ay = cy - 6;
+		ctx.save();
+		for (let i = 0; i < 3; i++) {
+			const offset = i * 0.12;
+			const localP = (p - offset) / (1 - offset);
+			if (localP <= 0 || localP >= 1) continue;
+			const fade = 1 - localP;
+			const r = 6 + localP * 18;
+			const xJ = (i - 1) * 6 + (_fxHash(i + 9) - 0.5) * 8;
+			ctx.fillStyle = `rgba(140,140,150,${(fade * 0.45).toFixed(3)})`;
+			ctx.beginPath();
+			ctx.arc(ax + xJ, ay - localP * 32, r, 0, Math.PI * 2);
+			ctx.fill();
+		}
+		ctx.restore();
+	},
+};
+
+// Lightning — jagged white bolt across body, single flash.
+FX_REGISTRY.lightning = {
+	label: "⚡ Tia chớp",
+	draw: (ctx, t, cx, cy) => {
+		const p = _hitProgress(t);
+		if (p < 0 || p > 0.6) return;
+		const fade = 1 - p / 0.6;
+		const top = cy - (bodyImg ? bodyImg.height * 0.7 : 50);
+		const bot = cy + 4;
+		const segs = 8;
+		const seedShift = Math.floor(p * settings.frames);
+		ctx.save();
+		ctx.strokeStyle = `rgba(220,240,255,${(fade * 0.95).toFixed(3)})`;
+		ctx.lineWidth = 2;
+		ctx.lineCap = 'round';
+		ctx.beginPath();
+		ctx.moveTo(cx, top);
+		for (let i = 1; i <= segs; i++) {
+			const ty = top + (bot - top) * (i / segs);
+			const tx = cx + (_fxHash(i + seedShift) - 0.5) * 28 * (1 - i / segs);
+			ctx.lineTo(tx, ty);
+		}
+		ctx.stroke();
+		// White core
+		ctx.strokeStyle = `rgba(255,255,255,${(fade * 0.7).toFixed(3)})`;
+		ctx.lineWidth = 0.8;
+		ctx.stroke();
+		ctx.restore();
+	},
+};
+
+function drawAllFx(ctx, t, cx, cy, dir) {
+	if (!enabledFx.size) return;
+	for (const id of enabledFx) {
+		const fx = FX_REGISTRY[id];
+		if (fx?.draw) fx.draw(ctx, t, cx, cy, dir);
+	}
+}
+
 function drawCombatSkillFx(ctx, t, cx, cy, dir) {
 	const key = PRESETS[activePresetKey].key;
 	const dirSign = dir === 'left' ? -1 : 1;
@@ -1822,6 +2166,7 @@ function drawFullFrame(ctx, t, cx, cy, dir, scale = 1) {
 		drawCombatSkillFx(ctx, t, cx, cy, dir);
 		drawShootMuzzleFx(ctx, t, cx, cy, dir);
 		drawHitParticles(ctx, t, cx, cy, dir);
+		drawAllFx(ctx, t, cx, cy, dir);
 		return;
 	}
 	ctx.save();
@@ -1833,6 +2178,7 @@ function drawFullFrame(ctx, t, cx, cy, dir, scale = 1) {
 	drawCombatSkillFx(ctx, t, 0, 0, dir);
 	drawShootMuzzleFx(ctx, t, 0, 0, dir);
 	drawHitParticles(ctx, t, 0, 0, dir);
+	drawAllFx(ctx, t, 0, 0, dir);
 	ctx.restore();
 }
 
@@ -2128,6 +2474,15 @@ function bakeTileDimsOnly() {
 			if (direction === 'left' || bakeBothDirs) extRight = Math.max(extRight, trailExt);
 			extBottom = Math.max(extBottom, 18);
 		}
+	}
+	// Optional FX library — reserve generous padding when any FX enabled
+	// so rings / sprays / numbers / lightning don't get clipped at frame edge.
+	if (enabledFx && enabledFx.size > 0) {
+		const fxPad = 90;
+		extLeft = Math.max(extLeft, fxPad);
+		extRight = Math.max(extRight, fxPad);
+		extTop = Math.max(extTop, fxPad + 40);
+		extBottom = Math.max(extBottom, 40);
 	}
 	// Muzzle flash fx for shoot presets — ~50px radius at weapon tip.
 	if (['shootBow', 'shootGun'].includes(preset.key)) {
@@ -3002,6 +3357,37 @@ $('cinematic-timing').addEventListener('change', (e) => {
 	updateBakePreview();
 });
 
+// ===== Wire optional FX library =====
+function _renderFxGrid() {
+	const grid = $('fx-grid');
+	if (!grid) return;
+	while (grid.firstChild) grid.removeChild(grid.firstChild);
+	for (const [id, fx] of Object.entries(FX_REGISTRY)) {
+		const label = document.createElement('label');
+		label.className = 'flex items-center gap-1.5 text-slate-300 cursor-pointer hover:text-white';
+		const cb = document.createElement('input');
+		cb.type = 'checkbox';
+		cb.dataset.fx = id;
+		cb.className = 'rounded fx-cb';
+		cb.checked = enabledFx.has(id);
+		cb.addEventListener('change', () => {
+			if (cb.checked) enabledFx.add(id); else enabledFx.delete(id);
+			updateBakePreview();
+		});
+		const span = document.createElement('span');
+		span.textContent = fx.label;
+		label.appendChild(cb);
+		label.appendChild(span);
+		grid.appendChild(label);
+	}
+}
+_renderFxGrid();
+$('fx-clear-all').addEventListener('click', () => {
+	enabledFx.clear();
+	for (const cb of document.querySelectorAll('.fx-cb')) cb.checked = false;
+	updateBakePreview();
+});
+
 const frameAutoFitInput = $('frame-auto-fit');
 const frameMaxTileInput = $('frame-max-tile');
 const frameMaxTileVal = $('frame-max-tile-val');
@@ -3150,6 +3536,7 @@ function makeSessionConfig(options = {}) {
 		showShake,
 		useSpring,
 		cinematicTiming,
+		enabledFx: [...enabledFx],
 		frameAutoFit,
 		frameMaxTile,
 		frameScale,
@@ -3311,6 +3698,8 @@ async function applySessionConfig(cfg, sourceLabel = 'preset') {
 		$('show-onion').checked = showOnion;
 		$('show-trail').checked = showTrail;
 		$('show-particles').checked = showParticles;
+		enabledFx = new Set(Array.isArray(cfg.enabledFx) ? cfg.enabledFx : []);
+		_renderFxGrid();
 		$('show-flash').checked = showFlash;
 		$('show-shake').checked = showShake;
 		$('use-spring').checked = useSpring;
