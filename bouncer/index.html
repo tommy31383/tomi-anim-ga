@@ -1550,6 +1550,104 @@ function drawHitParticles(ctx, t, cx, cy, dir) {
 	ctx.restore();
 }
 
+// Muzzle/spark fx at weapon tip, fired automatically for shoot presets
+// (shootBow / shootGun) — no manual hitFrame needed. Timing derived from
+// the preset's release phase.
+function drawShootMuzzleFx(ctx, t, cx, cy, dir) {
+	const key = PRESETS[activePresetKey]?.key;
+	if (key !== 'shootBow' && key !== 'shootGun') return;
+	if (!showParticles) return;
+	if (!weaponImg) return;
+	const dirSign = dir === 'left' ? -1 : 1;
+	const tip = bodyLocalTip(t, dirSign);
+	if (!tip) return;
+	const ax = cx + tip.x;
+	const ay = cy + tip.y;
+
+	// Compute "fire pulses" — Bow: single release at t≈0.65-0.78.
+	// Gun: N bursts evenly spaced inside 0.22-0.78, each with own pulse decay.
+	const pulses = [];
+	if (key === 'shootBow') {
+		const start = 0.65;
+		const end = 0.78;
+		if (t >= start && t <= end + 0.18) {
+			const local = (t - start) / 0.18;
+			pulses.push({ phase: Math.max(0, 1 - Math.abs(local - 0.15) / 0.85), color: 'bow' });
+		}
+	} else if (key === 'shootGun') {
+		const burstCount = Math.max(1, Math.floor(settings.bursts || 1));
+		const window = 0.78 - 0.22;
+		for (let i = 0; i < burstCount; i++) {
+			const burstStart = 0.22 + (window / burstCount) * i;
+			const localT = (t - burstStart) / (window / burstCount);
+			if (localT < 0 || localT > 1.2) continue;
+			// Sharp spike + decay, like real muzzle flash
+			const pulse = Math.exp(-localT * 6) * (1 - Math.min(1, localT));
+			pulses.push({ phase: pulse, color: 'gun' });
+		}
+	}
+
+	ctx.save();
+	for (const p of pulses) {
+		if (p.phase <= 0.02) continue;
+		const isGun = p.color === 'gun';
+		const baseR = isGun ? 14 : 8;
+		const flashR = baseR + p.phase * (isGun ? 24 : 18);
+		// Outer halo
+		const haloColor = isGun ? `rgba(255,200,80,${(p.phase * 0.5).toFixed(3)})` : `rgba(255,240,180,${(p.phase * 0.45).toFixed(3)})`;
+		ctx.fillStyle = haloColor;
+		ctx.beginPath();
+		ctx.arc(ax, ay, flashR * 1.6, 0, Math.PI * 2);
+		ctx.fill();
+		// Bright core
+		ctx.fillStyle = `rgba(255,255,230,${(p.phase * 0.95).toFixed(3)})`;
+		ctx.beginPath();
+		ctx.arc(ax, ay, flashR * 0.6, 0, Math.PI * 2);
+		ctx.fill();
+		// Star-shaped sparks
+		const SPIKES = isGun ? 6 : 4;
+		const spikeLen = flashR * (isGun ? 2.0 : 1.6);
+		ctx.strokeStyle = `rgba(255,210,120,${(p.phase * 0.85).toFixed(3)})`;
+		ctx.lineWidth = isGun ? 2.5 : 2;
+		ctx.lineCap = 'round';
+		for (let i = 0; i < SPIKES; i++) {
+			const angle = (i / SPIKES) * Math.PI * 2 + (isGun ? 0 : Math.PI / 8);
+			const spikeR = spikeLen * (0.6 + Math.sin(i * 7.13) * 0.4);
+			ctx.beginPath();
+			ctx.moveTo(ax, ay);
+			ctx.lineTo(ax + Math.cos(angle) * spikeR, ay + Math.sin(angle) * spikeR);
+			ctx.stroke();
+		}
+		// Forward-cone sparks (gun only) — biased in the firing direction
+		if (isGun) {
+			const NUM = 8;
+			const forwardA = dirSign > 0 ? 0 : Math.PI;
+			for (let i = 0; i < NUM; i++) {
+				const seed = Math.sin(i * 12.9898) * 43758.5453;
+				const jitter = (seed - Math.floor(seed));
+				const a = forwardA + (jitter - 0.5) * Math.PI * 0.7;
+				const r = flashR * (1.2 + jitter * 1.8);
+				const px = ax + Math.cos(a) * r;
+				const py = ay + Math.sin(a) * r;
+				const sz = 1.5 + p.phase * 2.2;
+				ctx.fillStyle = `rgba(255,180,80,${(p.phase * (1 - jitter * 0.5)).toFixed(3)})`;
+				ctx.beginPath();
+				ctx.arc(px, py, sz, 0, Math.PI * 2);
+				ctx.fill();
+			}
+		}
+		// Smoke puff (lingers after pulse) — for gun
+		if (isGun && p.phase < 0.4 && p.phase > 0) {
+			const smokeFade = 1 - p.phase / 0.4;
+			ctx.fillStyle = `rgba(140,140,140,${(smokeFade * 0.25).toFixed(3)})`;
+			ctx.beginPath();
+			ctx.arc(ax + dirSign * 2, ay - 2 - smokeFade * 4, 6 + smokeFade * 8, 0, Math.PI * 2);
+			ctx.fill();
+		}
+	}
+	ctx.restore();
+}
+
 function drawCombatSkillFx(ctx, t, cx, cy, dir) {
 	const key = PRESETS[activePresetKey].key;
 	const dirSign = dir === 'left' ? -1 : 1;
@@ -1724,6 +1822,7 @@ function drawFullFrame(ctx, t, cx, cy, dir, scale = 1) {
 		drawFrameAt(ctx, t, cx, cy, dir);
 		drawSlashTrail(ctx, t, cx, cy, dir);
 		drawCombatSkillFx(ctx, t, cx, cy, dir);
+		drawShootMuzzleFx(ctx, t, cx, cy, dir);
 		drawHitParticles(ctx, t, cx, cy, dir);
 		return;
 	}
@@ -1734,6 +1833,7 @@ function drawFullFrame(ctx, t, cx, cy, dir, scale = 1) {
 	drawFrameAt(ctx, t, 0, 0, dir);
 	drawSlashTrail(ctx, t, 0, 0, dir);
 	drawCombatSkillFx(ctx, t, 0, 0, dir);
+	drawShootMuzzleFx(ctx, t, 0, 0, dir);
 	drawHitParticles(ctx, t, 0, 0, dir);
 	ctx.restore();
 }
@@ -2030,6 +2130,14 @@ function bakeTileDimsOnly() {
 			if (direction === 'left' || bakeBothDirs) extRight = Math.max(extRight, trailExt);
 			extBottom = Math.max(extBottom, 18);
 		}
+	}
+	// Muzzle flash fx for shoot presets — ~50px radius at weapon tip.
+	if (['shootBow', 'shootGun'].includes(preset.key)) {
+		const fxR = preset.key === 'shootGun' ? 56 : 38;
+		extLeft = Math.max(extLeft, fxR);
+		extRight = Math.max(extRight, fxR);
+		extTop = Math.max(extTop, fxR);
+		extBottom = Math.max(extBottom, fxR);
 	}
 	// Combat-skill fx (heavy, spinAttack, etc.)
 	if (['heavy', 'spinAttack', 'dashSlash', 'groundSlam', 'combo3', 'castBurst'].includes(preset.key)) {
