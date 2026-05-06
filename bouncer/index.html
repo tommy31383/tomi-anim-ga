@@ -1821,29 +1821,14 @@ function setupPreviewCanvas() {
 	lastDpr = dpr;
 }
 
-// View transform shared by loop + drag handlers. Baseline (where the
-// body's feet land) sits proportionally inside the canvas based on the
-// bake tile's bottom-extent, so what you see matches the bake exactly.
+// View transform — called every animation frame, so kept O(1).
 function getViewTransform() {
 	const w = previewCanvas.width / lastDpr;
 	const h = previewCanvas.height / lastDpr;
 	const fit = bodyImg
 		? Math.min(1, 240 / Math.max(bodyImg.width, bodyImg.height))
 		: 1;
-	let baselineY = h - 30;
-	const dims = bodyImg ? bakeTileDimsOnly() : null;
-	if (dims && dims.tileH > 0) {
-		// Find where the body's feet sit within the bake tile (padBottom
-		// is the bottom extent), then place at the same proportional spot.
-		const preset = PRESETS[activePresetKey];
-		const contentScale = (typeof frameScale !== 'undefined' ? frameScale : 100) / 100;
-		// Re-derive padBottom from the tile shape: we know tileH and the
-		// padTop/padBottom split. Quick estimate: assume body is centered
-		// vertically with weight toward bottom. Use 70% from top as the
-		// baseline (feet) since most extents are above + behind.
-		baselineY = h - 30;
-	}
-	return { w, h, fit, baselineX: w / 2, baselineY };
+	return { w, h, fit, baselineX: w / 2, baselineY: h - 30 };
 }
 
 // Convert canvas (CSS-pixel) coordinate to body-local coordinate
