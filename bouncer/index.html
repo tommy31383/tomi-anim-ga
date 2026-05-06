@@ -553,18 +553,21 @@ const PRESETS = {
 		}),
 	},
 	run: {
-		key: 'run', emoji: '🏃', label: 'Chạy',
-		desc: 'Tưng tưng mạnh + nghiêng người tới. Vampire Survivors locomotion.',
+		key: 'run', emoji: '🏃', label: 'Chạy (fake)',
+		desc: 'Mobile game style: nhân vật đứng tại chỗ nghiêng tới, fake chuyển động bằng bụi + bóng + bounce nhẹ. Vampire Survivors / Brotato run.',
 		loop: true,
-		defaults: { frames: 8, duration: 380, height: 18, lean: 6 },
-		sliders: ['frames', 'duration', 'height', 'lean'],
+		defaults: { frames: 10, duration: 360, height: 6, lean: 7, dust: 1 },
+		sliders: ['frames', 'duration', 'height', 'lean', 'dust'],
+		// Body almost still — heavy lifting happens in drawRunFakeFx (dust + shadow)
 		transform: (t, s) => {
 			const p = cyclicPhase(t);
+			// micro bounce + tiny sway, no big squash so feet stay planted
 			return {
 				ty: -p * s.height,
-				sx: lerp(1.20, 0.92, p),
-				sy: lerp(0.75, 1.18, p),
-				rot: lerp(s.lean, -s.lean * 0.5, p),
+				sx: lerp(1.04, 0.97, p),
+				sy: lerp(0.96, 1.05, p),
+				// constant lean forward + a small left-right sway with gait cadence
+				rot: -s.lean + Math.sin(t * Math.PI * 2) * 1.5,
 			};
 		},
 	},
@@ -590,6 +593,7 @@ const SLIDER_CONFIG = {
 	sway: { label: 'Lắc lư', min: 0, max: 16, step: 1, suffix: 'px/deg' },
 	tilt: { label: 'Nghiêng', min: 0, max: 14, step: 1, suffix: '°' },
 	lean: { label: 'Nghiêng người', min: 0, max: 12, step: 1, suffix: '°' },
+	dust: { label: 'Bụi chân', min: 0, max: 3, step: 1, suffix: ' (0=tắt, 3=mạnh)' },
 };
 
 // ============================================================
@@ -987,6 +991,76 @@ function drawHitParticles(ctx, t, cx, cy, dir) {
 	ctx.restore();
 }
 
+// Fake-run effects: dust puffs trailing behind feet + a tightening
+// ground shadow that sells motion without actual translation. Drawn
+// only when the active preset is 'run'.
+function drawRunFakeFx(ctx, t, cx, cy, dir) {
+	if (PRESETS[activePresetKey].key !== 'run') return;
+	if (!bodyImg) return;
+	const dirSign = dir === 'left' ? -1 : 1;
+	const intensity = settings.dust ?? 1; // 0=off, 3=heavy
+	const groundY = cy + 4; // slightly below body's foot baseline
+
+	// Pulsing ground shadow — contracts when body apex (visual cue feet leave ground)
+	const p = cyclicPhase(t);
+	const shadowW = bodyImg.width * 0.55 * (1 - p * 0.35);
+	const shadowH = 5 * (1 - p * 0.4);
+	ctx.save();
+	ctx.fillStyle = `rgba(0, 0, 0, ${(0.45 - p * 0.18).toFixed(3)})`;
+	ctx.beginPath();
+	ctx.ellipse(cx, groundY, shadowW, shadowH, 0, 0, Math.PI * 2);
+	ctx.fill();
+	ctx.restore();
+
+	if (intensity <= 0) return;
+
+	// Dust puffs spawn at feet, trail backward (opposite facing direction).
+	// 4 staggered puffs cycle continuously — each lives 1 cycle.
+	const PUFFS = 3 + intensity; // 4 / 5 / 6 puffs by intensity
+	ctx.save();
+	for (let i = 0; i < PUFFS; i++) {
+		const stagger = i / PUFFS;
+		// Each puff age cycles 0..1 with offset
+		const age = ((t + stagger) % 1);
+		// Puff trails behind: dirSign>0 (Phải) → puff on the left → -dirSign
+		const driftSpeed = 30 + intensity * 8;
+		const px = cx + (-dirSign) * (4 + age * driftSpeed);
+		const py = groundY - age * (4 + intensity * 2); // small lift
+		const size = 2.5 + age * (5 + intensity * 1.5);
+		const alpha = (1 - age) * (0.45 + intensity * 0.05);
+		// Outer light dust
+		ctx.fillStyle = `rgba(180, 168, 138, ${alpha.toFixed(3)})`;
+		ctx.beginPath();
+		ctx.arc(px, py, size, 0, Math.PI * 2);
+		ctx.fill();
+		// Inner brighter core
+		ctx.fillStyle = `rgba(230, 218, 188, ${(alpha * 0.6).toFixed(3)})`;
+		ctx.beginPath();
+		ctx.arc(px - dirSign * size * 0.15, py, size * 0.55, 0, Math.PI * 2);
+		ctx.fill();
+	}
+
+	// Ground splash streaks — short horizontal lines below feet, faster than puffs
+	if (intensity >= 2) {
+		const STREAKS = 2 + intensity;
+		for (let i = 0; i < STREAKS; i++) {
+			const stagger = i / STREAKS;
+			const age = ((t + stagger) % 1);
+			const sx = cx + (-dirSign) * (10 + age * (60 + intensity * 10));
+			const sy = groundY + 2 + (i % 2) * 2;
+			const len = 8 + age * 14;
+			const alpha = (1 - age) * 0.4;
+			ctx.strokeStyle = `rgba(200, 188, 160, ${alpha.toFixed(3)})`;
+			ctx.lineWidth = 1.2;
+			ctx.beginPath();
+			ctx.moveTo(sx, sy);
+			ctx.lineTo(sx + dirSign * len, sy);
+			ctx.stroke();
+		}
+	}
+	ctx.restore();
+}
+
 // PCA-based auto-detect of weapon grip (handle) and tip endpoints.
 // Picks the principal axis through alpha-on pixels; the wider end becomes
 // the grip, narrower end the tip. Returns {grip, tip} as {x%, y%}.
@@ -1180,6 +1254,8 @@ function loop(now) {
 		ctx.restore();
 	}
 
+	// Fake-run fx are drawn UNDER the body so dust appears behind feet
+	drawRunFakeFx(ctx, t, 0, 0, direction);
 	drawFrameAt(ctx, t, 0, 0);
 	drawSlashTrail(ctx, t, 0, 0, direction);
 	drawHitParticles(ctx, t, 0, 0, direction);
@@ -1371,6 +1447,14 @@ function bake() {
 			extBottom = Math.max(extBottom, wcy + wRadius);
 		}
 	}
+	// Reserve space for run-fake fx trailing behind the body (dust + streaks).
+	if (PRESETS[activePresetKey].key === 'run' && bodyImg) {
+		const intensity = settings.dust ?? 1;
+		const trailExt = (intensity >= 2 ? 80 : 50) + intensity * 12;
+		// Trail goes opposite to facing direction
+		if (direction === 'right' || bakeBothDirs) extLeft = Math.max(extLeft, trailExt);
+		if (direction === 'left' || bakeBothDirs) extRight = Math.max(extRight, trailExt);
+	}
 	const padL = Math.ceil(extLeft + 8);
 	const padR = Math.ceil(extRight + 8);
 	const padTop = Math.ceil(extTop + 8);
@@ -1399,6 +1483,7 @@ function bake() {
 			const t = bakeIdx / N;
 			const cx = i * tileW + padL;
 			const cy = padTop + r * tileH;
+			drawRunFakeFx(ctx, t, cx, cy, dir);
 			drawFrameAt(ctx, t, cx, cy, dir);
 			drawSlashTrail(ctx, t, cx, cy, dir);
 			drawHitParticles(ctx, t, cx, cy, dir);
