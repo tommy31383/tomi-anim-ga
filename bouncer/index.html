@@ -2280,6 +2280,8 @@ function handleFile(file, isWeapon) {
 				weaponImg = i;
 				weaponInfo.classList.remove('hidden');
 				weaponInfo.textContent = `${file.name} · ${i.width}×${i.height}px (chưa cắt)`;
+				_cropBgCache = null; // force re-init for new image
+				initCropCanvas();
 				// Swap drop-zone → compact card
 				weaponDz.classList.add('hidden');
 				$('weapon-card').classList.remove('hidden');
@@ -2371,6 +2373,7 @@ weaponClearBtn.addEventListener('click', (e) => {
 	weaponSrcDataUrl = null;
 	persistHistoryImage('weapon');
 	cropRect = null;
+	_cropBgCache = null;
 	// Reset weapon position + anchors so the next upload starts clean —
 	// previously stale grip/tip from prev weapon caused wrong pivot until
 	// user re-ran auto-detect.
@@ -3401,31 +3404,65 @@ $('body-crop-skip').addEventListener('click', () => {
 	updateBakePreview();
 });
 
-function drawCropEditor() {
+// Crop editor uses a 2-layer canvas: a background bitmap that's painted
+// ONCE per weapon load (the source image + checkered bg), and an overlay
+// repainted on mousemove (dim mask + rect + handles). Avoids realloc'ing
+// canvas dimensions per drag tick which was the actual lag source.
+let _cropBgCache = null;
+
+function initCropCanvas() {
 	if (!weaponSrcImg) return;
 	const maxW = 380;
 	const scale = Math.min(1, maxW / Math.max(weaponSrcImg.width, weaponSrcImg.height));
 	const w = Math.round(weaponSrcImg.width * scale);
 	const h = Math.round(weaponSrcImg.height * scale);
 	const dpr = window.devicePixelRatio || 1;
-	cropCanvas.width = w * dpr;
-	cropCanvas.height = h * dpr;
-	cropCanvas.style.width = w + 'px';
-	cropCanvas.style.height = h + 'px';
+	// Only resize if dimensions actually changed (avoids realloc cost)
+	if (cropCanvas.width !== w * dpr || cropCanvas.height !== h * dpr) {
+		cropCanvas.width = w * dpr;
+		cropCanvas.height = h * dpr;
+		cropCanvas.style.width = w + 'px';
+		cropCanvas.style.height = h + 'px';
+	}
 	cropCanvas.dataset.scale = scale;
-	const ctx = cropCanvas.getContext('2d');
-	ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-	ctx.imageSmoothingEnabled = false;
-	// checker bg
-	ctx.fillStyle = '#1e293b'; ctx.fillRect(0, 0, w, h);
+	cropCanvas.dataset.dispW = w;
+	cropCanvas.dataset.dispH = h;
+
+	// Render the immutable bg layer to an off-screen canvas, cached
+	const bg = document.createElement('canvas');
+	bg.width = w * dpr;
+	bg.height = h * dpr;
+	const bctx = bg.getContext('2d');
+	bctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+	bctx.imageSmoothingEnabled = false;
+	bctx.fillStyle = '#1e293b';
+	bctx.fillRect(0, 0, w, h);
+	bctx.fillStyle = '#0f172a';
 	const tile = 8;
-	ctx.fillStyle = '#0f172a';
 	for (let yy = 0; yy < h; yy += tile) {
 		for (let xx = (yy / tile) % 2 === 0 ? 0 : tile; xx < w; xx += tile * 2) {
-			ctx.fillRect(xx, yy, tile, tile);
+			bctx.fillRect(xx, yy, tile, tile);
 		}
 	}
-	ctx.drawImage(weaponSrcImg, 0, 0, w, h);
+	bctx.drawImage(weaponSrcImg, 0, 0, w, h);
+	_cropBgCache = bg;
+}
+
+function drawCropEditor() {
+	if (!weaponSrcImg) return;
+	if (!_cropBgCache) initCropCanvas();
+	if (!_cropBgCache) return;
+	const dpr = window.devicePixelRatio || 1;
+	const w = parseFloat(cropCanvas.dataset.dispW);
+	const h = parseFloat(cropCanvas.dataset.dispH);
+	const scale = parseFloat(cropCanvas.dataset.scale);
+	const ctx = cropCanvas.getContext('2d');
+	ctx.setTransform(1, 0, 0, 1, 0, 0);
+	// Blit the cached bg in one drawImage — much cheaper than re-drawing
+	// pixels every mousemove.
+	ctx.drawImage(_cropBgCache, 0, 0);
+	ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+	ctx.imageSmoothingEnabled = false;
 	// Dim outside the crop rect
 	const r = cropRect;
 	const dx = r.x * scale, dy = r.y * scale;
