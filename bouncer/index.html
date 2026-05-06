@@ -645,6 +645,106 @@ const PRESETS = {
 			return { tx: lerp(0, -s.recoil * 0.2, p), sx: lerp(1.28, 1, p), sy: lerp(0.82, 1, p), weaponRot: lerp(8, 0, p), weaponTx: lerp(s.lunge * 1.35, 0, p) };
 		},
 	},
+	shootBow: {
+		key: 'shootBow', emoji: '🏹', label: 'Bắn cung',
+		desc: 'Kéo căng dây cung, nhắm, thả mũi tên rồi recoil. Vũ khí giật lùi nhẹ.',
+		loop: false,
+		defaults: { frames: 14, duration: 720, draw: 22, aim: 4, recoil: 16, hold: 35 },
+		sliders: ['frames', 'duration', 'draw', 'aim', 'recoil', 'hold'],
+		transform: (t, s) => {
+			// Phase 1 (0-35%): kéo cung — vũ khí lùi về sau, body lean nhẹ
+			if (t < 0.35) {
+				const p = easeOutCubic(t / 0.35);
+				return {
+					tx: -s.draw * 0.15 * p,
+					sx: lerp(1, 0.96, p),
+					sy: lerp(1, 1.04, p),
+					weaponRot: -s.draw * 0.4 * p,
+					weaponTx: -s.draw * 0.6 * p,
+				};
+			}
+			// Phase 2 (35-65%): giữ ngắm — rung nhẹ, micro-tremor
+			if (t < 0.65) {
+				const p = (t - 0.35) / 0.3;
+				const tremor = Math.sin(p * Math.PI * 6) * (s.aim / 30);
+				return {
+					tx: -s.draw * 0.15 + tremor,
+					sx: 0.96,
+					sy: 1.04,
+					weaponRot: -s.draw * 0.4 + tremor * 1.5,
+					weaponTx: -s.draw * 0.6,
+				};
+			}
+			// Phase 3 (65-78%): release — recoil mạnh
+			if (t < 0.78) {
+				const p = easeOutCubic((t - 0.65) / 0.13);
+				return {
+					tx: lerp(-s.draw * 0.15, s.recoil * 0.5, p),
+					sx: lerp(0.96, 1.08, p),
+					sy: lerp(1.04, 0.94, p),
+					weaponRot: lerp(-s.draw * 0.4, s.recoil * 0.7, p),
+					weaponTx: lerp(-s.draw * 0.6, s.recoil * 0.4, p),
+				};
+			}
+			// Phase 4 (78-100%): settle về tư thế đứng
+			const p = easeOutCubic((t - 0.78) / 0.22);
+			return {
+				tx: lerp(s.recoil * 0.5, 0, p),
+				sx: lerp(1.08, 1, p),
+				sy: lerp(0.94, 1, p),
+				weaponRot: lerp(s.recoil * 0.7, 0, p),
+				weaponTx: lerp(s.recoil * 0.4, 0, p),
+			};
+		},
+	},
+	shootGun: {
+		key: 'shootGun', emoji: '🔫', label: 'Bắn súng',
+		desc: 'Giơ súng nhanh, nổ recoil + flash, lặp lại theo bursts. Quick draw style.',
+		loop: false,
+		defaults: { frames: 12, duration: 480, raise: 14, recoil: 22, flash: 18, bursts: 1 },
+		sliders: ['frames', 'duration', 'raise', 'recoil', 'flash', 'bursts'],
+		transform: (t, s) => {
+			// Phase 1 (0-22%): raise — súng nâng lên ngắm
+			if (t < 0.22) {
+				const p = easeOutCubic(t / 0.22);
+				return {
+					ty: -s.raise * 0.15 * p,
+					sx: lerp(1, 0.97, p),
+					sy: lerp(1, 1.03, p),
+					weaponRot: -s.raise * 0.6 * p,
+					weaponTx: s.raise * 0.3 * p,
+				};
+			}
+			// Phase 2-3 (22-78%): bursts (single or multi)
+			if (t < 0.78) {
+				const burstWindow = (t - 0.22) / 0.56;
+				const burstCount = Math.max(1, Math.floor(s.bursts || 1));
+				const burstIdx = Math.min(burstCount - 1, Math.floor(burstWindow * burstCount));
+				const localT = (burstWindow * burstCount) - burstIdx;
+				// Recoil pulse: spike + decay per burst
+				const pulse = Math.exp(-localT * 8) * (1 - localT);
+				const flashAmount = pulse;
+				return {
+					tx: -s.recoil * 0.5 * pulse,
+					ty: -s.raise * 0.15 - s.recoil * 0.15 * pulse,
+					sx: 0.97 + pulse * 0.05,
+					sy: 1.03 - pulse * 0.04,
+					weaponRot: -s.raise * 0.6 - s.recoil * 0.5 * pulse,
+					weaponTx: s.raise * 0.3 - s.recoil * 0.4 * pulse,
+					filter: `brightness(${(1 + flashAmount * 0.6).toFixed(2)}) drop-shadow(0 0 ${(s.flash * flashAmount).toFixed(1)}px rgba(255,220,120,0.95))`,
+				};
+			}
+			// Phase 4 (78-100%): hạ súng về vị trí cũ
+			const p = easeOutCubic((t - 0.78) / 0.22);
+			return {
+				ty: lerp(-s.raise * 0.15, 0, p),
+				sx: lerp(0.97, 1, p),
+				sy: lerp(1.03, 1, p),
+				weaponRot: lerp(-s.raise * 0.6, 0, p),
+				weaponTx: lerp(s.raise * 0.3, 0, p),
+			};
+		},
+	},
 	spinAttack: {
 		key: 'spinAttack', emoji: '↻', label: 'Spin attack',
 		desc: 'Xoay tại chỗ, vũ khí quét vòng quanh người. Dùng cho AOE melee.',
