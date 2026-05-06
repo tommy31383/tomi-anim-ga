@@ -1879,7 +1879,7 @@ function bakeTileDimsOnly() {
 	const padR = Math.ceil(extRight * contentScale + extraPad);
 	const padTop = Math.ceil(extTop * contentScale + extraPad);
 	const padBottom = Math.ceil(extBottom * contentScale + extraPad);
-	const result = { tileW: padL + padR, tileH: padTop + padBottom, ...fit };
+	const result = { tileW: padL + padR, tileH: padTop + padBottom, padL, padR, padTop, padBottom, ...fit };
 	_extentCacheKey = key;
 	_extentCache = result;
 	return result;
@@ -1909,18 +1909,29 @@ function setupPreviewCanvas() {
 function getViewTransform() {
 	const w = previewCanvas.width / lastDpr;
 	const h = previewCanvas.height / lastDpr;
-	const fit = bodyImg
-		? Math.min(1, 240 / Math.max(bodyImg.width, bodyImg.height))
-		: 1;
-	return { w, h, fit, baselineX: w / 2, baselineY: h - 30 };
+	const r = bodyImg ? bakeTileDimsOnly() : null;
+	if (r) {
+		const fit = Math.min(1, (w - 40) / r.tileW, (h - 40) / r.tileH);
+		return {
+			w,
+			h,
+			fit,
+			contentScale: r.contentScale ?? 1,
+			baselineX: 20 + r.padL * fit,
+			baselineY: 20 + r.padTop * fit,
+		};
+	}
+	const fit = bodyImg ? Math.min(1, 240 / Math.max(bodyImg.width, bodyImg.height)) : 1;
+	return { w, h, fit, contentScale: 1, baselineX: w / 2, baselineY: h - 30 };
 }
 
 // Convert canvas (CSS-pixel) coordinate to body-local coordinate
 function canvasToLocal(cx, cy) {
 	const v = getViewTransform();
+	const s = v.fit * (v.contentScale ?? 1);
 	return {
-		x: (cx - v.baselineX) / v.fit,
-		y: (v.baselineY - cy) / v.fit, // up positive
+		x: (cx - v.baselineX) / s,
+		y: (v.baselineY - cy) / s, // up positive
 	};
 }
 
@@ -1938,18 +1949,19 @@ function _weaponPosKey() {
 }
 function _weaponPosRecompute() {
 	const v = getViewTransform();
+	const s = v.fit * (v.contentScale ?? 1);
 	const dirSign = direction === 'left' ? -1 : 1;
 	const grip = {
-		x: v.baselineX + dirSign * weapon.x * v.fit,
-		y: v.baselineY - weapon.y * v.fit,
+		x: v.baselineX + dirSign * weapon.x * s,
+		y: v.baselineY - weapon.y * s,
 	};
 	let tip = null;
 	if (weaponImg) {
 		const tipLocal = bodyLocalTip(0, dirSign);
 		if (tipLocal) {
 			tip = {
-				x: v.baselineX + tipLocal.x * v.fit,
-				y: v.baselineY + tipLocal.y * v.fit,
+				x: v.baselineX + tipLocal.x * s,
+				y: v.baselineY + tipLocal.y * s,
 			};
 		}
 	}
@@ -2072,7 +2084,7 @@ function loop(now) {
 	}
 
 	// Fake-run fx are drawn UNDER the body so dust appears behind feet
-	drawFullFrame(ctx, t, 0, 0, direction);
+	drawFullFrame(ctx, t, 0, 0, direction, v.contentScale ?? 1);
 
 	// Highlight if current frame is the hitbox frame
 	if (hitFrame >= 0) {
@@ -2083,6 +2095,7 @@ function loop(now) {
 			ctx.strokeStyle = 'rgba(244, 63, 94, 0.7)';
 			ctx.lineWidth = 3 / v.fit;
 			ctx.setLineDash([8 / v.fit, 4 / v.fit]);
+			ctx.scale(v.contentScale ?? 1, v.contentScale ?? 1);
 			ctx.strokeRect(-bodyImg.width * 0.7, -bodyImg.height * 1.1, bodyImg.width * 1.4, bodyImg.height * 1.2);
 			ctx.restore();
 		}
