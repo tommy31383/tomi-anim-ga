@@ -1879,22 +1879,21 @@ function weaponTipScreenPos() {
 }
 
 // Hit-test which weapon handle (grip or tip) is under the cursor.
-// Returns 'move' (drag grip → translate), 'rotate' (drag tip → rotate),
-// or null.
+// IMPORTANT: handle hit-zones are TIGHT (just the visible ring, not the
+// whole weapon bounding circle) so 'move' only fires when grabbing the
+// cyan ring at the grip — not when clicking anywhere on the weapon.
 function weaponHandleHit(cx, cy) {
 	if (!weaponImg) return null;
-	const v = getViewTransform();
-	const wScale = weapon.scale / 100;
 	const tipPos = weaponTipScreenPos();
 	const gripPos = weaponScreenPos();
-	const tipR2 = (16 * v.fit + 4) ** 2;
+	const HIT_R = 18; // generous hit zone in CSS pixels
+	const HIT_R2 = HIT_R * HIT_R;
 	if (tipPos) {
 		const dx = cx - tipPos.x, dy = cy - tipPos.y;
-		if (dx * dx + dy * dy <= tipR2) return 'rotate';
+		if (dx * dx + dy * dy <= HIT_R2) return 'rotate';
 	}
-	const gripRadius = Math.max(weaponImg.width, weaponImg.height) * wScale * v.fit * 0.6;
 	const dx = cx - gripPos.x, dy = cy - gripPos.y;
-	if (dx * dx + dy * dy <= gripRadius * gripRadius) return 'move';
+	if (dx * dx + dy * dy <= HIT_R2) return 'move';
 	return null;
 }
 
@@ -2032,37 +2031,38 @@ function loop(now) {
 		}
 		ctx.restore();
 
-		// Tip handle (rose) — drag to rotate around grip
+		// Tip handle (rose) — drag to rotate around grip. Always visible
+		// at full opacity so the user can find it.
 		if (tipPos) {
 			ctx.save();
 			ctx.strokeStyle = isRotating
-				? '#fb7185'
-				: (hoverKind === 'rotate' ? 'rgba(251,113,133,0.9)' : 'rgba(251,113,133,0.45)');
+				? '#fff'
+				: (hoverKind === 'rotate' ? '#fb7185' : 'rgba(251,113,133,0.95)');
 			ctx.fillStyle = isRotating
-				? 'rgba(251,113,133,0.4)'
-				: (hoverKind === 'rotate' ? 'rgba(251,113,133,0.25)' : 'rgba(251,113,133,0.1)');
-			ctx.lineWidth = isRotating ? 2 : 1.5;
-			ctx.setLineDash(isRotating ? [] : [4, 3]);
+				? '#fb7185'
+				: (hoverKind === 'rotate' ? 'rgba(251,113,133,0.55)' : 'rgba(251,113,133,0.35)');
+			ctx.lineWidth = 2;
+			ctx.setLineDash([]);
 			ctx.beginPath();
-			ctx.arc(tipPos.x, tipPos.y, 8, 0, Math.PI * 2);
+			ctx.arc(tipPos.x, tipPos.y, 9, 0, Math.PI * 2);
 			ctx.fill();
 			ctx.stroke();
-			// Curved arrow icon when hovering/rotating to hint the gesture
-			if (hoverKind === 'rotate' || isRotating) {
-				ctx.setLineDash([]);
-				ctx.strokeStyle = '#fff';
-				ctx.lineWidth = 1.5;
-				ctx.beginPath();
-				ctx.arc(tipPos.x, tipPos.y, 12, -0.6, 2.4);
-				ctx.stroke();
-				// arrowhead
-				ctx.beginPath();
-				ctx.moveTo(tipPos.x + 12 * Math.cos(2.4), tipPos.y + 12 * Math.sin(2.4));
-				ctx.lineTo(tipPos.x + 12 * Math.cos(2.4) - 4, tipPos.y + 12 * Math.sin(2.4) - 1);
-				ctx.moveTo(tipPos.x + 12 * Math.cos(2.4), tipPos.y + 12 * Math.sin(2.4));
-				ctx.lineTo(tipPos.x + 12 * Math.cos(2.4) + 1, tipPos.y + 12 * Math.sin(2.4) - 4);
-				ctx.stroke();
-			}
+			// Tiny rotation icon inside the ring (always visible)
+			ctx.strokeStyle = '#fff';
+			ctx.lineWidth = 1.5;
+			ctx.setLineDash([]);
+			ctx.beginPath();
+			ctx.arc(tipPos.x, tipPos.y, 5, -0.4, 2.6);
+			ctx.stroke();
+			// Arrowhead at the end of the curved arrow
+			const ax = tipPos.x + 5 * Math.cos(2.6);
+			const ay = tipPos.y + 5 * Math.sin(2.6);
+			ctx.beginPath();
+			ctx.moveTo(ax, ay);
+			ctx.lineTo(ax - 3, ay - 1.5);
+			ctx.moveTo(ax, ay);
+			ctx.lineTo(ax + 0.5, ay - 3);
+			ctx.stroke();
 			ctx.restore();
 		}
 	}
