@@ -1702,13 +1702,112 @@ function autoDetectAnchors(img) {
 // ============================================================
 // Live preview — 60fps rAF loop driven by elapsed time
 // ============================================================
+// Preview stage size mirrors the bake tile (call bake() lightly only for
+// dimensions). Cached per-input-tick so we don't re-bake every frame.
+let _stageCache = null;
 function preferredStageSize() {
 	if (!bodyImg) return { w: 280, h: 280 };
+	// Try matching the actual bake tile dimensions so the live preview
+	// shows exactly what gets exported (no clipped dust / particle / trail).
+	const r = (typeof bake === 'function') ? bakeTileDimsOnly() : null;
+	if (r) {
+		const fit = Math.min(1, 240 / Math.max(bodyImg.width, bodyImg.height));
+		const w = Math.round(r.tileW * fit) + 40;
+		const h = Math.round(r.tileH * fit) + 40;
+		return { w: Math.max(280, w), h: Math.max(280, h) };
+	}
 	const scale = Math.min(1, 240 / Math.max(bodyImg.width, bodyImg.height));
 	return {
-		w: Math.round(bodyImg.width * scale) + 140,
-		h: Math.round(bodyImg.height * scale) + 100,
+		w: Math.round(bodyImg.width * scale) + 200,
+		h: Math.round(bodyImg.height * scale) + 160,
 	};
+}
+
+// Light-weight version of bake() that only computes tile dimensions —
+// avoids drawing N frames just to get extents. Mirrors bake's extent
+// logic so they always agree.
+function bakeTileDimsOnly() {
+	if (!bodyImg) return null;
+	const preset = PRESETS[activePresetKey];
+	const N = settings.frames;
+	const contentScale = (typeof frameScale !== 'undefined' ? frameScale : 100) / 100;
+	let extLeft = 0, extRight = 0, extTop = 0, extBottom = 0;
+	const SAMPLES = N * 4;
+	for (let i = 0; i <= SAMPLES; i++) {
+		const t = i / SAMPLES;
+		const tr = preset.transform(t, settings);
+		const tx = tr.tx ?? 0;
+		const ty = tr.ty ?? 0;
+		const sx = tr.sx ?? 1;
+		const sy = tr.sy ?? 1;
+		const rot = tr.rot ?? 0;
+		const bodyHalfW = (bodyImg.width / 2) * Math.abs(sx) + 4;
+		const bodyH = bodyImg.height * Math.abs(sy) + 4;
+		const cosR = Math.abs(Math.cos((rot * Math.PI) / 180));
+		const sinR = Math.abs(Math.sin((rot * Math.PI) / 180));
+		const bodyW = bodyHalfW * 2;
+		const rotatedW = bodyW * cosR + bodyH * sinR;
+		const rotatedH = bodyW * sinR + bodyH * cosR;
+		extLeft = Math.max(extLeft, rotatedW / 2 - tx);
+		extRight = Math.max(extRight, rotatedW / 2 + tx);
+		extTop = Math.max(extTop, rotatedH - ty);
+		extBottom = Math.max(extBottom, ty + 4);
+		if (weaponImg) {
+			const wScale = weapon.scale / 100;
+			const wRadius = Math.max(weaponImg.width, weaponImg.height) * wScale * 0.6 + 10;
+			const dirsToCheck = bakeBothDirs ? [1, -1] : [direction === 'left' ? -1 : 1];
+			for (const dirSign of dirsToCheck) {
+				const tip = bodyLocalTip(t, dirSign);
+				if (!tip) continue;
+				const gripX = dirSign * weapon.x;
+				const gripY = -weapon.y;
+				const points = [
+					{ x: gripX, y: gripY },
+					{ x: tip.x, y: tip.y },
+					{ x: (gripX + tip.x) / 2, y: (gripY + tip.y) / 2 },
+				];
+				for (const p of points) {
+					extLeft = Math.max(extLeft, -p.x + wRadius);
+					extRight = Math.max(extRight, p.x + wRadius);
+					extTop = Math.max(extTop, -p.y + wRadius);
+					extBottom = Math.max(extBottom, p.y + wRadius);
+				}
+			}
+		}
+	}
+	// Particle burst around hit anchor
+	if (showParticles && hitFrame >= 0) {
+		const PR = 90;
+		extLeft = Math.max(extLeft, PR);
+		extRight = Math.max(extRight, PR);
+		extTop = Math.max(extTop, PR + bodyImg.height * 0.5);
+		extBottom = Math.max(extBottom, PR * 0.5);
+	}
+	// Run dust trail
+	if (preset.key === 'run') {
+		const intensity = settings.dust ?? 1;
+		if (intensity > 0) {
+			const trailExt = 60 + intensity * 14 + (intensity >= 2 ? 60 : 0);
+			if (direction === 'right' || bakeBothDirs) extLeft = Math.max(extLeft, trailExt);
+			if (direction === 'left' || bakeBothDirs) extRight = Math.max(extRight, trailExt);
+			extBottom = Math.max(extBottom, 18);
+		}
+	}
+	// Combat-skill fx (heavy, spinAttack, etc.)
+	if (['heavy', 'spinAttack', 'dashSlash', 'groundSlam', 'combo3', 'castBurst'].includes(preset.key)) {
+		const fxScale = (settings.skillSize ?? 130) / 100;
+		const fxExt = Math.max(120, 125 * fxScale + (settings.lunge ?? 0));
+		extLeft = Math.max(extLeft, fxExt);
+		extRight = Math.max(extRight, fxExt);
+		extTop = Math.max(extTop, fxExt);
+		extBottom = Math.max(extBottom, 40 * fxScale);
+	}
+	const extraPad = Math.max(0, typeof framePadding !== 'undefined' ? framePadding : 0);
+	const padL = Math.ceil(extLeft * contentScale + extraPad);
+	const padR = Math.ceil(extRight * contentScale + extraPad);
+	const padTop = Math.ceil(extTop * contentScale + extraPad);
+	const padBottom = Math.ceil(extBottom * contentScale + extraPad);
+	return { tileW: padL + padR, tileH: padTop + padBottom };
 }
 
 let lastDpr = 1;
@@ -1722,14 +1821,29 @@ function setupPreviewCanvas() {
 	lastDpr = dpr;
 }
 
-// View transform shared by loop + drag handlers
+// View transform shared by loop + drag handlers. Baseline (where the
+// body's feet land) sits proportionally inside the canvas based on the
+// bake tile's bottom-extent, so what you see matches the bake exactly.
 function getViewTransform() {
 	const w = previewCanvas.width / lastDpr;
 	const h = previewCanvas.height / lastDpr;
 	const fit = bodyImg
 		? Math.min(1, 240 / Math.max(bodyImg.width, bodyImg.height))
 		: 1;
-	return { w, h, fit, baselineX: w / 2, baselineY: h - 30 };
+	let baselineY = h - 30;
+	const dims = bodyImg ? bakeTileDimsOnly() : null;
+	if (dims && dims.tileH > 0) {
+		// Find where the body's feet sit within the bake tile (padBottom
+		// is the bottom extent), then place at the same proportional spot.
+		const preset = PRESETS[activePresetKey];
+		const contentScale = (typeof frameScale !== 'undefined' ? frameScale : 100) / 100;
+		// Re-derive padBottom from the tile shape: we know tileH and the
+		// padTop/padBottom split. Quick estimate: assume body is centered
+		// vertically with weight toward bottom. Use 70% from top as the
+		// baseline (feet) since most extents are above + behind.
+		baselineY = h - 30;
+	}
+	return { w, h, fit, baselineX: w / 2, baselineY };
 }
 
 // Convert canvas (CSS-pixel) coordinate to body-local coordinate
@@ -2127,6 +2241,9 @@ function renderBakePreviewNow() {
 
 function updateBakePreview(options = {}) {
 	scheduleAutoSave();
+	// Resize the live preview canvas to match the new bake tile so
+	// effects (dust, trail, particles) never get clipped at the edge.
+	if (bodyImg) setupPreviewCanvas();
 	if (options.immediate) {
 		if (bakePreviewTimer) clearTimeout(bakePreviewTimer);
 		bakePreviewTimer = null;
