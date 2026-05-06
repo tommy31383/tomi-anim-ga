@@ -4071,13 +4071,122 @@ function whenIdle(fn, timeoutMs = 800) {
 	});
 }
 
+// Inline Worker for the heavy pixel walk in autoRemoveBg. Created once,
+// re-used across calls. Falls back to main-thread sync path if Worker fails
+// to spawn (rare — only sandboxed iframes / strict CSP without 'blob:').
+let _bgWorker = null;
+function _getBgWorker() {
+	if (_bgWorker) return _bgWorker;
+	const code = `
+self.onmessage = (e) => {
+	const { id, w, h, buf, tolSq } = e.data;
+	const px = new Uint8ClampedArray(buf);
+	// 4 corner avg color, skip transparent
+	const corners = [
+		[0, 0], [w - 1, 0], [0, h - 1], [w - 1, h - 1],
+	];
+	let r = 0, g = 0, b = 0, n = 0;
+	for (const [cx, cy] of corners) {
+		const i = (cy * w + cx) * 4;
+		if (px[i + 3] === 0) continue;
+		r += px[i]; g += px[i + 1]; b += px[i + 2]; n++;
+	}
+	if (n === 0) {
+		// Nothing obvious to clear
+		self.postMessage({ id, buf: px.buffer, cleared: 0 }, [px.buffer]);
+		return;
+	}
+	r /= n; g /= n; b /= n;
+	let cleared = 0;
+	for (let i = 0; i < px.length; i += 4) {
+		if (px[i + 3] === 0) continue;
+		const dr = px[i] - r, dg = px[i + 1] - g, db = px[i + 2] - b;
+		if (dr * dr + dg * dg + db * db < tolSq) {
+			px[i + 3] = 0;
+			cleared++;
+		}
+	}
+	self.postMessage({ id, buf: px.buffer, cleared }, [px.buffer]);
+};
+	`;
+	try {
+		const blob = new Blob([code], { type: 'application/javascript' });
+		_bgWorker = new Worker(URL.createObjectURL(blob));
+	} catch {
+		_bgWorker = null;
+	}
+	return _bgWorker;
+}
+let _bgWorkerSeq = 0;
+const _bgWorkerPending = new Map();
+function _bgWorkerInit() {
+	const w = _getBgWorker();
+	if (!w || w._wired) return w;
+	w._wired = true;
+	w.onmessage = (e) => {
+		const { id, buf, cleared } = e.data;
+		const pending = _bgWorkerPending.get(id);
+		if (!pending) return;
+		_bgWorkerPending.delete(id);
+		pending.resolve({ buf, cleared });
+	};
+	w.onerror = () => {
+		// Reject all pending; fallback path will pick up subsequent calls.
+		for (const p of _bgWorkerPending.values()) p.reject(new Error('worker error'));
+		_bgWorkerPending.clear();
+		_bgWorker = null;
+	};
+	return w;
+}
+
 // Auto-remove background: pick the average of the 4 corner pixels as bg color,
 // then clear (alpha=0) any pixel within `tolerance` Euclidean distance of it.
-// Returns a Promise<HTMLImageElement> with the cleaned image.
-// Wrapped in `whenIdle` so the heavy pixel walk + PNG encode happens off the
-// click handler tick — UI stays responsive even on 2K+ images.
+// Heavy pixel walk runs in a Web Worker (transferable ImageData buffer) so the
+// main thread never blocks. Falls back to whenIdle + sync if Worker fails.
 function autoRemoveBg(img, tolerance = 30) {
-	return whenIdle(() => _autoRemoveBgSync(img, tolerance)).then((res) => res);
+	const worker = _bgWorkerInit();
+	if (!worker) {
+		// Fallback: idle-deferred sync path
+		return whenIdle(() => _autoRemoveBgSync(img, tolerance));
+	}
+	return new Promise((resolve, reject) => {
+		try {
+			const c = document.createElement('canvas');
+			c.width = img.width;
+			c.height = img.height;
+			const ctx = c.getContext('2d');
+			ctx.drawImage(img, 0, 0);
+			const data = ctx.getImageData(0, 0, c.width, c.height);
+			const id = ++_bgWorkerSeq;
+			_bgWorkerPending.set(id, {
+				resolve: ({ buf, cleared }) => {
+					const out2d = ctx; // reuse
+					const cleaned = new ImageData(new Uint8ClampedArray(buf), c.width, c.height);
+					out2d.putImageData(cleaned, 0, 0);
+					const out = new Image();
+					out.onload = () => {
+						out._bgClearedPixels = cleared;
+						resolve(out);
+					};
+					out.onerror = reject;
+					out.src = c.toDataURL('image/png');
+				},
+				reject,
+			});
+			worker.postMessage(
+				{
+					id,
+					w: c.width,
+					h: c.height,
+					buf: data.data.buffer,
+					tolSq: tolerance * tolerance,
+				},
+				[data.data.buffer],
+			);
+		} catch (e) {
+			reject(e);
+		}
+	});
 }
 function _autoRemoveBgSync(img, tolerance) {
 	const c = document.createElement('canvas');
