@@ -87,6 +87,34 @@
 				<button id="body-change" class="text-[10px] text-cyan-400 hover:text-white px-2 py-1 rounded border border-slate-700 hover:bg-slate-800">Đổi</button>
 			</div>
 			<div id="body-info" class="hidden"></div>
+
+			<!-- Body crop tool -->
+			<details id="body-crop-panel" class="hidden mt-2 bg-slate-900 rounded-xl border border-slate-700 group" open>
+				<summary class="cursor-pointer p-2.5 flex items-center justify-between text-xs font-semibold text-cyan-300 hover:bg-slate-800 rounded-xl">
+					<span class="flex items-center gap-1.5"><span class="material-symbols-outlined" style="font-size:14px">crop</span>Cắt vùng nhân vật</span>
+					<div class="flex gap-1.5" onclick="event.stopPropagation()">
+						<button id="body-crop-auto" class="text-[10px] px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-slate-700">🪄 Auto</button>
+						<button id="body-crop-reset" class="text-[10px] px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700">↻</button>
+					</div>
+				</summary>
+				<div class="px-3 pb-3 space-y-3">
+				<div class="bg-slate-950 rounded-lg border border-slate-800 p-2 flex items-center justify-center">
+					<canvas id="body-crop-canvas" class="block" style="max-width:100%;height:auto;cursor:crosshair"></canvas>
+				</div>
+				<p class="text-[10px] text-slate-500 leading-relaxed">
+					Kéo để lấy đúng phần nhân vật, bỏ nền thừa trước khi bake. Auto cắt tốt với PNG trong suốt và ảnh nền một màu.
+				</p>
+				<div class="flex gap-2">
+					<button id="body-crop-apply" class="flex-1 gradient-btn text-white font-bold py-2 rounded-lg active:scale-95 transition-transform text-sm flex items-center justify-center gap-1">
+						<span class="material-symbols-outlined" style="font-size:14px">crop</span>
+						Áp dụng vùng cắt
+					</button>
+					<button id="body-crop-skip" class="px-3 py-2 rounded-lg border border-slate-700 text-slate-300 text-xs hover:bg-slate-800">
+						Dùng ảnh gốc
+					</button>
+				</div>
+				</div>
+			</details>
 		</div>
 
 		<!-- Step 1b: Weapon — same pattern -->
@@ -288,6 +316,24 @@
 
 	<!-- RIGHT aside: hiệu ứng / hitbox / save-load / export -->
 	<aside class="space-y-3 xl:sticky xl:top-4 xl:self-start">
+		<div class="bg-slate-900 rounded-xl border border-slate-700 p-3 space-y-3">
+			<p class="text-[10px] font-mono uppercase tracking-widest text-cyan-400">Khung export</p>
+			<div>
+				<div class="flex justify-between text-xs mb-1">
+					<span class="text-slate-300">Scale trong khung</span>
+					<span class="slider-label text-cyan-400"><span id="frame-scale-val">90</span>%</span>
+				</div>
+				<input id="frame-scale" type="range" min="50" max="120" step="5" value="90" class="w-full">
+			</div>
+			<div>
+				<div class="flex justify-between text-xs mb-1">
+					<span class="text-slate-300">Padding khung</span>
+					<span class="slider-label text-cyan-400"><span id="frame-padding-val">18</span>px</span>
+				</div>
+				<input id="frame-padding" type="range" min="0" max="80" step="2" value="18" class="w-full">
+			</div>
+		</div>
+
 		<!-- Hiệu ứng + hitbox -->
 		<div class="bg-slate-900 rounded-xl border border-slate-700 p-3 space-y-2">
 			<p class="text-[10px] font-mono uppercase tracking-widest text-cyan-400">Hiệu ứng & Hitbox</p>
@@ -455,19 +501,25 @@ const PRESETS = {
 	},
 	die: {
 		key: 'die', emoji: '💀', label: 'Chết',
-		desc: 'Ngã xoay 90° + chìm xuống + mờ dần. Brotato style.',
+		desc: 'Gục xuống tại chỗ: xoay nhẹ, lún chân, xẹp thân và mờ dần. Hợp minion chết tại vị trí đứng.',
 		loop: false,
-		defaults: { frames: 12, duration: 700, fall: 12, fade: 30 },
-		sliders: ['frames', 'duration', 'fall', 'fade'],
+		defaults: { frames: 12, duration: 620, fall: 10, dieAngle: 24, collapse: 34, fade: 24 },
+		sliders: ['frames', 'duration', 'fall', 'dieAngle', 'collapse', 'fade'],
 		transform: (t, s) => {
-			const e = easeInOutQuad(t);
+			const e = easeOutCubic(t);
+			const impact = Math.sin(Math.min(1, t / 0.36) * Math.PI) * Math.max(0, 1 - t * 1.7);
+			const angle = e * s.dieAngle;
+			const h = bodyImg?.height || 96;
 			return {
-				ty: e * s.fall,
-				rot: e * 90,
-				sx: lerp(1, 0.85, e),
-				sy: lerp(1, 0.85, e),
+				// Counter-shift keeps the fallen pose visually centered on the original standing spot.
+				tx: -Math.sin((angle * Math.PI) / 180) * h * 0.12,
+				ty: e * s.fall + impact * 2,
+				rot: angle + impact * 2,
+				sx: lerp(1, 1 + s.collapse / 100, e),
+				sy: lerp(1, Math.max(0.42, 1 - s.collapse / 72), e),
 				alpha: lerp(1, 1 - s.fade / 100, e),
-				weaponRot: e * 30, // weapon falls with body rotation
+				filter: `saturate(${(1 - e * 0.45).toFixed(2)}) brightness(${(1 - e * 0.18).toFixed(2)})`,
+				weaponRot: e * 18 + impact * 6,
 			};
 		},
 	},
@@ -504,6 +556,167 @@ const PRESETS = {
 				weaponRot = lerp(s.swing * 0.55, 0, e);
 			}
 			return { tx, sx, sy, weaponRot };
+		},
+	},
+	heavy: {
+		key: 'heavy', emoji: '🔨', label: 'Heavy smash',
+		desc: 'Gồng chậm rồi bổ mạnh, thân nén xuống và bật impact lớn.',
+		loop: false,
+		defaults: { frames: 12, duration: 620, lunge: 18, windup: 12, swing: 145, impact: 90 },
+		sliders: ['frames', 'duration', 'lunge', 'windup', 'swing', 'impact'],
+		transform: (t, s) => {
+			if (t < 0.42) {
+				const p = easeOutCubic(t / 0.42);
+				return {
+					tx: -s.windup * 0.7 * p,
+					ty: p * 3,
+					rot: -p * 5,
+					sx: lerp(1, 0.9, p),
+					sy: lerp(1, 1.08, p),
+					weaponRot: -s.swing * 0.55 * p,
+				};
+			}
+			if (t < 0.64) {
+				const p = easeOutCubic((t - 0.42) / 0.22);
+				return {
+					tx: lerp(-s.windup * 0.7, s.lunge, p),
+					ty: p * s.impact * 0.05,
+					rot: lerp(-5, 7, p),
+					sx: lerp(0.9, 1.2, p),
+					sy: lerp(1.08, 0.78, p),
+					weaponRot: lerp(-s.swing * 0.55, s.swing * 0.62, p),
+					filter: `brightness(${(1 + p * 0.28).toFixed(2)})`,
+				};
+			}
+			const p = easeOutCubic((t - 0.64) / 0.36);
+			return {
+				tx: lerp(s.lunge, 0, p),
+				ty: lerp(s.impact * 0.05, 0, p),
+				rot: lerp(7, 0, p),
+				sx: lerp(1.2, 1, p),
+				sy: lerp(0.78, 1, p),
+				weaponRot: lerp(s.swing * 0.62, 0, p),
+			};
+		},
+	},
+	stab: {
+		key: 'stab', emoji: '➤', label: 'Đâm thẳng',
+		desc: 'Co người, đâm thẳng tới rồi rút nhanh. Hợp giáo/dao/kiếm nhọn.',
+		loop: false,
+		defaults: { frames: 8, duration: 300, lunge: 28, windup: 10, recoil: 12 },
+		sliders: ['frames', 'duration', 'lunge', 'windup', 'recoil'],
+		transform: (t, s) => {
+			if (t < 0.28) {
+				const p = easeOutCubic(t / 0.28);
+				return { tx: -s.windup * p, sx: lerp(1, 0.88, p), sy: lerp(1, 1.08, p), weaponRot: -18 * p, weaponTx: -4 * p };
+			}
+			if (t < 0.55) {
+				const p = easeOutCubic((t - 0.28) / 0.27);
+				return { tx: lerp(-s.windup, s.lunge, p), sx: lerp(0.88, 1.28, p), sy: lerp(1.08, 0.82, p), weaponRot: lerp(-18, 8, p), weaponTx: s.lunge * 0.7 * p };
+			}
+			const p = easeOutCubic((t - 0.55) / 0.45);
+			return { tx: lerp(s.lunge, -s.recoil * 0.2, p), sx: lerp(1.28, 1, p), sy: lerp(0.82, 1, p), weaponRot: lerp(8, 0, p), weaponTx: lerp(s.lunge * 0.7, 0, p) };
+		},
+	},
+	spinAttack: {
+		key: 'spinAttack', emoji: '↻', label: 'Spin attack',
+		desc: 'Xoay tại chỗ, vũ khí quét vòng quanh người. Dùng cho AOE melee.',
+		loop: false,
+		defaults: { frames: 14, duration: 560, spin: 300, sway: 8, impact: 70 },
+		sliders: ['frames', 'duration', 'spin', 'sway', 'impact'],
+		transform: (t, s) => {
+			const e = easeInOutQuad(t);
+			const pulse = Math.sin(t * Math.PI * 2);
+			return {
+				tx: pulse * s.sway * 0.25,
+				ty: -Math.sin(t * Math.PI) * 3,
+				rot: pulse * 5,
+				sx: 1 + Math.sin(t * Math.PI) * 0.08,
+				sy: 1 - Math.sin(t * Math.PI) * 0.06,
+				weaponRot: e * s.spin,
+				filter: `brightness(${(1 + Math.sin(t * Math.PI) * 0.14).toFixed(2)})`,
+			};
+		},
+	},
+	dashSlash: {
+		key: 'dashSlash', emoji: '»', label: 'Dash slash',
+		desc: 'Lùi lấy đà, phóng tới và chém xuyên mục tiêu.',
+		loop: false,
+		defaults: { frames: 10, duration: 360, lunge: 36, windup: 14, swing: 130 },
+		sliders: ['frames', 'duration', 'lunge', 'windup', 'swing'],
+		transform: (t, s) => {
+			if (t < 0.24) {
+				const p = easeOutCubic(t / 0.24);
+				return { tx: -s.windup * p, sx: lerp(1, 0.86, p), sy: lerp(1, 1.08, p), weaponRot: -s.swing * 0.35 * p };
+			}
+			if (t < 0.58) {
+				const p = easeOutCubic((t - 0.24) / 0.34);
+				return { tx: lerp(-s.windup, s.lunge, p), ty: -Math.sin(p * Math.PI) * 3, rot: lerp(-4, 6, p), sx: lerp(0.86, 1.2, p), sy: lerp(1.08, 0.88, p), weaponRot: lerp(-s.swing * 0.35, s.swing * 0.72, p), weaponTx: p * 8 };
+			}
+			const p = easeOutCubic((t - 0.58) / 0.42);
+			return { tx: lerp(s.lunge, 0, p), rot: lerp(6, 0, p), sx: lerp(1.2, 1, p), sy: lerp(0.88, 1, p), weaponRot: lerp(s.swing * 0.72, 0, p), weaponTx: lerp(8, 0, p) };
+		},
+	},
+	groundSlam: {
+		key: 'groundSlam', emoji: '▾', label: 'Ground slam',
+		desc: 'Nhảy thấp rồi đập đất, có shockwave/bụi vòng dưới chân.',
+		loop: false,
+		defaults: { frames: 12, duration: 560, hop: 18, swing: 120, impact: 100, skillSize: 150 },
+		sliders: ['frames', 'duration', 'hop', 'swing', 'impact', 'skillSize'],
+		transform: (t, s) => {
+			if (t < 0.38) {
+				const p = easeOutCubic(t / 0.38);
+				return { ty: -s.hop * p, sx: lerp(1, 0.94, p), sy: lerp(1, 1.08, p), weaponRot: -s.swing * 0.55 * p };
+			}
+			if (t < 0.58) {
+				const p = easeOutCubic((t - 0.38) / 0.2);
+				return { ty: lerp(-s.hop, s.impact * 0.07, p), sx: lerp(0.94, 1.25, p), sy: lerp(1.08, 0.72, p), rot: lerp(-3, 5, p), weaponRot: lerp(-s.swing * 0.55, s.swing * 0.6, p) };
+			}
+			const p = easeOutCubic((t - 0.58) / 0.42);
+			return { ty: lerp(s.impact * 0.07, 0, p), sx: lerp(1.25, 1, p), sy: lerp(0.72, 1, p), rot: lerp(5, 0, p), weaponRot: lerp(s.swing * 0.6, 0, p) };
+		},
+	},
+	combo3: {
+		key: 'combo3', emoji: '×3', label: 'Combo 3 hit',
+		desc: 'Ba nhịp đánh liên tiếp: chém ngang, chém ngược, kết thúc bổ mạnh.',
+		loop: false,
+		defaults: { frames: 16, duration: 760, lunge: 18, swing: 125, impact: 80 },
+		sliders: ['frames', 'duration', 'lunge', 'swing', 'impact'],
+		transform: (t, s) => {
+			const hit = Math.min(2, Math.floor(t * 3));
+			const p = (t * 3) - hit;
+			const e = easeOutCubic(Math.min(1, p));
+			const dir = hit === 1 ? -1 : 1;
+			const settle = Math.max(0, 1 - p);
+			return {
+				tx: Math.sin(t * Math.PI * 3) * s.lunge * 0.45,
+				ty: -Math.sin(Math.min(1, p) * Math.PI) * 2,
+				rot: dir * Math.sin(e * Math.PI) * 5,
+				sx: 1 + Math.sin(e * Math.PI) * 0.12,
+				sy: 1 - Math.sin(e * Math.PI) * 0.08,
+				weaponRot: (hit - 1) * s.swing * 0.36 + dir * lerp(-s.swing * 0.45, s.swing * 0.55, e) + settle * 6,
+			};
+		},
+	},
+	castBurst: {
+		key: 'castBurst', emoji: '*', label: 'Cast burst',
+		desc: 'Gồng năng lượng rồi nổ vòng phép quanh người. Hợp skill phép/AOE.',
+		loop: false,
+		defaults: { frames: 14, duration: 720, pulse: 14, glow: 24, skillSize: 150, impact: 90 },
+		sliders: ['frames', 'duration', 'pulse', 'glow', 'skillSize', 'impact'],
+		transform: (t, s) => {
+			const charge = Math.min(1, t / 0.55);
+			const burst = t < 0.55 ? 0 : easeOutCubic((t - 0.55) / 0.45);
+			const pulse = Math.sin(t * Math.PI * 6) * (1 - burst);
+			const sc = 1 + charge * s.pulse / 100 - burst * 0.04;
+			return {
+				ty: -charge * 4 + burst * 2,
+				rot: pulse * 1.4,
+				sx: sc + burst * 0.08,
+				sy: sc - burst * 0.04,
+				filter: `brightness(${(1 + charge * 0.25 + burst * 0.35).toFixed(2)}) drop-shadow(0 0 ${(s.glow * (charge + burst)).toFixed(1)}px rgba(68,250,208,0.85))`,
+				weaponRot: -charge * 24 + burst * 38,
+			};
 		},
 	},
 	spell: {
@@ -556,8 +769,32 @@ const PRESETS = {
 		key: 'run', emoji: '🏃', label: 'Chạy (fake)',
 		desc: 'Mobile game style: nhân vật đứng tại chỗ nghiêng tới, fake chuyển động bằng bụi + bóng + bounce nhẹ. Vampire Survivors / Brotato run.',
 		loop: true,
-		defaults: { frames: 10, duration: 360, height: 6, lean: 7, dust: 1 },
-		sliders: ['frames', 'duration', 'height', 'lean', 'dust'],
+		defaults: {
+			frames: 10,
+			duration: 360,
+			height: 6,
+			lean: 7,
+			dust: 2,
+			dustSize: 180,
+			dustDistance: 170,
+			splashSize: 180,
+			splashWidth: 180,
+			shadowSize: 170,
+			shadowAlpha: 58,
+		},
+		sliders: [
+			'frames',
+			'duration',
+			'height',
+			'lean',
+			'dust',
+			'dustSize',
+			'dustDistance',
+			'splashSize',
+			'splashWidth',
+			'shadowSize',
+			'shadowAlpha',
+		],
 		// Body almost still — heavy lifting happens in drawRunFakeFx (dust + shadow)
 		transform: (t, s) => {
 			const p = cyclicPhase(t);
@@ -568,6 +805,165 @@ const PRESETS = {
 				sy: lerp(0.96, 1.05, p),
 				// constant lean forward + a small left-right sway with gait cadence
 				rot: -s.lean + Math.sin(t * Math.PI * 2) * 1.5,
+			};
+		},
+	},
+	happy: {
+		key: 'happy', emoji: '😄', label: 'Vui mừng',
+		desc: 'Minion nhảy hai nhịp, nảy người và xoay nhẹ như vừa ăn được buff.',
+		loop: true,
+		defaults: { frames: 12, duration: 760, hop2: 18, squash: 14, sway: 6 },
+		sliders: ['frames', 'duration', 'hop2', 'squash', 'sway'],
+		transform: (t, s) => {
+			const hopA = Math.max(0, Math.sin(t * Math.PI * 4));
+			const hopB = Math.max(0, Math.sin((t * 2 + 0.15) * Math.PI * 2)) * 0.35;
+			const hop = Math.min(1, hopA + hopB);
+			const sway = Math.sin(t * Math.PI * 4);
+			return {
+				ty: -hop * s.hop2,
+				rot: sway * s.sway,
+				sx: lerp(1 + s.squash / 120, 1 - s.squash / 220, hop),
+				sy: lerp(1 - s.squash / 180, 1 + s.squash / 100, hop),
+				weaponRot: -hop * 22 + sway * 6,
+			};
+		},
+	},
+	angry: {
+		key: 'angry', emoji: '😡', label: 'Tức giận',
+		desc: 'Rung người, chúi tới và ám đỏ nhẹ. Hợp minion chuẩn bị lao vào đánh.',
+		loop: true,
+		defaults: { frames: 8, duration: 430, intensity: 7, lean: 8, shake: 5 },
+		sliders: ['frames', 'duration', 'intensity', 'lean', 'shake'],
+		transform: (t, s) => {
+			const jitter = Math.sin(t * Math.PI * 16);
+			const pulse = phaseUp(t);
+			return {
+				tx: jitter * s.shake * 0.35,
+				ty: -pulse * 2,
+				rot: -s.lean + jitter * 1.4,
+				sx: 1 + pulse * 0.08,
+				sy: 1 - pulse * 0.05,
+				filter: `sepia(${(0.2 + pulse * 0.35).toFixed(2)}) saturate(${(1.2 + pulse * 0.9).toFixed(2)})`,
+				weaponRot: -12 - pulse * s.intensity,
+			};
+		},
+	},
+	sad: {
+		key: 'sad', emoji: '😢', label: 'Buồn',
+		desc: 'Co người, cúi xuống và lắc chậm. Dùng cho minion thua, đói, hoặc bị bỏ rơi.',
+		loop: true,
+		defaults: { frames: 12, duration: 1300, droop: 12, sway: 4 },
+		sliders: ['frames', 'duration', 'droop', 'sway'],
+		transform: (t, s) => {
+			const p = phaseUp(t);
+			const sway = Math.sin(t * Math.PI * 2);
+			return {
+				ty: p * s.droop * 0.45,
+				rot: -s.droop * 0.35 + sway * s.sway * 0.25,
+				sx: lerp(1, 0.92, p),
+				sy: lerp(1, 0.9, p),
+				alpha: 0.92,
+				filter: 'saturate(0.75) brightness(0.92)',
+				weaponRot: p * 18,
+			};
+		},
+	},
+	scared: {
+		key: 'scared', emoji: '😱', label: 'Sợ hãi',
+		desc: 'Giật lùi, run nhanh và co lại. Rất hợp minion thấy boss hoặc bom nổ gần.',
+		loop: true,
+		defaults: { frames: 10, duration: 520, panic: 14, shake: 7, stretch: 10 },
+		sliders: ['frames', 'duration', 'panic', 'shake', 'stretch'],
+		transform: (t, s) => {
+			const p = phaseUp(t);
+			const jitter = Math.sin(t * Math.PI * 18);
+			return {
+				tx: -p * s.panic + jitter * s.shake * 0.35,
+				ty: -p * 5,
+				rot: jitter * 2.2,
+				sx: lerp(1, 0.9, p),
+				sy: lerp(1, 1 + s.stretch / 100, p),
+				filter: 'brightness(1.08) saturate(0.85)',
+				weaponRot: jitter * 12,
+			};
+		},
+	},
+	surprised: {
+		key: 'surprised', emoji: '😲', label: 'Bất ngờ',
+		desc: 'Bật lên nhanh rồi settle bằng spring. Dùng cho phát hiện mục tiêu hoặc mở rương.',
+		loop: false,
+		defaults: { frames: 8, duration: 360, pop: 22, stretch: 18 },
+		sliders: ['frames', 'duration', 'pop', 'stretch'],
+		transform: (t, s) => {
+			const jump = t < 0.35 ? easeOutCubic(t / 0.35) : Math.max(0, 1 - (t - 0.35) / 0.65);
+			const settle = Math.sin(t * Math.PI * 5) * Math.max(0, 1 - t);
+			return {
+				ty: -jump * s.pop + settle * 2,
+				sx: lerp(1 + s.stretch / 220, 1 - s.stretch / 180, jump),
+				sy: lerp(1 - s.stretch / 220, 1 + s.stretch / 100, jump),
+				rot: settle * 4,
+				filter: `brightness(${(1 + jump * 0.25).toFixed(2)})`,
+				weaponRot: -jump * 28,
+			};
+		},
+	},
+	confused: {
+		key: 'confused', emoji: '?', label: 'Bối rối',
+		desc: 'Nghiêng đầu trái phải kiểu không hiểu chuyện gì đang xảy ra.',
+		loop: true,
+		defaults: { frames: 12, duration: 1000, tilt: 10, sway: 5 },
+		sliders: ['frames', 'duration', 'tilt', 'sway'],
+		transform: (t, s) => {
+			const wave = Math.sin(t * Math.PI * 2);
+			const bob = phaseUp(t);
+			return {
+				tx: wave * s.sway * 0.45,
+				ty: -bob * 2,
+				rot: wave * s.tilt,
+				sx: 1 + Math.abs(wave) * 0.025,
+				sy: 1 - Math.abs(wave) * 0.02,
+				weaponRot: wave * 10,
+			};
+		},
+	},
+	taunt: {
+		key: 'taunt', emoji: '😏', label: 'Khiêu khích',
+		desc: 'Nhún tới lui, lắc người và vung vũ khí trêu đối thủ.',
+		loop: true,
+		defaults: { frames: 12, duration: 720, lunge: 10, sway: 10, swing: 60 },
+		sliders: ['frames', 'duration', 'lunge', 'sway', 'swing'],
+		transform: (t, s) => {
+			const p = phaseUp(t);
+			const wave = Math.sin(t * Math.PI * 4);
+			return {
+				tx: p * s.lunge * 0.8,
+				ty: -Math.abs(wave) * 3,
+				rot: wave * s.sway * 0.45,
+				sx: lerp(1, 1.08, p),
+				sy: lerp(1, 0.94, p),
+				weaponRot: wave * s.swing * 0.35,
+				weaponTx: p * 4,
+			};
+		},
+	},
+	aggro: {
+		key: 'aggro', emoji: '!', label: 'Phát hiện địch',
+		desc: 'Charge-up ngắn, nghiêng tới và rung như minion vừa lock target.',
+		loop: false,
+		defaults: { frames: 8, duration: 420, charge: 16, lean: 10, shake: 5 },
+		sliders: ['frames', 'duration', 'charge', 'lean', 'shake'],
+		transform: (t, s) => {
+			const e = anticipateEase(t);
+			const charge = Math.max(0, e);
+			const jitter = Math.sin(t * Math.PI * 20) * Math.max(0, 1 - t);
+			return {
+				tx: -s.charge * 0.35 + charge * s.charge,
+				ty: -charge * 3,
+				rot: -s.lean * charge + jitter * s.shake * 0.4,
+				sx: lerp(0.92, 1.12, charge),
+				sy: lerp(1.08, 0.92, charge),
+				filter: `contrast(${(1 + charge * 0.25).toFixed(2)}) saturate(${(1 + charge * 0.4).toFixed(2)})`,
+				weaponRot: -charge * 35 + jitter * 8,
 			};
 		},
 	},
@@ -583,24 +979,46 @@ const SLIDER_CONFIG = {
 	intensity: { label: 'Cường độ giật', min: 2, max: 20, step: 1, suffix: 'px' },
 	flash: { label: 'Cường độ flash', min: 0, max: 100, step: 5, suffix: '%' },
 	fall: { label: 'Độ lún', min: 4, max: 30, step: 1, suffix: 'px' },
+	dieAngle: { label: 'Góc gục', min: 0, max: 45, step: 1, suffix: '°' },
+	collapse: { label: 'Độ xẹp thân', min: 0, max: 55, step: 1, suffix: '%' },
 	fade: { label: 'Độ mờ cuối', min: 0, max: 80, step: 5, suffix: '%' },
-	lunge: { label: 'Khoảng lao', min: 4, max: 30, step: 1, suffix: 'px' },
+	lunge: { label: 'Khoảng lao', min: 4, max: 48, step: 1, suffix: 'px' },
+	recoil: { label: 'Độ bật lùi', min: 0, max: 24, step: 1, suffix: 'px' },
 	windup: { label: 'Wind-up', min: 0, max: 16, step: 1, suffix: 'px' },
 	swing: { label: 'Góc vung vũ khí', min: 30, max: 180, step: 5, suffix: '°' },
+	spin: { label: 'Góc xoay vũ khí', min: 120, max: 520, step: 10, suffix: '°' },
+	impact: { label: 'Lực impact', min: 20, max: 150, step: 5, suffix: '%' },
+	skillSize: { label: 'Cỡ hiệu ứng', min: 60, max: 260, step: 10, suffix: '%' },
 	pulse: { label: 'Cường độ pulse', min: 2, max: 20, step: 1, suffix: '%' },
 	glow: { label: 'Cường độ glow', min: 0, max: 30, step: 1, suffix: 'px' },
 	hop: { label: 'Độ cao nhảy', min: 4, max: 30, step: 1, suffix: 'px' },
+	hop2: { label: 'Nhảy 2 nhịp', min: 4, max: 36, step: 1, suffix: 'px' },
 	sway: { label: 'Lắc lư', min: 0, max: 16, step: 1, suffix: 'px/deg' },
 	tilt: { label: 'Nghiêng', min: 0, max: 14, step: 1, suffix: '°' },
 	lean: { label: 'Nghiêng người', min: 0, max: 12, step: 1, suffix: '°' },
 	dust: { label: 'Bụi chân', min: 0, max: 3, step: 1, suffix: ' (0=tắt, 3=mạnh)' },
+	dustSize: { label: 'Cỡ bụi', min: 50, max: 400, step: 10, suffix: '%' },
+	dustDistance: { label: 'Độ xa bụi', min: 50, max: 400, step: 10, suffix: '%' },
+	splashSize: { label: 'Độ dài splash', min: 50, max: 400, step: 10, suffix: '%' },
+	splashWidth: { label: 'Độ dày splash', min: 50, max: 400, step: 10, suffix: '%' },
+	shadowSize: { label: 'Cỡ bóng đất', min: 50, max: 350, step: 10, suffix: '%' },
+	shadowAlpha: { label: 'Đậm bóng đất', min: 10, max: 100, step: 5, suffix: '%' },
+	shake: { label: 'Rung', min: 0, max: 12, step: 1, suffix: 'px' },
+	droop: { label: 'Cúi/xẹp', min: 2, max: 24, step: 1, suffix: 'px' },
+	panic: { label: 'Lùi hoảng', min: 2, max: 30, step: 1, suffix: 'px' },
+	pop: { label: 'Bật lên', min: 4, max: 40, step: 1, suffix: 'px' },
+	charge: { label: 'Lao tới', min: 4, max: 32, step: 1, suffix: 'px' },
 };
 
 // ============================================================
 // State
 // ============================================================
+let bodySrcImg = null;   // Original uploaded body image (uncropped)
+let bodySrcDataUrl = null;
 let bodyImg = null, bodyName = 'sprite';
+let bodyCropRect = null; // {x, y, w, h} in source image pixels
 let weaponSrcImg = null; // Original uploaded weapon image (uncropped)
+let weaponSrcDataUrl = null;
 let weaponImg = null;    // Cropped/processed weapon used by drawWeapon
 let cropRect = null;     // {x, y, w, h} in source image pixels
 let activePresetKey = 'hop';
@@ -614,9 +1032,12 @@ let showFlash = true;     // white flash filter at hit frame
 let showShake = true;     // camera shake offset on hit frame
 let useSpring = true;     // spring physics easing for cyclic anims
 let cinematicTiming = false; // hold key frame for snappier game-feel
+let frameScale = 90;      // export/bake content scale inside each tile
+let framePadding = 18;    // extra export/bake pixels around each tile
 let hitFrame = -1;        // index of frame that triggers damage (-1 = none)
 let isPaused = false;     // play/pause toggle on timeline
 let scrubT = null;        // when set (0..1), preview holds at this time
+let pausedT = 0;          // last preview time captured when user pauses
 // Weapon position on body, plus 2 anchor points (in % of weapon image):
 //   grip (đuôi) = where the character holds it — becomes pivot for swing.
 //   tip  (đầu)  = the business end — defines the weapon's natural axis,
@@ -636,6 +1057,7 @@ let animStart = performance.now();
 const bodyDz = $('body-dropzone');
 const bodyInput = $('body-input');
 const bodyInfo = $('body-info');
+const bodyCropPanel = $('body-crop-panel');
 const weaponDz = $('weapon-dropzone');
 const weaponInput = $('weapon-input');
 const weaponInfo = $('weapon-info');
@@ -677,6 +1099,7 @@ function setPreset(key) {
 	renderPresetGrid();
 	renderSettingsPanel();
 	animStart = performance.now();
+	pausedT = 0;
 	updateBakePreview();
 }
 
@@ -991,6 +1414,148 @@ function drawHitParticles(ctx, t, cx, cy, dir) {
 	ctx.restore();
 }
 
+function drawCombatSkillFx(ctx, t, cx, cy, dir) {
+	const key = PRESETS[activePresetKey].key;
+	const dirSign = dir === 'left' ? -1 : 1;
+	const size = (settings.skillSize ?? 120) / 100;
+	const impact = (settings.impact ?? 80) / 100;
+	const groundY = cy + 3;
+	ctx.save();
+	ctx.lineCap = 'round';
+	ctx.lineJoin = 'round';
+
+	if (key === 'dashSlash') {
+		const a = t < 0.24 || t > 0.78 ? 0 : Math.sin(((t - 0.24) / 0.54) * Math.PI);
+		if (a > 0) {
+			const len = (70 + (settings.lunge ?? 24) * 1.6) * a;
+			const y = cy - (bodyImg ? bodyImg.height * 0.55 : 48);
+			const x = cx - dirSign * len * 0.2;
+			for (let i = 0; i < 3; i++) {
+				ctx.strokeStyle = `rgba(${i === 0 ? '255,255,255' : '68,250,208'}, ${(a * (0.65 - i * 0.14)).toFixed(3)})`;
+				ctx.lineWidth = (5 - i) * size;
+				ctx.beginPath();
+				ctx.moveTo(x - dirSign * len, y + i * 7);
+				ctx.lineTo(x + dirSign * len * 0.45, y - 16 + i * 5);
+				ctx.stroke();
+			}
+		}
+	}
+
+	if (key === 'spinAttack') {
+		const a = Math.sin(t * Math.PI);
+		if (a > 0) {
+			const r = (bodyImg ? bodyImg.width * 0.75 : 46) * size;
+			const y = cy - (bodyImg ? bodyImg.height * 0.48 : 48);
+			for (let i = 0; i < 3; i++) {
+				ctx.strokeStyle = `rgba(${i === 0 ? '255,255,255' : '68,250,208'}, ${(a * (0.56 - i * 0.12)).toFixed(3)})`;
+				ctx.lineWidth = (7 - i * 2) * size;
+				ctx.beginPath();
+				ctx.arc(cx, y, r + i * 7, -Math.PI * 0.15 + t * Math.PI * 2.2, Math.PI * 1.15 + t * Math.PI * 2.2);
+				ctx.stroke();
+			}
+		}
+	}
+
+	if (key === 'heavy' || key === 'groundSlam') {
+		const start = key === 'heavy' ? 0.5 : 0.48;
+		const age = (t - start) / 0.45;
+		if (age >= 0 && age <= 1) {
+			const a = (1 - age) * impact;
+			const rx = (28 + age * 58) * size;
+			const ry = (6 + age * 12) * size;
+			ctx.strokeStyle = `rgba(255, 255, 255, ${(a * 0.62).toFixed(3)})`;
+			ctx.lineWidth = Math.max(1, (4 - age * 2.5) * size);
+			ctx.beginPath();
+			ctx.ellipse(cx + dirSign * (key === 'heavy' ? 18 : 0), groundY, rx, ry, 0, 0, Math.PI * 2);
+			ctx.stroke();
+			ctx.strokeStyle = `rgba(245, 180, 80, ${(a * 0.45).toFixed(3)})`;
+			for (let i = -2; i <= 2; i++) {
+				const px = cx + i * 18 * size + dirSign * age * 16;
+				ctx.beginPath();
+				ctx.moveTo(px - 8 * size, groundY + 3 + Math.abs(i) * 2);
+				ctx.lineTo(px + 7 * size, groundY - 2 - age * 8);
+				ctx.stroke();
+			}
+		}
+	}
+
+	if (key === 'castBurst') {
+		const charge = Math.min(1, t / 0.55);
+		const burst = t < 0.55 ? 0 : easeOutCubic((t - 0.55) / 0.45);
+		const y = cy - (bodyImg ? bodyImg.height * 0.52 : 48);
+		const chargeAlpha = (1 - burst) * charge;
+		if (chargeAlpha > 0) {
+			const r = (22 + charge * 18) * size;
+			ctx.strokeStyle = `rgba(68, 250, 208, ${(chargeAlpha * 0.72).toFixed(3)})`;
+			ctx.lineWidth = 2.5 * size;
+			ctx.beginPath();
+			ctx.arc(cx, y, r, t * Math.PI * 2, t * Math.PI * 2 + Math.PI * 1.55);
+			ctx.stroke();
+			for (let i = 0; i < 6; i++) {
+				const a = i / 6 * Math.PI * 2 + t * Math.PI * 2;
+				ctx.fillStyle = `rgba(255,255,255,${(chargeAlpha * 0.7).toFixed(3)})`;
+				ctx.beginPath();
+				ctx.arc(cx + Math.cos(a) * r, y + Math.sin(a) * r, 2.5 * size, 0, Math.PI * 2);
+				ctx.fill();
+			}
+		}
+		if (burst > 0) {
+			const a = (1 - burst) * impact;
+			const r = (34 + burst * 74) * size;
+			ctx.strokeStyle = `rgba(255, 255, 255, ${(a * 0.75).toFixed(3)})`;
+			ctx.lineWidth = (5 - burst * 3) * size;
+			ctx.beginPath();
+			ctx.arc(cx, y, r, 0, Math.PI * 2);
+			ctx.stroke();
+			ctx.strokeStyle = `rgba(148, 125, 255, ${(a * 0.62).toFixed(3)})`;
+			ctx.lineWidth = 2 * size;
+			for (let i = 0; i < 10; i++) {
+				const ang = i / 10 * Math.PI * 2;
+				ctx.beginPath();
+				ctx.moveTo(cx + Math.cos(ang) * r * 0.65, y + Math.sin(ang) * r * 0.65);
+				ctx.lineTo(cx + Math.cos(ang) * r * 1.08, y + Math.sin(ang) * r * 1.08);
+				ctx.stroke();
+			}
+		}
+	}
+
+	if (key === 'combo3') {
+		const pulse = Math.sin((t * 3 % 1) * Math.PI);
+		if (pulse > 0.2) {
+			const hit = Math.floor(t * 3);
+			const y = cy - (bodyImg ? bodyImg.height * (0.42 + hit * 0.06) : 46);
+			ctx.strokeStyle = `rgba(255,255,255,${(pulse * 0.45).toFixed(3)})`;
+			ctx.lineWidth = 3 * size;
+			ctx.beginPath();
+			ctx.moveTo(cx - dirSign * 38 * size, y - 10 * (hit - 1));
+			ctx.lineTo(cx + dirSign * 42 * size, y + 12 * (hit - 1));
+			ctx.stroke();
+		}
+	}
+
+	ctx.restore();
+}
+
+function drawFullFrame(ctx, t, cx, cy, dir, scale = 1) {
+	if (scale === 1) {
+		drawRunFakeFx(ctx, t, cx, cy, dir);
+		drawFrameAt(ctx, t, cx, cy, dir);
+		drawSlashTrail(ctx, t, cx, cy, dir);
+		drawCombatSkillFx(ctx, t, cx, cy, dir);
+		drawHitParticles(ctx, t, cx, cy, dir);
+		return;
+	}
+	ctx.save();
+	ctx.translate(cx, cy);
+	ctx.scale(scale, scale);
+	drawRunFakeFx(ctx, t, 0, 0, dir);
+	drawFrameAt(ctx, t, 0, 0, dir);
+	drawSlashTrail(ctx, t, 0, 0, dir);
+	drawCombatSkillFx(ctx, t, 0, 0, dir);
+	drawHitParticles(ctx, t, 0, 0, dir);
+	ctx.restore();
+}
+
 // Fake-run effects: dust puffs trailing behind feet + a tightening
 // ground shadow that sells motion without actual translation. Drawn
 // only when the active preset is 'run'.
@@ -999,14 +1564,20 @@ function drawRunFakeFx(ctx, t, cx, cy, dir) {
 	if (!bodyImg) return;
 	const dirSign = dir === 'left' ? -1 : 1;
 	const intensity = settings.dust ?? 1; // 0=off, 3=heavy
+	const dustScale = (settings.dustSize ?? 100) / 100;
+	const dustDistance = (settings.dustDistance ?? 100) / 100;
+	const splashScale = (settings.splashSize ?? 100) / 100;
+	const splashWidth = (settings.splashWidth ?? 100) / 100;
+	const shadowScale = (settings.shadowSize ?? 100) / 100;
+	const shadowAlpha = (settings.shadowAlpha ?? 45) / 100;
 	const groundY = cy + 4; // slightly below body's foot baseline
 
 	// Pulsing ground shadow — contracts when body apex (visual cue feet leave ground)
 	const p = cyclicPhase(t);
-	const shadowW = bodyImg.width * 0.55 * (1 - p * 0.35);
-	const shadowH = 5 * (1 - p * 0.4);
+	const shadowW = bodyImg.width * 0.55 * shadowScale * (1 - p * 0.35);
+	const shadowH = 5 * Math.sqrt(shadowScale) * (1 - p * 0.4);
 	ctx.save();
-	ctx.fillStyle = `rgba(0, 0, 0, ${(0.45 - p * 0.18).toFixed(3)})`;
+	ctx.fillStyle = `rgba(0, 0, 0, ${(shadowAlpha * (1 - p * 0.4)).toFixed(3)})`;
 	ctx.beginPath();
 	ctx.ellipse(cx, groundY, shadowW, shadowH, 0, 0, Math.PI * 2);
 	ctx.fill();
@@ -1023,10 +1594,10 @@ function drawRunFakeFx(ctx, t, cx, cy, dir) {
 		// Each puff age cycles 0..1 with offset
 		const age = ((t + stagger) % 1);
 		// Puff trails behind: dirSign>0 (Phải) → puff on the left → -dirSign
-		const driftSpeed = 30 + intensity * 8;
+		const driftSpeed = (30 + intensity * 8) * dustDistance;
 		const px = cx + (-dirSign) * (4 + age * driftSpeed);
 		const py = groundY - age * (4 + intensity * 2); // small lift
-		const size = 2.5 + age * (5 + intensity * 1.5);
+		const size = (2.5 + age * (5 + intensity * 1.5)) * dustScale;
 		const alpha = (1 - age) * (0.45 + intensity * 0.05);
 		// Outer light dust
 		ctx.fillStyle = `rgba(180, 168, 138, ${alpha.toFixed(3)})`;
@@ -1046,12 +1617,12 @@ function drawRunFakeFx(ctx, t, cx, cy, dir) {
 		for (let i = 0; i < STREAKS; i++) {
 			const stagger = i / STREAKS;
 			const age = ((t + stagger) % 1);
-			const sx = cx + (-dirSign) * (10 + age * (60 + intensity * 10));
+			const sx = cx + (-dirSign) * (10 + age * (60 + intensity * 10) * splashScale);
 			const sy = groundY + 2 + (i % 2) * 2;
-			const len = 8 + age * 14;
+			const len = (8 + age * 14) * splashScale;
 			const alpha = (1 - age) * 0.4;
 			ctx.strokeStyle = `rgba(200, 188, 160, ${alpha.toFixed(3)})`;
-			ctx.lineWidth = 1.2;
+			ctx.lineWidth = 1.2 * splashWidth;
 			ctx.beginPath();
 			ctx.moveTo(sx, sy);
 			ctx.lineTo(sx + dirSign * len, sy);
@@ -1206,8 +1777,7 @@ function loop(now) {
 	} else if (scrubT !== null) {
 		t = scrubT; // user scrubbing the timeline
 	} else if (isPaused) {
-		// Hold whatever frame the scrubber says (or 0)
-		t = 0;
+		t = pausedT;
 	} else {
 		const elapsed = (now - animStart) / dur;
 		if (preset.loop) {
@@ -1218,10 +1788,21 @@ function loop(now) {
 		}
 	}
 
+	// Cinematic timing: same remap as bake() — hold key frame for 3× duration
+	// so the preview matches what the exported sheet looks like.
+	if (cinematicTiming && hitFrame >= 0) {
+		const N = settings.frames;
+		const fIdx = Math.min(N - 1, Math.floor(t * N));
+		if (fIdx === hitFrame - 1 || fIdx === hitFrame + 1) {
+			t = hitFrame / N;
+		}
+	}
+
 	// Update scrubber UI to track auto-play position
 	if (!drag && scrubT === null && !isPaused) {
 		const N = settings.frames;
 		const fIdx = Math.min(N - 1, Math.floor(t * N));
+		pausedT = t;
 		$('scrub').value = (t * 100).toFixed(2);
 		$('scrub-info').textContent = `frame ${fIdx} / ${N}`;
 	}
@@ -1255,10 +1836,7 @@ function loop(now) {
 	}
 
 	// Fake-run fx are drawn UNDER the body so dust appears behind feet
-	drawRunFakeFx(ctx, t, 0, 0, direction);
-	drawFrameAt(ctx, t, 0, 0);
-	drawSlashTrail(ctx, t, 0, 0, direction);
-	drawHitParticles(ctx, t, 0, 0, direction);
+	drawFullFrame(ctx, t, 0, 0, direction);
 
 	// Highlight if current frame is the hitbox frame
 	if (hitFrame >= 0) {
@@ -1407,6 +1985,7 @@ function bake() {
 	if (!bodyImg) return null;
 	const preset = PRESETS[activePresetKey];
 	const N = settings.frames;
+	const contentScale = frameScale / 100;
 
 	// Sample N*4 to find extents (and account for weapon swing)
 	let extLeft = 0, extRight = 0, extTop = 0, extBottom = 0;
@@ -1435,30 +2014,65 @@ function bake() {
 		extTop = Math.max(extTop, rotatedH - ty);
 		extBottom = Math.max(extBottom, ty + 4);
 
-		// Account for weapon (rough — bounding circle approach)
+		// Account for weapon — use the SAME bodyLocalTip math as drawing so
+		// wide swings (spin / dash / heavy 145°) don't get clipped at the
+		// tile edge. Sample both Phải and Trái when bakeBothDirs.
 		if (weaponImg) {
 			const wScale = weapon.scale / 100;
-			const wRadius = Math.max(weaponImg.width, weaponImg.height) * wScale + 10;
-			const wcx = tx + weapon.x; // approximate
-			const wcy = ty - weapon.y;
-			extLeft = Math.max(extLeft, -wcx + wRadius);
-			extRight = Math.max(extRight, wcx + wRadius);
-			extTop = Math.max(extTop, -wcy + wRadius);
-			extBottom = Math.max(extBottom, wcy + wRadius);
+			const wRadius = Math.max(weaponImg.width, weaponImg.height) * wScale * 0.6 + 10;
+			const dirsToCheck = bakeBothDirs ? [1, -1] : [direction === 'left' ? -1 : 1];
+			for (const dirSign of dirsToCheck) {
+				const tip = bodyLocalTip(t, dirSign);
+				if (!tip) continue;
+				// Check both grip area (around weapon offset) and tip extent
+				const gripX = dirSign * weapon.x;
+				const gripY = -weapon.y;
+				const points = [
+					{ x: gripX, y: gripY },
+					{ x: tip.x, y: tip.y },
+					// midpoint for safety
+					{ x: (gripX + tip.x) / 2, y: (gripY + tip.y) / 2 },
+				];
+				for (const p of points) {
+					extLeft = Math.max(extLeft, -p.x + wRadius);
+					extRight = Math.max(extRight, p.x + wRadius);
+					extTop = Math.max(extTop, -p.y + wRadius);
+					extBottom = Math.max(extBottom, p.y + wRadius);
+				}
+			}
 		}
 	}
 	// Reserve space for run-fake fx trailing behind the body (dust + streaks).
 	if (PRESETS[activePresetKey].key === 'run' && bodyImg) {
 		const intensity = settings.dust ?? 1;
-		const trailExt = (intensity >= 2 ? 80 : 50) + intensity * 12;
+		const dustDistance = (settings.dustDistance ?? 100) / 100;
+		const dustSize = (settings.dustSize ?? 100) / 100;
+		const splashSize = (settings.splashSize ?? 100) / 100;
+		const shadowSize = (settings.shadowSize ?? 100) / 100;
+		const trailExt = Math.max(
+			(intensity >= 2 ? 80 : 50) * dustDistance + intensity * 12 * dustSize,
+			(80 + intensity * 12) * splashSize,
+			bodyImg.width * 0.35 * shadowSize,
+		);
+		const bottomExt = Math.max(12, 8 * dustSize, 8 * Math.sqrt(shadowSize));
 		// Trail goes opposite to facing direction
 		if (direction === 'right' || bakeBothDirs) extLeft = Math.max(extLeft, trailExt);
 		if (direction === 'left' || bakeBothDirs) extRight = Math.max(extRight, trailExt);
+		extBottom = Math.max(extBottom, bottomExt);
 	}
-	const padL = Math.ceil(extLeft + 8);
-	const padR = Math.ceil(extRight + 8);
-	const padTop = Math.ceil(extTop + 8);
-	const padBottom = Math.ceil(extBottom + 8);
+	if (['heavy', 'spinAttack', 'dashSlash', 'groundSlam', 'combo3', 'castBurst'].includes(PRESETS[activePresetKey].key)) {
+		const fxScale = (settings.skillSize ?? 130) / 100;
+		const fxExt = Math.max(120, 125 * fxScale + (settings.lunge ?? 0));
+		extLeft = Math.max(extLeft, fxExt);
+		extRight = Math.max(extRight, fxExt);
+		extTop = Math.max(extTop, fxExt);
+		extBottom = Math.max(extBottom, 40 * fxScale);
+	}
+	const extraPad = Math.max(0, framePadding);
+	const padL = Math.ceil(extLeft * contentScale + extraPad);
+	const padR = Math.ceil(extRight * contentScale + extraPad);
+	const padTop = Math.ceil(extTop * contentScale + extraPad);
+	const padBottom = Math.ceil(extBottom * contentScale + extraPad);
 
 	const tileW = padL + padR;
 	const tileH = padTop + padBottom;
@@ -1483,16 +2097,17 @@ function bake() {
 			const t = bakeIdx / N;
 			const cx = i * tileW + padL;
 			const cy = padTop + r * tileH;
-			drawRunFakeFx(ctx, t, cx, cy, dir);
-			drawFrameAt(ctx, t, cx, cy, dir);
-			drawSlashTrail(ctx, t, cx, cy, dir);
-			drawHitParticles(ctx, t, cx, cy, dir);
+			drawFullFrame(ctx, t, cx, cy, dir, contentScale);
 		}
 	}
-	return { canvas: out, tileW, tileH, frames: N, rows, dirs: dirRows };
+	return { canvas: out, tileW, tileH, frames: N, rows, dirs: dirRows, frameScale, framePadding };
 }
 
-function updateBakePreview() {
+let bakePreviewTimer = null;
+let bakePreviewQueued = false;
+
+function renderBakePreviewNow() {
+	bakePreviewQueued = false;
 	const r = bake();
 	if (!r) return;
 	bakeCanvas.width = r.canvas.width;
@@ -1501,13 +2116,30 @@ function updateBakePreview() {
 	ctx.imageSmoothingEnabled = false;
 	ctx.drawImage(r.canvas, 0, 0);
 	const maxStripWidth = 800;
-	const scale = Math.min(1, maxStripWidth / r.canvas.width);
+	const scale = Math.min(1, Math.max(0.5, maxStripWidth / r.canvas.width));
 	bakeCanvas.style.width = (r.canvas.width * scale) + 'px';
 	bakeCanvas.style.height = (r.canvas.height * scale) + 'px';
 	const msPerFrame = Math.round(settings.duration / settings.frames);
 	const preset = PRESETS[activePresetKey];
 	const rowDesc = r.rows === 2 ? ' · 2 hàng (P/T)' : '';
-	sheetInfo.textContent = `${r.frames}f · ${r.tileW}×${r.tileH}px / tile · ${r.canvas.width}×${r.canvas.height}px tổng · ${msPerFrame}ms/frame · ${preset.loop ? 'loop' : 'one-shot'}${weaponImg ? ' · ⚔ vũ khí' : ''}${rowDesc}`;
+	sheetInfo.textContent = `${r.frames}f · ${r.tileW}×${r.tileH}px / tile · ${r.canvas.width}×${r.canvas.height}px tổng · ${msPerFrame}ms/frame · scale ${frameScale}% · pad ${framePadding}px · ${preset.loop ? 'loop' : 'one-shot'}${weaponImg ? ' · ⚔ vũ khí' : ''}${rowDesc}`;
+}
+
+function updateBakePreview(options = {}) {
+	scheduleAutoSave();
+	if (options.immediate) {
+		if (bakePreviewTimer) clearTimeout(bakePreviewTimer);
+		bakePreviewTimer = null;
+		renderBakePreviewNow();
+		return;
+	}
+	if (bakePreviewQueued) return;
+	bakePreviewQueued = true;
+	if (bakePreviewTimer) clearTimeout(bakePreviewTimer);
+	bakePreviewTimer = setTimeout(() => {
+		bakePreviewTimer = null;
+		requestAnimationFrame(renderBakePreviewNow);
+	}, 90);
 }
 
 // ============================================================
@@ -1520,12 +2152,16 @@ function handleFile(file, isWeapon) {
 	}
 	const reader = new FileReader();
 	reader.onload = (e) => {
+		const dataUrl = e.target.result;
 		const i = new Image();
 		i.onload = () => {
 			if (isWeapon) {
 				weaponSrcImg = i;
+				weaponSrcDataUrl = dataUrl;
+				persistHistoryImage('weapon');
 				cropRect = { x: 0, y: 0, w: i.width, h: i.height };
 				weaponImg = i;
+				weaponInfo.classList.remove('hidden');
 				weaponInfo.textContent = `${file.name} · ${i.width}×${i.height}px (chưa cắt)`;
 				// Swap drop-zone → compact card
 				weaponDz.classList.add('hidden');
@@ -1539,8 +2175,13 @@ function handleFile(file, isWeapon) {
 				drawCropEditor();
 				drawAnchorEditor();
 			} else {
+				bodySrcImg = i;
+				bodySrcDataUrl = dataUrl;
+				persistHistoryImage('body');
+				bodyCropRect = { x: 0, y: 0, w: i.width, h: i.height };
 				bodyImg = i;
 				bodyName = file.name.replace(/\.[^.]+$/, '').replace(/\W+/g, '_').slice(0, 40) || 'sprite';
+				bodyInfo.textContent = `${file.name} · ${i.width}×${i.height}px (chưa cắt)`;
 				emptyState.classList.add('hidden');
 				previewCanvas.classList.remove('hidden');
 				// Swap drop-zone → compact card
@@ -1549,14 +2190,16 @@ function handleFile(file, isWeapon) {
 				$('body-card-name').textContent = file.name;
 				$('body-card-size').textContent = `${i.width}×${i.height}px · ${(file.size / 1024).toFixed(1)} KB`;
 				paintThumb($('body-thumb'), i);
+				bodyCropPanel.classList.remove('hidden');
 				exportBtn.disabled = false;
 				$('export-bundle-btn').disabled = false;
 				setupPreviewCanvas();
+				drawBodyCropEditor();
 			}
 			animStart = performance.now();
 			updateBakePreview();
 		};
-		i.src = e.target.result;
+		i.src = dataUrl;
 	};
 	reader.readAsDataURL(file);
 }
@@ -1608,7 +2251,22 @@ weaponClearBtn.addEventListener('click', (e) => {
 	e.preventDefault();
 	weaponImg = null;
 	weaponSrcImg = null;
+	weaponSrcDataUrl = null;
+	persistHistoryImage('weapon');
 	cropRect = null;
+	// Reset weapon position + anchors so the next upload starts clean —
+	// previously stale grip/tip from prev weapon caused wrong pivot until
+	// user re-ran auto-detect.
+	weapon.x = 20; weapon.y = 40;
+	weapon.scale = 100; weapon.rot = -30;
+	weapon.behind = false;
+	weapon.grip = { x: 50, y: 92 };
+	weapon.tip = { x: 50, y: 6 };
+	$('weapon-x').value = 20; $('wx-val').textContent = 20;
+	$('weapon-y').value = 40; $('wy-val').textContent = 40;
+	$('weapon-scale').value = 100; $('wscale-val').textContent = 100;
+	$('weapon-rot').value = -30; $('wrot-val').textContent = -30;
+	$('weapon-behind').checked = false;
 	weaponInfo.classList.add('hidden');
 	weaponClearBtn.classList.add('hidden');
 	weaponCtrls.classList.add('hidden');
@@ -1673,6 +2331,7 @@ $('bake-both-dirs').addEventListener('change', (e) => {
 // ============================================================
 $('show-onion').addEventListener('change', (e) => {
 	showOnion = e.target.checked;
+	scheduleAutoSave();
 });
 $('show-trail').addEventListener('change', (e) => {
 	showTrail = e.target.checked;
@@ -1698,6 +2357,31 @@ $('cinematic-timing').addEventListener('change', (e) => {
 	cinematicTiming = e.target.checked;
 	updateBakePreview();
 });
+
+const frameScaleInput = $('frame-scale');
+const frameScaleVal = $('frame-scale-val');
+const framePaddingInput = $('frame-padding');
+const framePaddingVal = $('frame-padding-val');
+
+function syncFrameControls() {
+	frameScaleInput.value = frameScale;
+	frameScaleVal.textContent = frameScale;
+	framePaddingInput.value = framePadding;
+	framePaddingVal.textContent = framePadding;
+}
+
+frameScaleInput.addEventListener('input', (e) => {
+	frameScale = Number(e.target.value);
+	frameScaleVal.textContent = frameScale;
+	updateBakePreview();
+});
+
+framePaddingInput.addEventListener('input', (e) => {
+	framePadding = Number(e.target.value);
+	framePaddingVal.textContent = framePadding;
+	updateBakePreview();
+});
+syncFrameControls();
 
 // AI auto-detect anchors
 $('anchor-auto').addEventListener('click', () => {
@@ -1725,16 +2409,23 @@ function refreshHitFrameSlider() {
 hitFrameInput.addEventListener('input', (e) => {
 	hitFrame = Number(e.target.value);
 	hitFrameVal.textContent = hitFrame < 0 ? '—' : `frame ${hitFrame}`;
+	updateBakePreview();
 });
 
-// Re-cap hitFrame whenever frames count changes (number-of-frames slider)
+// Re-cap hitFrame whenever frames count changes. Hook into renderSettingsPanel
+// without adding duplicate input listeners — just wrap so refreshHitFrameSlider
+// fires on every panel rebuild AND on the frames slider's existing 'input'
+// listener (added inside renderSettingsPanel itself, bubble via custom event).
 const _origRenderSettings = renderSettingsPanel;
 renderSettingsPanel = function () {
 	_origRenderSettings();
 	refreshHitFrameSlider();
-	// Also wire the frames slider to refresh hitFrame max
 	const framesInp = settingsPanel.querySelector('input[data-slider="frames"]');
-	if (framesInp) {
+	if (framesInp && !framesInp.dataset._hitWired) {
+		framesInp.dataset._hitWired = '1';
+		// Use 'input' but RELY on the original listener (set inside
+		// renderSettingsPanel) for updateBakePreview. We only add the
+		// hitFrame max recap, no double bake.
 		framesInp.addEventListener('input', refreshHitFrameSlider);
 	}
 };
@@ -1747,53 +2438,246 @@ const scrubPlay = $('scrub-play');
 const scrubPlayIcon = $('scrub-play-icon');
 scrubInp.addEventListener('input', (e) => {
 	scrubT = Number(e.target.value) / 100;
+	pausedT = scrubT;
 	const N = settings.frames;
 	const fIdx = Math.min(N - 1, Math.floor(scrubT * N));
 	scrubInfo.textContent = `frame ${fIdx} / ${N}`;
 	isPaused = true;
 	scrubPlayIcon.textContent = 'play_arrow';
 });
-scrubInp.addEventListener('change', () => {
-	// User released the slider — keep paused at this frame
-});
 scrubPlay.addEventListener('click', () => {
+	if (!isPaused) {
+		pausedT = Number(scrubInp.value) / 100;
+	}
 	isPaused = !isPaused;
 	scrubPlayIcon.textContent = isPaused ? 'play_arrow' : 'pause';
 	if (!isPaused) {
 		scrubT = null;
-		// Resume from the scrubbed time
-		const t = Number(scrubInp.value) / 100;
-		animStart = performance.now() - t * settings.duration;
+		animStart = performance.now() - pausedT * settings.duration;
 	}
 });
-// Click anywhere on the scrubber background while paused = scrub
-scrubInp.addEventListener('click', () => {
-	scrubT = Number(scrubInp.value) / 100;
-});
 
-// Save preset to JSON file (includes weapon + body images as base64)
-$('save-preset').addEventListener('click', () => {
-	const cfg = {
+// ============================================================
+// Auto history — keeps the last working session in this browser.
+// ============================================================
+const HISTORY_KEY = 'tomi-bouncer:last-session:v2';
+const HISTORY_BODY_IMAGE_KEY = 'tomi-bouncer:last-session:body-image:v2';
+const HISTORY_WEAPON_IMAGE_KEY = 'tomi-bouncer:last-session:weapon-image:v2';
+let autoSaveTimer = null;
+let isRestoringHistory = false;
+
+function makeSessionConfig(options = {}) {
+	const includeImages = options.includeImages ?? true;
+	return {
 		_format: 'tomi-bouncer-preset/1',
+		_savedAt: new Date().toISOString(),
+		_imagesExternal: !includeImages,
 		preset: activePresetKey,
 		settings: { ...settings },
 		direction,
 		bakeBothDirs,
 		hitFrame,
+		showOnion,
 		showTrail,
+		showParticles,
+		showFlash,
+		showShake,
+		useSpring,
+		cinematicTiming,
+		frameScale,
+		framePadding,
 		weapon: weaponImg
 			? {
 					...weapon,
 					grip: { ...weapon.grip },
 					tip: { ...weapon.tip },
-					srcImageDataUrl: imageToDataUrl(weaponSrcImg || weaponImg),
+					srcImageDataUrl: includeImages ? weaponSrcDataUrl : null,
+					hasStoredImage: !includeImages && !!weaponSrcDataUrl,
 					crop: cropRect ? { ...cropRect } : null,
 				}
 			: null,
 		body: bodyImg
-			? { name: bodyName, dataUrl: imageToDataUrl(bodyImg) }
+			? {
+					name: bodyName,
+					srcImageDataUrl: includeImages ? bodySrcDataUrl : null,
+					hasStoredImage: !includeImages && !!bodySrcDataUrl,
+					crop: bodyCropRect ? { ...bodyCropRect } : null,
+				}
 			: null,
 	};
+}
+
+function persistHistoryImage(kind) {
+	try {
+		if (kind === 'body') {
+			if (bodySrcDataUrl) localStorage.setItem(HISTORY_BODY_IMAGE_KEY, bodySrcDataUrl);
+			else localStorage.removeItem(HISTORY_BODY_IMAGE_KEY);
+		}
+		if (kind === 'weapon') {
+			if (weaponSrcDataUrl) localStorage.setItem(HISTORY_WEAPON_IMAGE_KEY, weaponSrcDataUrl);
+			else localStorage.removeItem(HISTORY_WEAPON_IMAGE_KEY);
+		}
+	} catch (err) {
+		// Large images can exceed localStorage quota; the current session still works.
+	}
+}
+
+function runWhenIdle(fn) {
+	if ('requestIdleCallback' in window) {
+		window.requestIdleCallback(fn, { timeout: 1200 });
+		return;
+	}
+	setTimeout(fn, 0);
+}
+
+function scheduleAutoSave() {
+	if (isRestoringHistory) return;
+	if (!bodyImg && !weaponImg) return;
+	if (autoSaveTimer) clearTimeout(autoSaveTimer);
+	autoSaveTimer = setTimeout(() => {
+		autoSaveTimer = null;
+		runWhenIdle(() => {
+			try {
+				localStorage.setItem(HISTORY_KEY, JSON.stringify(makeSessionConfig({ includeImages: false })));
+			} catch (err) {
+				// Keep the tool responsive even when storage is unavailable.
+			}
+		});
+	}, 650);
+}
+
+function loadImg(dataUrl) {
+	return new Promise((res, rej) => {
+		if (!dataUrl) return res(null);
+		const i = new Image();
+		i.onload = () => res(i);
+		i.onerror = rej;
+		i.src = dataUrl;
+	});
+}
+
+async function applySessionConfig(cfg, sourceLabel = 'preset') {
+	if (!cfg || cfg._format !== 'tomi-bouncer-preset/1') return false;
+	isRestoringHistory = true;
+	try {
+		const bodyDataUrl = cfg.body
+			? cfg.body.srcImageDataUrl || cfg.body.dataUrl || localStorage.getItem(HISTORY_BODY_IMAGE_KEY)
+			: null;
+		const weaponDataUrl = cfg.weapon
+			? cfg.weapon.srcImageDataUrl || localStorage.getItem(HISTORY_WEAPON_IMAGE_KEY)
+			: null;
+		const [bImg, wImg] = await Promise.all([
+			loadImg(bodyDataUrl),
+			loadImg(weaponDataUrl),
+		]);
+		bodySrcDataUrl = bodyDataUrl;
+		weaponSrcDataUrl = weaponDataUrl;
+		if (bImg) {
+			bodySrcImg = bImg;
+			bodyName = cfg.body.name || 'sprite';
+			bodyCropRect = cfg.body.crop || { x: 0, y: 0, w: bImg.width, h: bImg.height };
+			bodyImg = cropImageToCanvas(bodySrcImg, bodyCropRect).canvas;
+			emptyState.classList.add('hidden');
+			previewCanvas.classList.remove('hidden');
+			bodyDz.classList.add('hidden');
+			$('body-card').classList.remove('hidden');
+			$('body-card-name').textContent = `${bodyName} (${sourceLabel})`;
+			$('body-card-size').textContent = `${bodyImg.width}×${bodyImg.height}px`;
+			paintThumb($('body-thumb'), bodyImg);
+			bodyCropPanel.classList.remove('hidden');
+			drawBodyCropEditor();
+			exportBtn.disabled = false;
+			$('export-bundle-btn').disabled = false;
+			setupPreviewCanvas();
+		}
+		if (wImg && cfg.weapon) {
+			weaponSrcImg = wImg;
+			Object.assign(weapon, {
+				x: cfg.weapon.x ?? 20,
+				y: cfg.weapon.y ?? 40,
+				scale: cfg.weapon.scale ?? 100,
+				rot: cfg.weapon.rot ?? -30,
+				behind: cfg.weapon.behind ?? false,
+				grip: { ...(cfg.weapon.grip || weapon.grip) },
+				tip: { ...(cfg.weapon.tip || weapon.tip) },
+			});
+			cropRect = cfg.weapon.crop || { x: 0, y: 0, w: wImg.width, h: wImg.height };
+			weaponDz.classList.add('hidden');
+			$('weapon-card').classList.remove('hidden');
+			$('weapon-card-name').textContent = `weapon (${sourceLabel})`;
+			weaponClearBtn.classList.remove('hidden');
+			$('crop-panel').classList.remove('hidden');
+			weaponCtrls.classList.remove('hidden');
+			applyCrop();
+			drawCropEditor();
+			$('weapon-x').value = weapon.x; $('wx-val').textContent = weapon.x;
+			$('weapon-y').value = weapon.y; $('wy-val').textContent = weapon.y;
+			$('weapon-scale').value = weapon.scale; $('wscale-val').textContent = weapon.scale;
+			$('weapon-rot').value = weapon.rot; $('wrot-val').textContent = weapon.rot;
+			$('weapon-behind').checked = weapon.behind;
+		}
+		if (bodySrcDataUrl) persistHistoryImage('body');
+		if (weaponSrcDataUrl) persistHistoryImage('weapon');
+		if (cfg.preset && PRESETS[cfg.preset]) {
+			activePresetKey = cfg.preset;
+			settings = { ...PRESETS[cfg.preset].defaults, ...cfg.settings };
+			presetDesc.textContent = PRESETS[cfg.preset].desc;
+			renderPresetGrid();
+			renderSettingsPanel();
+		}
+		direction = cfg.direction || 'right';
+		bakeBothDirs = !!cfg.bakeBothDirs;
+		hitFrame = cfg.hitFrame ?? -1;
+		showOnion = !!cfg.showOnion;
+		showTrail = cfg.showTrail ?? true;
+		showParticles = cfg.showParticles ?? true;
+		showFlash = cfg.showFlash ?? true;
+		showShake = cfg.showShake ?? true;
+		useSpring = cfg.useSpring ?? true;
+		cinematicTiming = !!cfg.cinematicTiming;
+		frameScale = cfg.frameScale ?? 90;
+		framePadding = cfg.framePadding ?? 18;
+		$('bake-both-dirs').checked = bakeBothDirs;
+		$('show-onion').checked = showOnion;
+		$('show-trail').checked = showTrail;
+		$('show-particles').checked = showParticles;
+		$('show-flash').checked = showFlash;
+		$('show-shake').checked = showShake;
+		$('use-spring').checked = useSpring;
+		$('cinematic-timing').checked = cinematicTiming;
+		syncFrameControls();
+		refreshDirButtons();
+		refreshHitFrameSlider();
+		animStart = performance.now();
+		updateBakePreview({ immediate: true });
+		return true;
+	} finally {
+		isRestoringHistory = false;
+	}
+}
+
+async function restoreLastSession() {
+	const raw = localStorage.getItem(HISTORY_KEY);
+	if (!raw) return;
+	try {
+		await applySessionConfig(JSON.parse(raw), 'history');
+	} catch (err) {
+		localStorage.removeItem(HISTORY_KEY);
+	}
+}
+
+window.addEventListener('beforeunload', () => {
+	if (!bodyImg && !weaponImg) return;
+	try {
+		localStorage.setItem(HISTORY_KEY, JSON.stringify(makeSessionConfig({ includeImages: false })));
+	} catch (err) {
+		// Ignore quota failures while leaving the current page usable.
+	}
+});
+
+// Save preset to JSON file (includes weapon + body images as base64)
+$('save-preset').addEventListener('click', () => {
+	const cfg = makeSessionConfig({ includeImages: true });
 	const blob = new Blob([JSON.stringify(cfg, null, 2)], {
 		type: 'application/json',
 	});
@@ -1829,77 +2713,8 @@ $('load-preset').addEventListener('change', async (e) => {
 		alert('Đây không phải file preset Tomi Bouncer');
 		return;
 	}
-	const loadImg = (dataUrl) => new Promise((res, rej) => {
-		if (!dataUrl) return res(null);
-		const i = new Image();
-		i.onload = () => res(i);
-		i.onerror = rej;
-		i.src = dataUrl;
-	});
-	const [bImg, wImg] = await Promise.all([
-		loadImg(cfg.body?.dataUrl),
-		loadImg(cfg.weapon?.srcImageDataUrl),
-	]);
-	if (bImg) {
-		bodyImg = bImg;
-		bodyName = cfg.body.name || 'sprite';
-		emptyState.classList.add('hidden');
-		previewCanvas.classList.remove('hidden');
-		bodyDz.classList.add('hidden');
-		$('body-card').classList.remove('hidden');
-		$('body-card-name').textContent = `${bodyName} (preset)`;
-		$('body-card-size').textContent = `${bImg.width}×${bImg.height}px`;
-		paintThumb($('body-thumb'), bImg);
-		exportBtn.disabled = false;
-		$('export-bundle-btn').disabled = false;
-		setupPreviewCanvas();
-	}
-	if (wImg && cfg.weapon) {
-		weaponSrcImg = wImg;
-		Object.assign(weapon, {
-			x: cfg.weapon.x ?? 20,
-			y: cfg.weapon.y ?? 40,
-			scale: cfg.weapon.scale ?? 100,
-			rot: cfg.weapon.rot ?? -30,
-			behind: cfg.weapon.behind ?? false,
-			grip: { ...cfg.weapon.grip },
-			tip: { ...cfg.weapon.tip },
-		});
-		cropRect = cfg.weapon.crop || { x: 0, y: 0, w: wImg.width, h: wImg.height };
-		applyCrop();
-		weaponDz.classList.add('hidden');
-		$('weapon-card').classList.remove('hidden');
-		$('weapon-card-name').textContent = `weapon (preset)`;
-		$('weapon-card-size').textContent = `${wImg.width}×${wImg.height}px`;
-		paintThumb($('weapon-thumb'), wImg);
-		weaponClearBtn.classList.remove('hidden');
-		$('crop-panel').classList.remove('hidden');
-		weaponCtrls.classList.remove('hidden');
-		drawCropEditor();
-		// Sync weapon sliders
-		$('weapon-x').value = weapon.x; $('wx-val').textContent = weapon.x;
-		$('weapon-y').value = weapon.y; $('wy-val').textContent = weapon.y;
-		$('weapon-scale').value = weapon.scale; $('wscale-val').textContent = weapon.scale;
-		$('weapon-rot').value = weapon.rot; $('wrot-val').textContent = weapon.rot;
-		$('weapon-behind').checked = weapon.behind;
-	}
-	if (cfg.preset && PRESETS[cfg.preset]) {
-		activePresetKey = cfg.preset;
-		settings = { ...PRESETS[cfg.preset].defaults, ...cfg.settings };
-		presetDesc.textContent = PRESETS[cfg.preset].desc;
-		renderPresetGrid();
-		renderSettingsPanel();
-	}
-	direction = cfg.direction || 'right';
-	bakeBothDirs = !!cfg.bakeBothDirs;
-	hitFrame = cfg.hitFrame ?? -1;
-	showTrail = cfg.showTrail ?? true;
-	$('bake-both-dirs').checked = bakeBothDirs;
-	$('show-trail').checked = showTrail;
-	refreshDirButtons();
-	refreshHitFrameSlider();
-	animStart = performance.now();
-	updateBakePreview();
+	await applySessionConfig(cfg, 'preset');
+	scheduleAutoSave();
 	e.target.value = '';
 });
 
@@ -1919,6 +2734,8 @@ $('export-bundle-btn').addEventListener('click', () => {
 		tile_height: r.tileH,
 		sheet_width: r.canvas.width,
 		sheet_height: r.canvas.height,
+		frame_scale_percent: r.frameScale,
+		frame_padding_px: r.framePadding,
 		duration_ms: settings.duration,
 		ms_per_frame: Math.round(settings.duration / r.frames),
 		fps: Math.round(1000 / (settings.duration / r.frames)),
@@ -2101,7 +2918,371 @@ window.addEventListener('touchend', () => { anchorDrag = null; });
 // ============================================================
 const cropCanvas = $('crop-canvas');
 let cropDrag = null; // { kind: 'new'|'move'|'nw'|'ne'|'sw'|'se', startMouse, startRect }
-const HANDLE_SIZE = 10;
+let cropDrawQueued = false;
+const HANDLE_SIZE = 14;
+
+function cropHandlePoints(dx, dy, dw, dh) {
+	return {
+		nw: [dx, dy],
+		n: [dx + dw / 2, dy],
+		ne: [dx + dw, dy],
+		w: [dx, dy + dh / 2],
+		e: [dx + dw, dy + dh / 2],
+		sw: [dx, dy + dh],
+		s: [dx + dw / 2, dy + dh],
+		se: [dx + dw, dy + dh],
+	};
+}
+
+function cropCursorForHandle(kind) {
+	return kind === 'move' ? 'grab'
+		: kind === 'n' || kind === 's' ? 'ns-resize'
+		: kind === 'e' || kind === 'w' ? 'ew-resize'
+		: kind === 'nw' || kind === 'se' ? 'nwse-resize'
+		: kind === 'ne' || kind === 'sw' ? 'nesw-resize'
+		: 'crosshair';
+}
+
+function scheduleCropEditor() {
+	if (cropDrawQueued) return;
+	cropDrawQueued = true;
+	requestAnimationFrame(() => {
+		cropDrawQueued = false;
+		drawCropEditor();
+	});
+}
+
+function clampCropRect(rect, img) {
+	const x = Math.max(0, Math.min(img.width - 1, Math.round(rect.x)));
+	const y = Math.max(0, Math.min(img.height - 1, Math.round(rect.y)));
+	return {
+		x,
+		y,
+		w: Math.max(4, Math.min(Math.round(rect.w), img.width - x)),
+		h: Math.max(4, Math.min(Math.round(rect.h), img.height - y)),
+	};
+}
+
+function cropImageToCanvas(img, rect) {
+	const r = clampCropRect(rect, img);
+	const c = document.createElement('canvas');
+	c.width = r.w;
+	c.height = r.h;
+	const ctx = c.getContext('2d');
+	ctx.imageSmoothingEnabled = false;
+	ctx.drawImage(img, r.x, r.y, r.w, r.h, 0, 0, r.w, r.h);
+	return { canvas: c, rect: r };
+}
+
+function colorDistanceSq(d, idx, rgb) {
+	const dr = d[idx] - rgb[0];
+	const dg = d[idx + 1] - rgb[1];
+	const db = d[idx + 2] - rgb[2];
+	return dr * dr + dg * dg + db * db;
+}
+
+function autoCropRectForImage(img, pad = 2) {
+	const c = document.createElement('canvas');
+	c.width = img.width;
+	c.height = img.height;
+	const ctx = c.getContext('2d');
+	ctx.drawImage(img, 0, 0);
+	let imgData;
+	try {
+		imgData = ctx.getImageData(0, 0, c.width, c.height);
+	} catch (err) {
+		return null;
+	}
+	const d = imgData.data;
+	const W = c.width, H = c.height;
+	let hasTransparentPixels = false;
+	for (let i = 3; i < d.length; i += 4) {
+		if (d[i] < 250) {
+			hasTransparentPixels = true;
+			break;
+		}
+	}
+
+	const cornerSamples = [
+		0,
+		(W - 1) * 4,
+		((H - 1) * W) * 4,
+		((H - 1) * W + W - 1) * 4,
+	];
+	const cornerColors = cornerSamples.map((idx) => [d[idx], d[idx + 1], d[idx + 2]]);
+	const BG_THRESH_SQ = 36 * 36;
+	const ALPHA_THRESH = 16;
+	let minX = W, minY = H, maxX = -1, maxY = -1;
+	for (let y = 0; y < H; y++) {
+		for (let x = 0; x < W; x++) {
+			const idx = (y * W + x) * 4;
+			const a = d[idx + 3];
+			const isForeground = hasTransparentPixels
+				? a > ALPHA_THRESH
+				: cornerColors.every((rgb) => colorDistanceSq(d, idx, rgb) > BG_THRESH_SQ);
+			if (!isForeground) continue;
+			if (x < minX) minX = x;
+			if (y < minY) minY = y;
+			if (x > maxX) maxX = x;
+			if (y > maxY) maxY = y;
+		}
+	}
+	if (maxX < 0) return null;
+	const x = Math.max(0, minX - pad);
+	const y = Math.max(0, minY - pad);
+	return {
+		x,
+		y,
+		w: Math.min(W, maxX + pad + 1) - x,
+		h: Math.min(H, maxY + pad + 1) - y,
+	};
+}
+
+// ============================================================
+// Body crop tool — same editor behavior as weapon crop
+// ============================================================
+const bodyCropCanvas = $('body-crop-canvas');
+let bodyCropDrag = null;
+let bodyCropDrawQueued = false;
+
+function scheduleBodyCropEditor() {
+	if (bodyCropDrawQueued) return;
+	bodyCropDrawQueued = true;
+	requestAnimationFrame(() => {
+		bodyCropDrawQueued = false;
+		drawBodyCropEditor();
+	});
+}
+
+function drawBodyCropEditor() {
+	if (!bodySrcImg) return;
+	const maxW = 380;
+	const scale = Math.min(1, maxW / Math.max(bodySrcImg.width, bodySrcImg.height));
+	const w = Math.round(bodySrcImg.width * scale);
+	const h = Math.round(bodySrcImg.height * scale);
+	const dpr = window.devicePixelRatio || 1;
+	bodyCropCanvas.width = w * dpr;
+	bodyCropCanvas.height = h * dpr;
+	bodyCropCanvas.style.width = w + 'px';
+	bodyCropCanvas.style.height = h + 'px';
+	bodyCropCanvas.dataset.scale = scale;
+	const ctx = bodyCropCanvas.getContext('2d');
+	ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+	ctx.imageSmoothingEnabled = false;
+	ctx.fillStyle = '#1e293b'; ctx.fillRect(0, 0, w, h);
+	const tile = 8;
+	ctx.fillStyle = '#0f172a';
+	for (let yy = 0; yy < h; yy += tile) {
+		for (let xx = (yy / tile) % 2 === 0 ? 0 : tile; xx < w; xx += tile * 2) {
+			ctx.fillRect(xx, yy, tile, tile);
+		}
+	}
+	ctx.drawImage(bodySrcImg, 0, 0, w, h);
+	const r = bodyCropRect;
+	const dx = r.x * scale, dy = r.y * scale;
+	const dw = r.w * scale, dh = r.h * scale;
+	ctx.fillStyle = 'rgba(11, 19, 38, 0.65)';
+	ctx.fillRect(0, 0, w, dy);
+	ctx.fillRect(0, dy + dh, w, h - (dy + dh));
+	ctx.fillRect(0, dy, dx, dh);
+	ctx.fillRect(dx + dw, dy, w - (dx + dw), dh);
+	ctx.strokeStyle = '#44fad0';
+	ctx.lineWidth = 2;
+	ctx.strokeRect(dx + 1, dy + 1, dw - 2, dh - 2);
+	ctx.fillStyle = '#44fad0';
+	for (const [hx, hy] of Object.values(cropHandlePoints(dx, dy, dw, dh))) {
+		ctx.fillRect(hx - HANDLE_SIZE / 2, hy - HANDLE_SIZE / 2, HANDLE_SIZE, HANDLE_SIZE);
+	}
+	ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+	ctx.fillRect(dx, dy - 18, 80, 16);
+	ctx.fillStyle = '#44fad0';
+	ctx.font = '10px JetBrains Mono';
+	ctx.textBaseline = 'middle';
+	ctx.fillText(`${r.w}×${r.h}px`, dx + 4, dy - 10);
+}
+
+function bodyCropMouseToCanvas(e) {
+	const rect = bodyCropCanvas.getBoundingClientRect();
+	const cx = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
+	const cy = (e.touches ? e.touches[0].clientY : e.clientY) - rect.top;
+	return { cx, cy };
+}
+
+function bodyCropHitTest(cx, cy) {
+	if (!bodySrcImg) return null;
+	const scale = parseFloat(bodyCropCanvas.dataset.scale);
+	const dx = bodyCropRect.x * scale, dy = bodyCropRect.y * scale;
+	const dw = bodyCropRect.w * scale, dh = bodyCropRect.h * scale;
+	const handles = cropHandlePoints(dx, dy, dw, dh);
+	const r2 = (HANDLE_SIZE * 1.05) ** 2;
+	for (const [k, [hx, hy]] of Object.entries(handles)) {
+		if ((cx - hx) ** 2 + (cy - hy) ** 2 < r2) return k;
+	}
+	if (cx >= dx && cx <= dx + dw && cy >= dy && cy <= dy + dh) return 'move';
+	return 'new';
+}
+
+function updateBodyCropDrag(cx, cy) {
+	const scale = parseFloat(bodyCropCanvas.dataset.scale);
+	const dxImg = (cx - bodyCropDrag.startMouse.cx) / scale;
+	const dyImg = (cy - bodyCropDrag.startMouse.cy) / scale;
+	const sr = bodyCropDrag.startRect;
+	const W = bodySrcImg.width, H = bodySrcImg.height;
+	let nx = sr.x, ny = sr.y, nw = sr.w, nh = sr.h;
+	switch (bodyCropDrag.kind) {
+		case 'move':
+			nx = Math.max(0, Math.min(W - sr.w, sr.x + dxImg));
+			ny = Math.max(0, Math.min(H - sr.h, sr.y + dyImg));
+			break;
+		case 'nw':
+			nx = sr.x + dxImg; ny = sr.y + dyImg;
+			nw = sr.w - dxImg; nh = sr.h - dyImg;
+			break;
+		case 'ne':
+			ny = sr.y + dyImg;
+			nw = sr.w + dxImg; nh = sr.h - dyImg;
+			break;
+		case 'n':
+			ny = sr.y + dyImg; nh = sr.h - dyImg;
+			break;
+		case 'e':
+			nw = sr.w + dxImg;
+			break;
+		case 's':
+			nh = sr.h + dyImg;
+			break;
+		case 'w':
+			nx = sr.x + dxImg; nw = sr.w - dxImg;
+			break;
+		case 'sw':
+			nx = sr.x + dxImg;
+			nw = sr.w - dxImg; nh = sr.h + dyImg;
+			break;
+		case 'se':
+			nw = sr.w + dxImg; nh = sr.h + dyImg;
+			break;
+		case 'new': {
+			const startPx = Math.round(bodyCropDrag.startMouse.cx / scale);
+			const startPy = Math.round(bodyCropDrag.startMouse.cy / scale);
+			const curPx = Math.round(cx / scale);
+			const curPy = Math.round(cy / scale);
+			nx = Math.min(startPx, curPx);
+			ny = Math.min(startPy, curPy);
+			nw = Math.abs(curPx - startPx);
+			nh = Math.abs(curPy - startPy);
+			break;
+		}
+	}
+	if (nw < 0) { nx += nw; nw = -nw; }
+	if (nh < 0) { ny += nh; nh = -nh; }
+	bodyCropRect = clampCropRect({ x: nx, y: ny, w: nw, h: nh }, bodySrcImg);
+	scheduleBodyCropEditor();
+}
+
+bodyCropCanvas.addEventListener('mousedown', (e) => {
+	const { cx, cy } = bodyCropMouseToCanvas(e);
+	const kind = bodyCropHitTest(cx, cy);
+	bodyCropDrag = { kind, startMouse: { cx, cy }, startRect: { ...bodyCropRect } };
+	bodyCropCanvas.style.cursor = kind === 'move' ? 'grabbing' : cropCursorForHandle(kind);
+	if (kind === 'new') {
+		const scale = parseFloat(bodyCropCanvas.dataset.scale);
+		bodyCropRect = { x: Math.round(cx / scale), y: Math.round(cy / scale), w: 1, h: 1 };
+		bodyCropDrag.startRect = { ...bodyCropRect };
+		drawBodyCropEditor();
+	}
+	e.preventDefault();
+});
+
+bodyCropCanvas.addEventListener('mousemove', (e) => {
+	if (!bodyCropDrag) {
+		const { cx, cy } = bodyCropMouseToCanvas(e);
+		const k = bodyCropHitTest(cx, cy);
+		bodyCropCanvas.style.cursor = cropCursorForHandle(k);
+		return;
+	}
+	const { cx, cy } = bodyCropMouseToCanvas(e);
+	updateBodyCropDrag(cx, cy);
+});
+
+window.addEventListener('mouseup', () => {
+	if (bodyCropDrag) {
+		bodyCropDrag = null;
+		bodyCropCanvas.style.cursor = 'crosshair';
+		applyBodyCrop();
+	}
+});
+
+bodyCropCanvas.addEventListener('touchstart', (e) => {
+	const { cx, cy } = bodyCropMouseToCanvas(e);
+	const kind = bodyCropHitTest(cx, cy);
+	bodyCropDrag = { kind, startMouse: { cx, cy }, startRect: { ...bodyCropRect } };
+	if (kind === 'new') {
+		const scale = parseFloat(bodyCropCanvas.dataset.scale);
+		bodyCropRect = { x: Math.round(cx / scale), y: Math.round(cy / scale), w: 1, h: 1 };
+		bodyCropDrag.startRect = { ...bodyCropRect };
+		drawBodyCropEditor();
+	}
+	e.preventDefault();
+}, { passive: false });
+
+bodyCropCanvas.addEventListener('touchmove', (e) => {
+	if (!bodyCropDrag) return;
+	const { cx, cy } = bodyCropMouseToCanvas(e);
+	updateBodyCropDrag(cx, cy);
+	e.preventDefault();
+}, { passive: false });
+
+window.addEventListener('touchend', () => {
+	if (bodyCropDrag) {
+		bodyCropDrag = null;
+		applyBodyCrop();
+	}
+});
+
+function applyBodyCrop() {
+	if (!bodySrcImg) return;
+	const cropped = cropImageToCanvas(bodySrcImg, bodyCropRect);
+	bodyCropRect = cropped.rect;
+	bodyImg = cropped.canvas;
+	bodyInfo.textContent = `${bodyCropRect.w}×${bodyCropRect.h}px (đã cắt từ ${bodySrcImg.width}×${bodySrcImg.height})`;
+	$('body-card-size').textContent = `${bodyImg.width}×${bodyImg.height}px (đã cắt)`;
+	paintThumb($('body-thumb'), bodyImg);
+	setupPreviewCanvas();
+	drawBodyCropEditor();
+	updateBakePreview();
+}
+
+$('body-crop-auto').addEventListener('click', () => {
+	if (!bodySrcImg) return;
+	const next = autoCropRectForImage(bodySrcImg, 4);
+	if (!next) {
+		alert('Không tự tìm được nhân vật. Kéo vùng cắt thủ công nhé.');
+		return;
+	}
+	bodyCropRect = clampCropRect(next, bodySrcImg);
+	drawBodyCropEditor();
+	applyBodyCrop();
+});
+
+$('body-crop-reset').addEventListener('click', () => {
+	if (!bodySrcImg) return;
+	bodyCropRect = { x: 0, y: 0, w: bodySrcImg.width, h: bodySrcImg.height };
+	drawBodyCropEditor();
+	applyBodyCrop();
+});
+
+$('body-crop-apply').addEventListener('click', applyBodyCrop);
+$('body-crop-skip').addEventListener('click', () => {
+	if (!bodySrcImg) return;
+	bodyCropRect = { x: 0, y: 0, w: bodySrcImg.width, h: bodySrcImg.height };
+	bodyImg = bodySrcImg;
+	bodyInfo.textContent = `${bodySrcImg.width}×${bodySrcImg.height}px (gốc, không cắt)`;
+	$('body-card-size').textContent = `${bodySrcImg.width}×${bodySrcImg.height}px`;
+	paintThumb($('body-thumb'), bodyImg);
+	setupPreviewCanvas();
+	drawBodyCropEditor();
+	updateBakePreview();
+});
 
 function drawCropEditor() {
 	if (!weaponSrcImg) return;
@@ -2144,11 +3325,7 @@ function drawCropEditor() {
 	ctx.strokeRect(dx + 1, dy + 1, dw - 2, dh - 2);
 	// Corner handles
 	ctx.fillStyle = '#44fad0';
-	const handles = [
-		[dx, dy], [dx + dw, dy],
-		[dx, dy + dh], [dx + dw, dy + dh],
-	];
-	for (const [hx, hy] of handles) {
+	for (const [hx, hy] of Object.values(cropHandlePoints(dx, dy, dw, dh))) {
 		ctx.fillRect(hx - HANDLE_SIZE / 2, hy - HANDLE_SIZE / 2, HANDLE_SIZE, HANDLE_SIZE);
 	}
 	// Size info
@@ -2173,11 +3350,8 @@ function cropHitTest(cx, cy) {
 	const scale = parseFloat(cropCanvas.dataset.scale);
 	const dx = cropRect.x * scale, dy = cropRect.y * scale;
 	const dw = cropRect.w * scale, dh = cropRect.h * scale;
-	const handles = {
-		nw: [dx, dy], ne: [dx + dw, dy],
-		sw: [dx, dy + dh], se: [dx + dw, dy + dh],
-	};
-	const r2 = (HANDLE_SIZE * 0.8) ** 2;
+	const handles = cropHandlePoints(dx, dy, dw, dh);
+	const r2 = (HANDLE_SIZE * 1.05) ** 2;
 	for (const [k, [hx, hy]] of Object.entries(handles)) {
 		if ((cx - hx) ** 2 + (cy - hy) ** 2 < r2) return k;
 	}
@@ -2193,7 +3367,7 @@ cropCanvas.addEventListener('mousedown', (e) => {
 		startMouse: { cx, cy },
 		startRect: { ...cropRect },
 	};
-	cropCanvas.style.cursor = kind === 'move' ? 'grabbing' : 'crosshair';
+	cropCanvas.style.cursor = kind === 'move' ? 'grabbing' : cropCursorForHandle(kind);
 	if (kind === 'new') {
 		// Start a new rectangle from the click point
 		const scale = parseFloat(cropCanvas.dataset.scale);
@@ -2210,11 +3384,7 @@ cropCanvas.addEventListener('mousemove', (e) => {
 	if (!cropDrag) {
 		const { cx, cy } = cropMouseToCanvas(e);
 		const k = cropHitTest(cx, cy);
-		cropCanvas.style.cursor =
-			k === 'move' ? 'grab'
-			: k === 'nw' || k === 'se' ? 'nwse-resize'
-			: k === 'ne' || k === 'sw' ? 'nesw-resize'
-			: 'crosshair';
+		cropCanvas.style.cursor = cropCursorForHandle(k);
 		return;
 	}
 	const { cx, cy } = cropMouseToCanvas(e);
@@ -2236,6 +3406,18 @@ cropCanvas.addEventListener('mousemove', (e) => {
 		case 'ne':
 			ny = sr.y + dyImg;
 			nw = sr.w + dxImg; nh = sr.h - dyImg;
+			break;
+		case 'n':
+			ny = sr.y + dyImg; nh = sr.h - dyImg;
+			break;
+		case 'e':
+			nw = sr.w + dxImg;
+			break;
+		case 's':
+			nh = sr.h + dyImg;
+			break;
+		case 'w':
+			nx = sr.x + dxImg; nw = sr.w - dxImg;
 			break;
 		case 'sw':
 			nx = sr.x + dxImg;
@@ -2266,7 +3448,7 @@ cropCanvas.addEventListener('mousemove', (e) => {
 	nw = Math.max(4, Math.round(Math.min(nw, W - nx)));
 	nh = Math.max(4, Math.round(Math.min(nh, H - ny)));
 	cropRect = { x: nx, y: ny, w: nw, h: nh };
-	drawCropEditor();
+	scheduleCropEditor();
 });
 
 window.addEventListener('mouseup', () => {
@@ -2309,64 +3491,26 @@ window.addEventListener('touchend', () => {
 // Apply: extract sub-image from source into a new canvas, set as weaponImg
 function applyCrop() {
 	if (!weaponSrcImg) return;
-	const c = document.createElement('canvas');
-	c.width = cropRect.w;
-	c.height = cropRect.h;
-	const ctx = c.getContext('2d');
-	ctx.imageSmoothingEnabled = false;
-	ctx.drawImage(
-		weaponSrcImg,
-		cropRect.x, cropRect.y, cropRect.w, cropRect.h,
-		0, 0, cropRect.w, cropRect.h,
-	);
-	weaponImg = c;
+	const cropped = cropImageToCanvas(weaponSrcImg, cropRect);
+	cropRect = cropped.rect;
+	weaponImg = cropped.canvas;
 	weaponInfo.textContent = `${cropRect.w}×${cropRect.h}px (đã cắt từ ${weaponSrcImg.width}×${weaponSrcImg.height})`;
+	$('weapon-card-size').textContent = `${weaponImg.width}×${weaponImg.height}px (đã cắt)`;
+	paintThumb($('weapon-thumb'), weaponImg);
 	drawAnchorEditor();
+	drawCropEditor();
 	updateBakePreview();
 }
 
-// Auto-detect: find bounding box of non-transparent pixels
+// Auto-detect: transparent PNGs use alpha; opaque images use corner-color background.
 $('crop-auto').addEventListener('click', () => {
 	if (!weaponSrcImg) return;
-	const c = document.createElement('canvas');
-	c.width = weaponSrcImg.width;
-	c.height = weaponSrcImg.height;
-	const ctx = c.getContext('2d');
-	ctx.drawImage(weaponSrcImg, 0, 0);
-	let imgData;
-	try {
-		imgData = ctx.getImageData(0, 0, c.width, c.height);
-	} catch (err) {
-		alert('Không thể đọc pixel — có thể do CORS. Kéo thủ công thay thế.');
+	const next = autoCropRectForImage(weaponSrcImg, 2);
+	if (!next) {
+		alert('Không tự tìm được vũ khí. Kéo vùng cắt thủ công nhé.');
 		return;
 	}
-	const d = imgData.data;
-	const W = c.width, H = c.height;
-	let minX = W, minY = H, maxX = -1, maxY = -1;
-	const ALPHA_THRESH = 16;
-	for (let y = 0; y < H; y++) {
-		for (let x = 0; x < W; x++) {
-			const a = d[(y * W + x) * 4 + 3];
-			if (a > ALPHA_THRESH) {
-				if (x < minX) minX = x;
-				if (y < minY) minY = y;
-				if (x > maxX) maxX = x;
-				if (y > maxY) maxY = y;
-			}
-		}
-	}
-	if (maxX < 0) {
-		alert('Không tìm thấy pixel nào (ảnh có thể toàn trắng đặc, không trong suốt).');
-		return;
-	}
-	// Small padding around the detected bbox
-	const PAD = 2;
-	cropRect = {
-		x: Math.max(0, minX - PAD),
-		y: Math.max(0, minY - PAD),
-		w: Math.min(W, maxX + PAD + 1) - Math.max(0, minX - PAD),
-		h: Math.min(H, maxY + PAD + 1) - Math.max(0, minY - PAD),
-	};
+	cropRect = clampCropRect(next, weaponSrcImg);
 	drawCropEditor();
 	applyCrop();
 });
@@ -2381,7 +3525,11 @@ $('crop-reset').addEventListener('click', () => {
 $('crop-apply').addEventListener('click', applyCrop);
 $('crop-skip').addEventListener('click', () => {
 	weaponImg = weaponSrcImg;
+	cropRect = { x: 0, y: 0, w: weaponSrcImg.width, h: weaponSrcImg.height };
 	weaponInfo.textContent = `${weaponSrcImg.width}×${weaponSrcImg.height}px (gốc, không cắt)`;
+	$('weapon-card-size').textContent = `${weaponSrcImg.width}×${weaponSrcImg.height}px`;
+	paintThumb($('weapon-thumb'), weaponImg);
+	drawCropEditor();
 	drawAnchorEditor();
 	updateBakePreview();
 });
@@ -2413,6 +3561,7 @@ exportBtn.addEventListener('click', () => {
 renderPresetGrid();
 presetDesc.textContent = PRESETS.hop.desc;
 renderSettingsPanel();
+void restoreLastSession();
 window.addEventListener('resize', () => { if (bodyImg) setupPreviewCanvas(); });
 </script>
 </body>
