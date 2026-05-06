@@ -3874,9 +3874,17 @@ function drawBodyCropEditor() {
 
 function bodyCropMouseToCanvas(e) {
 	const rect = bodyCropCanvas.getBoundingClientRect();
-	const cx = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
-	const cy = (e.touches ? e.touches[0].clientY : e.clientY) - rect.top;
-	return { cx, cy };
+	const px = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
+	const py = (e.touches ? e.touches[0].clientY : e.clientY) - rect.top;
+	// Canvas style is `max-width:100%; height:auto;` so when the parent
+	// panel is narrower than dispW the canvas shrinks visually but
+	// dataset.dispW stays at the original. Map displayed-px → canvas-internal
+	// CSS px before downstream code applies dataset.scale.
+	const dispW = parseFloat(bodyCropCanvas.dataset.dispW);
+	const dispH = parseFloat(bodyCropCanvas.dataset.dispH);
+	const sx = rect.width > 0 ? dispW / rect.width : 1;
+	const sy = rect.height > 0 ? dispH / rect.height : 1;
+	return { cx: px * sx, cy: py * sy };
 }
 
 function bodyCropHitTest(cx, cy) {
@@ -4379,9 +4387,15 @@ function drawCropEditor() {
 
 function cropMouseToCanvas(e) {
 	const rect = cropCanvas.getBoundingClientRect();
-	const cx = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
-	const cy = (e.touches ? e.touches[0].clientY : e.clientY) - rect.top;
-	return { cx, cy };
+	const px = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
+	const py = (e.touches ? e.touches[0].clientY : e.clientY) - rect.top;
+	// Map displayed CSS px → canvas-internal CSS px (canvas may be CSS-shrunk
+	// by `max-width:100%`). Same fix as bodyCropMouseToCanvas.
+	const dispW = parseFloat(cropCanvas.dataset.dispW);
+	const dispH = parseFloat(cropCanvas.dataset.dispH);
+	const sx = rect.width > 0 ? dispW / rect.width : 1;
+	const sy = rect.height > 0 ? dispH / rect.height : 1;
+	return { cx: px * sx, cy: py * sy };
 }
 
 function cropHitTest(cx, cy) {
