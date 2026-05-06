@@ -401,7 +401,27 @@
 					<span class="text-slate-300 font-semibold">🖼️ FX sprite custom</span>
 					<button id="custom-fx-clear" class="text-[10px] text-slate-500 hover:text-white hidden">× Xoá</button>
 				</div>
-				<p class="text-[9px] text-slate-500 mb-2">Upload PNG sprite sheet (frames ngang). App play khi hit. Anchor giữa thân.</p>
+				<p class="text-[9px] text-slate-500 mb-2">Upload PNG sprite sheet hoặc chọn preset CC0 dưới.</p>
+				<select id="custom-fx-preset" class="w-full mb-2 px-2 py-1 bg-slate-900 border border-slate-700 rounded text-[11px] text-slate-200">
+					<option value="">— Hoặc upload custom —</option>
+					<optgroup label="🩸 OGA Blood (CC0, 4×4=16 frames)">
+						<option data-cols="4" data-rows="4" value="fx-packs/blood/blood-splat-1.png">Blood splat 1</option>
+						<option data-cols="4" data-rows="4" value="fx-packs/blood/blood-splat-2.png">Blood splat 2</option>
+						<option data-cols="4" data-rows="4" value="fx-packs/blood/blood-splat-3.png">Blood splat 3</option>
+					</optgroup>
+					<optgroup label="✨ Kenney (CC0, single-frame particle)">
+						<option data-cols="1" data-rows="1" value="fx-packs/kenney/muzzle_01.png">Muzzle 01</option>
+						<option data-cols="1" data-rows="1" value="fx-packs/kenney/muzzle_02.png">Muzzle 02</option>
+						<option data-cols="1" data-rows="1" value="fx-packs/kenney/muzzle_03.png">Muzzle 03</option>
+						<option data-cols="1" data-rows="1" value="fx-packs/kenney/muzzle_04.png">Muzzle 04</option>
+						<option data-cols="1" data-rows="1" value="fx-packs/kenney/muzzle_05.png">Muzzle 05</option>
+						<option data-cols="1" data-rows="1" value="fx-packs/kenney/spark_01.png">Spark 01</option>
+						<option data-cols="1" data-rows="1" value="fx-packs/kenney/spark_02.png">Spark 02</option>
+						<option data-cols="1" data-rows="1" value="fx-packs/kenney/scorch_01.png">Scorch 01</option>
+						<option data-cols="1" data-rows="1" value="fx-packs/kenney/flare_01.png">Flare 01</option>
+						<option data-cols="1" data-rows="1" value="fx-packs/kenney/twirl_01.png">Twirl 01</option>
+					</optgroup>
+				</select>
 				<label id="custom-fx-dz" class="block rounded-lg border border-dashed border-slate-700 p-2 text-center cursor-pointer hover:border-violet-400 text-[11px] text-slate-400">
 					<input id="custom-fx-input" type="file" accept="image/png,image/webp" class="hidden">
 					<span class="material-symbols-outlined align-middle" style="font-size:14px">cloud_upload</span>
@@ -411,11 +431,13 @@
 					<canvas id="custom-fx-thumb" width="32" height="32" class="rounded bg-slate-950 border border-slate-700" style="image-rendering:pixelated"></canvas>
 					<div class="flex-1 min-w-0">
 						<div id="custom-fx-name" class="truncate text-violet-200"></div>
-						<div class="flex items-center gap-1.5">
-							<span class="text-slate-500">Frames:</span>
-							<input id="custom-fx-frames" type="number" min="1" max="64" value="8" class="w-12 px-1 py-0.5 bg-slate-900 border border-slate-700 rounded text-[10px]">
+						<div class="flex items-center gap-1.5 flex-wrap">
+							<span class="text-slate-500">Cols:</span>
+							<input id="custom-fx-cols" type="number" min="1" max="32" value="8" class="w-10 px-1 py-0.5 bg-slate-900 border border-slate-700 rounded text-[10px]">
+							<span class="text-slate-500">Rows:</span>
+							<input id="custom-fx-rows" type="number" min="1" max="32" value="1" class="w-10 px-1 py-0.5 bg-slate-900 border border-slate-700 rounded text-[10px]">
 							<span class="text-slate-500">Scale:</span>
-							<input id="custom-fx-scale" type="number" min="50" max="400" step="10" value="100" class="w-14 px-1 py-0.5 bg-slate-900 border border-slate-700 rounded text-[10px]">%
+							<input id="custom-fx-scale" type="number" min="20" max="400" step="10" value="100" class="w-12 px-1 py-0.5 bg-slate-900 border border-slate-700 rounded text-[10px]">%
 						</div>
 					</div>
 				</div>
@@ -3649,16 +3671,19 @@ $('fx-clear-all').addEventListener('click', () => {
 
 // ===== Custom FX sprite upload =====
 let customFxImg = null;
-let customFxFrames = 8;
+let customFxCols = 8;
+let customFxRows = 1;
 let customFxScale = 100;
 const customFxInput = $('custom-fx-input');
 const customFxDz = $('custom-fx-dz');
 const customFxInfo = $('custom-fx-info');
 const customFxName = $('custom-fx-name');
 const customFxThumb = $('custom-fx-thumb');
-const customFxFramesInput = $('custom-fx-frames');
+const customFxColsInput = $('custom-fx-cols');
+const customFxRowsInput = $('custom-fx-rows');
 const customFxScaleInput = $('custom-fx-scale');
 const customFxClear = $('custom-fx-clear');
+const customFxPreset = $('custom-fx-preset');
 
 function _showCustomFx(name) {
 	customFxInfo.classList.remove('hidden');
@@ -3668,25 +3693,33 @@ function _showCustomFx(name) {
 	ctx.imageSmoothingEnabled = false;
 	ctx.clearRect(0, 0, 32, 32);
 	if (customFxImg) {
-		const fW = customFxImg.width / Math.max(1, customFxFrames);
-		ctx.drawImage(customFxImg, 0, 0, fW, customFxImg.height, 0, 0, 32, 32);
+		const fW = customFxImg.width / Math.max(1, customFxCols);
+		const fH = customFxImg.height / Math.max(1, customFxRows);
+		ctx.drawImage(customFxImg, 0, 0, fW, fH, 0, 0, 32, 32);
 	}
+}
+function _setCustomFxImg(img, name, cols, rows) {
+	customFxImg = img;
+	if (cols !== undefined) {
+		customFxCols = cols;
+		customFxColsInput.value = cols;
+	} else if (img.width > img.height) {
+		customFxCols = Math.max(1, Math.round(img.width / img.height));
+		customFxColsInput.value = customFxCols;
+	}
+	if (rows !== undefined) {
+		customFxRows = rows;
+		customFxRowsInput.value = rows;
+	}
+	_showCustomFx(name);
+	updateBakePreview();
 }
 function _handleCustomFxFile(file) {
 	if (!file || !file.type.startsWith('image/')) return;
 	const reader = new FileReader();
 	reader.onload = (e) => {
 		const img = new Image();
-		img.onload = () => {
-			customFxImg = img;
-			// Auto-detect: if width is wider than tall, guess frames = width/height
-			if (customFxFrames === 8 && img.width > img.height) {
-				customFxFrames = Math.max(1, Math.round(img.width / img.height));
-				customFxFramesInput.value = customFxFrames;
-			}
-			_showCustomFx(file.name);
-			updateBakePreview();
-		};
+		img.onload = () => _setCustomFxImg(img, file.name);
 		img.src = e.target.result;
 	};
 	reader.readAsDataURL(file);
@@ -3701,8 +3734,12 @@ customFxDz.addEventListener('drop', (e) => {
 	customFxDz.classList.remove('border-violet-400');
 	if (e.dataTransfer?.files?.[0]) _handleCustomFxFile(e.dataTransfer.files[0]);
 });
-customFxFramesInput.addEventListener('input', (e) => {
-	customFxFrames = Math.max(1, Number(e.target.value) || 1);
+customFxColsInput.addEventListener('input', (e) => {
+	customFxCols = Math.max(1, Number(e.target.value) || 1);
+	updateBakePreview();
+});
+customFxRowsInput.addEventListener('input', (e) => {
+	customFxRows = Math.max(1, Number(e.target.value) || 1);
 	updateBakePreview();
 });
 customFxScaleInput.addEventListener('input', (e) => {
@@ -3712,22 +3749,41 @@ customFxScaleInput.addEventListener('input', (e) => {
 customFxClear.addEventListener('click', () => {
 	customFxImg = null;
 	customFxInput.value = '';
+	customFxPreset.value = '';
 	customFxInfo.classList.add('hidden');
 	customFxClear.classList.add('hidden');
 	updateBakePreview();
 });
+// Preset pack picker — load bundled CC0 sprite by URL
+customFxPreset.addEventListener('change', (e) => {
+	const url = e.target.value;
+	if (!url) return;
+	const opt = e.target.options[e.target.selectedIndex];
+	const cols = Number(opt.dataset.cols) || 1;
+	const rows = Number(opt.dataset.rows) || 1;
+	const name = opt.textContent;
+	const img = new Image();
+	img.onload = () => _setCustomFxImg(img, name, cols, rows);
+	img.onerror = () => alert('Không load được preset: ' + url);
+	img.src = url;
+});
 
 // Register custom FX sheet — plays uploaded sprite at hitFrame.
+// Supports cols × rows grid (frames laid left-to-right, top-to-bottom).
 FX_REGISTRY.customSheet = {
 	label: "🖼️ Sprite custom",
 	draw: (ctx, t, cx, cy) => {
 		if (!customFxImg) return;
 		const p = _hitProgress(t);
 		if (p < 0) return;
-		const N = customFxFrames;
+		const cols = Math.max(1, customFxCols);
+		const rows = Math.max(1, customFxRows);
+		const N = cols * rows;
 		const idx = Math.min(N - 1, Math.floor(p * N));
-		const fW = customFxImg.width / N;
-		const fH = customFxImg.height;
+		const col = idx % cols;
+		const row = Math.floor(idx / cols);
+		const fW = customFxImg.width / cols;
+		const fH = customFxImg.height / rows;
 		const scl = customFxScale / 100;
 		const drawW = fW * scl;
 		const drawH = fH * scl;
@@ -3735,13 +3791,13 @@ FX_REGISTRY.customSheet = {
 		ctx.imageSmoothingEnabled = false;
 		ctx.drawImage(
 			customFxImg,
-			idx * fW, 0, fW, fH,
+			col * fW, row * fH, fW, fH,
 			cx - drawW / 2, cy - 32 - drawH / 2, drawW, drawH,
 		);
 		ctx.restore();
 	},
 };
-_renderFxGrid(); // rebuild to include customSheet entry
+_renderFxGrid();
 
 const frameAutoFitInput = $('frame-auto-fit');
 const frameMaxTileInput = $('frame-max-tile');
