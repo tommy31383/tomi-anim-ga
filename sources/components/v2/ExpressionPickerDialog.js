@@ -46,6 +46,57 @@ const VI_LABEL = {
 
 const SIZE_PX = { S: 48, M: 72, L: 96 };
 const HOVER_PREVIEW_DEBOUNCE_MS = 110;
+const RECENT_KEY = "lpc.expression.recent";
+const SIZE_KEY = "lpc.expression.thumbsize";
+const RECENT_MAX = 5;
+
+function _readRecent() {
+  try {
+    const raw = localStorage.getItem(RECENT_KEY);
+    if (!raw) return [];
+    const arr = JSON.parse(raw);
+    return Array.isArray(arr) ? arr.filter((x) => typeof x === "string") : [];
+  } catch {
+    return [];
+  }
+}
+function _writeRecent(itemId) {
+  try {
+    const cur = _readRecent().filter((x) => x !== itemId);
+    cur.unshift(itemId);
+    localStorage.setItem(RECENT_KEY, JSON.stringify(cur.slice(0, RECENT_MAX)));
+  } catch {
+    /* quota — ignore */
+  }
+}
+function _readSize() {
+  try {
+    const v = localStorage.getItem(SIZE_KEY);
+    return v === "S" || v === "L" ? v : "M";
+  } catch {
+    return "M";
+  }
+}
+function _writeSize(v) {
+  try {
+    localStorage.setItem(SIZE_KEY, v);
+  } catch {
+    /* ignore */
+  }
+}
+
+// Score a candidate against the search query. Higher = better match.
+// 0 = no match. Prefix > substring > contains-word.
+function _scoreMatch(text, q) {
+  if (!text) return 0;
+  const t = text.toLowerCase();
+  if (t === q) return 100;
+  if (t.startsWith(q)) return 80;
+  // word prefix (after space)
+  if (t.split(/\s+/).some((w) => w.startsWith(q))) return 60;
+  if (t.includes(q)) return 30;
+  return 0;
+}
 
 // Cache loaded Image objects by url so we don't re-fetch on every redraw.
 const _imgCache = new Map();
@@ -173,7 +224,7 @@ export const ExpressionPickerDialog = {
     vnode.state.original = getCurrentExpressionId();
     vnode.state.committed = false;
     vnode.state.search = "";
-    vnode.state.size = "M";
+    vnode.state.size = _readSize(); // persist S/M/L across sessions
     vnode.state.focusIdx = 0;
     vnode.state.hoverTimer = null;
     vnode.state.hoverApplied = null; // last id applied via hover
@@ -197,16 +248,84 @@ export const ExpressionPickerDialog = {
       setExpression(vnode.state.original);
     }
   },
+  renderRecent(vnode, sz, bodyRecolor) {
+    const ids = _readRecent();
+    if (!ids.length) return null;
+    const all = listExpressions();
+    const items = ids
+      .map((id) => all.find((e) => e.itemId === id))
+      .filter(Boolean);
+    if (!items.length) return null;
+    const currentId = getCurrentExpressionId();
+    return m(
+      "div",
+      {
+        class: "px-3 pt-2 pb-1 border-b border-slate-700/60 bg-slate-900/30",
+        "aria-label": "Vừa dùng gần đây",
+      },
+      [
+        m(
+          "div",
+          { class: "text-[9px] text-slate-500 uppercase tracking-wider mb-1" },
+          "Vừa dùng",
+        ),
+        m(
+          "div",
+          { class: "flex gap-1.5 overflow-x-auto scrollbar-thin pb-1" },
+          items.map((e) => {
+            const meta =
+              catalog.isLiteReady() && catalog.getItemMerged(e.itemId);
+            const label = meta ? VI_LABEL[meta.name] || meta.name : e.name;
+            const active = e.itemId === currentId;
+            return m(
+              "button",
+              {
+                key: "recent-" + e.itemId,
+                class: [
+                  "shrink-0 flex flex-col items-center gap-0.5 p-1 rounded border",
+                  active
+                    ? "bg-cyan-500/20 border-cyan-400"
+                    : "bg-slate-900 border-slate-700 hover:border-cyan-400/40",
+                ].join(" "),
+                title: meta?.name ?? e.name,
+                "aria-label": `Vừa dùng ${label}`,
+                onmouseenter: () => this.schedulePreview(vnode, e.itemId),
+                onclick: () => this.commit(vnode, e.itemId, label),
+              },
+              [
+                m(ExpressionThumb, {
+                  itemId: e.itemId,
+                  recolor: bodyRecolor,
+                  size: Math.round(sz * 0.65),
+                  cacheKey: `${e.itemId}|${state.bodyType}|${bodyRecolor}|${Math.round(sz * 0.65)}`,
+                }),
+              ],
+            );
+          }),
+        ),
+      ],
+    );
+  },
   filtered(vnode) {
     const all = listExpressions();
     const q = vnode.state.search.trim().toLowerCase();
     if (!q) return all;
-    return all.filter((e) => {
-      const meta = catalog.isLiteReady() && catalog.getItemMerged(e.itemId);
-      const en = (meta?.name || e.name || "").toLowerCase();
-      const vi = (VI_LABEL[meta?.name] || "").toLowerCase();
-      return en.includes(q) || vi.includes(q) || e.itemId.includes(q);
-    });
+    // Score each candidate; sort by best score descending; drop zeros.
+    const scored = all
+      .map((e) => {
+        const meta = catalog.isLiteReady() && catalog.getItemMerged(e.itemId);
+        const en = meta?.name || e.name || "";
+        const vi = VI_LABEL[meta?.name] || "";
+        const score = Math.max(
+          _scoreMatch(en, q),
+          _scoreMatch(vi, q),
+          _scoreMatch(e.itemId, q),
+        );
+        return { e, score };
+      })
+      .filter((r) => r.score > 0)
+      .sort((a, b) => b.score - a.score);
+    return scored.map((r) => r.e);
   },
   schedulePreview(vnode, itemId) {
     if (vnode.state.hoverTimer) clearTimeout(vnode.state.hoverTimer);
@@ -228,7 +347,24 @@ export const ExpressionPickerDialog = {
     if (vnode.state.hoverApplied !== itemId) {
       await setExpression(itemId);
     }
-    showToast(`🎭 ${label}`, { kind: "success", durationMs: 1500 });
+    _writeRecent(itemId);
+    const original = vnode.state.original;
+    // If user changed expression, offer Undo for 5s. Otherwise just confirm.
+    if (original && original !== itemId) {
+      showToast(`🎭 ${label}`, {
+        kind: "success",
+        durationMs: 5000,
+        action: {
+          label: "↶ Hoàn tác",
+          onClick: () => {
+            setExpression(original);
+            showToast("Đã hoàn tác", { kind: "info", durationMs: 1200 });
+          },
+        },
+      });
+    } else {
+      showToast(`🎭 ${label}`, { kind: "success", durationMs: 1500 });
+    }
     vnode.attrs.onClose?.();
   },
   onKey(vnode, e) {
@@ -359,8 +495,11 @@ export const ExpressionPickerDialog = {
                           : "bg-slate-900 border-slate-700 text-slate-400 hover:text-white",
                       ].join(" "),
                       title: `Thumbnail ${SIZE_PX[s]}px`,
+                      "aria-label": `Thumbnail size ${s}`,
+                      "aria-pressed": vnode.state.size === s ? "true" : "false",
                       onclick: () => {
                         vnode.state.size = s;
+                        _writeSize(s); // persist preference
                       },
                     },
                     s,
@@ -368,11 +507,16 @@ export const ExpressionPickerDialog = {
                 ),
               ],
             ),
+            // Recently used row — shown only when no search active
+            !vnode.state.search.trim() &&
+              this.renderRecent(vnode, sz, bodyRecolor),
             // Grid
             m(
               "div",
               {
                 class: `p-3 overflow-y-auto grid ${colsClass} gap-2 scrollbar-thin`,
+                role: "listbox",
+                "aria-label": "Danh sách biểu cảm",
                 onmouseleave: () => this.cancelPreview(vnode),
               },
               expressions.length === 0
@@ -407,6 +551,9 @@ export const ExpressionPickerDialog = {
                               : "bg-slate-900 border-slate-700 hover:border-cyan-400/40 hover:bg-slate-800",
                         ].join(" "),
                         title: meta?.name ?? e.name,
+                        role: "option",
+                        "aria-selected": active ? "true" : "false",
+                        "aria-label": `Biểu cảm ${label}`,
                         onmouseenter: () => {
                           vnode.state.focusIdx = idx;
                           this.schedulePreview(vnode, e.itemId);

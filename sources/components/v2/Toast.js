@@ -23,10 +23,11 @@ export const Toast = {
           {
             key: t.id,
             class: [
-              "px-4 py-2 rounded-lg border shadow-lg text-sm font-medium pointer-events-auto cursor-pointer transition-opacity flex items-center gap-2",
+              "px-4 py-2 rounded-lg border shadow-lg text-sm font-medium pointer-events-auto transition-opacity flex items-center gap-2",
+              t.action ? "" : "cursor-pointer",
               KIND_CLASS[t.kind] ?? KIND_CLASS.info,
             ].join(" "),
-            onclick: () => dismissToast(t.id),
+            onclick: t.action ? null : () => dismissToast(t.id),
           },
           [
             t.spinner &&
@@ -34,7 +35,38 @@ export const Toast = {
                 class:
                   "inline-block w-3.5 h-3.5 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin",
               }),
-            m("span", t.message),
+            m("span", { class: "flex-1" }, t.message),
+            t.action &&
+              m(
+                "button",
+                {
+                  class:
+                    "ml-2 px-2 py-0.5 text-xs font-bold rounded bg-white/15 hover:bg-white/25 border border-white/20",
+                  onclick: (e) => {
+                    e.stopPropagation();
+                    try {
+                      t.action.onClick?.();
+                    } catch {
+                      /* swallow */
+                    }
+                    dismissToast(t.id);
+                  },
+                },
+                t.action.label,
+              ),
+            t.action &&
+              m(
+                "button",
+                {
+                  class: "px-1.5 text-xs opacity-60 hover:opacity-100",
+                  title: "Đóng",
+                  onclick: (e) => {
+                    e.stopPropagation();
+                    dismissToast(t.id);
+                  },
+                },
+                "✕",
+              ),
           ],
         ),
       ),

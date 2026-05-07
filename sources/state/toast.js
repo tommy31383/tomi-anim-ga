@@ -23,6 +23,9 @@ export function showToast(message, opts = {}) {
   const durationMs = opts.durationMs ?? 2000;
   const sticky = opts.sticky === true || durationMs <= 0;
   const spinner = opts.spinner === true;
+  // Optional action button rendered inline in the toast.
+  // Shape: { label: string, onClick: () => void }
+  const action = opts.action || null;
   const id = nextId++;
   toasts = [
     ...toasts,
@@ -31,6 +34,7 @@ export function showToast(message, opts = {}) {
       message,
       kind,
       spinner,
+      action,
       expiresAt: sticky ? null : Date.now() + durationMs,
     },
   ];
