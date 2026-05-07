@@ -1,0 +1,17 @@
+{
+  "_comment": "Bouncer preset library. Each entry is a single-frame extract (sx,sy,sw,sh) from an LPC spritesheet served at /spritesheets/. Loaded at runtime by bouncer/index.html — no build-time PNG processing needed. CC-BY-SA 3.0 / GPL3 / OGA-BY 3.0 (per OpenGameArt LPC; see CREDITS.csv).",
+  "characters": [
+    { "id": "lpc-male", "label": "Người (Nam)", "src": "../spritesheets/body/bodies/male/walk.png", "sx": 0, "sy": 128, "sw": 64, "sh": 64 },
+    { "id": "lpc-female", "label": "Người (Nữ)", "src": "../spritesheets/body/bodies/female/walk.png", "sx": 0, "sy": 128, "sw": 64, "sh": 64 },
+    { "id": "lpc-child", "label": "Trẻ em", "src": "../spritesheets/body/bodies/child/walk.png", "sx": 0, "sy": 128, "sw": 64, "sh": 64 },
+    { "id": "lpc-muscular", "label": "Lực sĩ", "src": "../spritesheets/body/bodies/muscular/walk.png", "sx": 0, "sy": 128, "sw": 64, "sh": 64 },
+    { "id": "lpc-teen", "label": "Thiếu niên", "src": "../spritesheets/body/bodies/teen/walk.png", "sx": 0, "sy": 128, "sw": 64, "sh": 64 },
+    { "id": "lpc-skeleton", "label": "Bộ xương", "src": "../spritesheets/body/bodies/skeleton/walk/skeleton.png", "sx": 0, "sy": 128, "sw": 64, "sh": 64 },
+    { "id": "lpc-zombie", "label": "Zombie", "src": "../spritesheets/body/bodies/zombie/walk/zombie.png", "sx": 0, "sy": 128, "sw": 64, "sh": 64 }
+  ],
+  "weapons": [
+    { "id": "lpc-dagger", "label": "Dao găm", "src": "../spritesheets/weapon/sword/dagger/slash/dagger.png", "sx": 256, "sy": 128, "sw": 64, "sh": 64 },
+    { "id": "lpc-wand-m", "label": "Đũa phép (Nam)", "src": "../spritesheets/weapon/magic/wand/male/slash/wand.png", "sx": 384, "sy": 128, "sw": 64, "sh": 64 },
+    { "id": "lpc-wand-f", "label": "Đũa phép (Nữ)", "src": "../spritesheets/weapon/magic/wand/female/slash/wand.png", "sx": 384, "sy": 128, "sw": 64, "sh": 64 }
+  ]
+}

@@ -112,6 +112,43 @@ export default defineConfig(({ command }) => ({
         });
       },
     },
+    // Bouncer preset library — same pattern as fx-packs above. Bundled at
+    // build time + served via dev middleware. Path-traversal-safe.
+    {
+      name: "copy-bouncer-presets",
+      apply: "build",
+      closeBundle() {
+        const src = path.resolve(__dirname, "bouncer/presets");
+        const dst = path.resolve(__dirname, "dist/bouncer/presets");
+        if (!fs.existsSync(src)) return;
+        fs.cpSync(src, dst, { recursive: true });
+      },
+    },
+    {
+      name: "serve-bouncer-presets",
+      apply: "serve",
+      configureServer(server) {
+        const root = path.resolve(__dirname, "bouncer/presets");
+        const rootWithSep = root + path.sep;
+        server.middlewares.use("/bouncer/presets", (req, res, next) => {
+          const cleanPath = decodeURIComponent((req.url || "").split("?")[0]);
+          const resolved = path.resolve(root, "." + cleanPath);
+          if (!resolved.startsWith(rootWithSep) && resolved !== root) {
+            res.statusCode = 404;
+            res.end();
+            return;
+          }
+          if (fs.existsSync(resolved) && fs.statSync(resolved).isFile()) {
+            const ext = path.extname(resolved).toLowerCase();
+            const types = { ".json": "application/json", ".png": "image/png" };
+            res.setHeader("Content-Type", types[ext] || "application/octet-stream");
+            fs.createReadStream(resolved).pipe(res);
+          } else {
+            next();
+          }
+        });
+      },
+    },
     vitePluginPreviewServeDistSpritesheets(),
     ...itemMetadataPlugins(command),
     vitePluginMetadataModulePreload(),
