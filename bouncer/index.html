@@ -72,6 +72,7 @@
 			<select id="body-preset" class="w-full mb-1.5 px-2 py-1 bg-slate-900 border border-slate-700 rounded text-[11px] text-slate-200">
 				<option value="">— Chọn nhân vật mẫu hoặc upload —</option>
 			</select>
+			<details id="body-lib-manage" class="hidden mb-1.5 bg-slate-900/50 border border-slate-800 rounded text-[10px]"><summary class="cursor-pointer px-2 py-1 text-slate-400 hover:text-cyan-300">📋 Quản lý thư viện</summary><div class="px-2 py-1.5 space-y-1"></div></details>
 			<label id="body-dropzone" class="block rounded-xl border-2 border-dashed border-slate-700 bg-slate-900/40 flex items-center justify-center cursor-pointer hover:border-cyan-400/60 transition-colors gap-3 px-3 py-4">
 				<input id="body-input" type="file" accept="image/png, image/jpeg, image/webp" class="hidden">
 				<span class="material-symbols-outlined text-cyan-400" style="font-size:24px">cloud_upload</span>
@@ -131,6 +132,7 @@
 			<select id="weapon-preset" class="w-full mb-1.5 px-2 py-1 bg-slate-900 border border-slate-700 rounded text-[11px] text-slate-200">
 				<option value="">— Chọn vũ khí mẫu hoặc upload —</option>
 			</select>
+			<details id="weapon-lib-manage" class="hidden mb-1.5 bg-slate-900/50 border border-slate-800 rounded text-[10px]"><summary class="cursor-pointer px-2 py-1 text-slate-400 hover:text-violet-300">📋 Quản lý thư viện</summary><div class="px-2 py-1.5 space-y-1"></div></details>
 			<label id="weapon-dropzone" class="block rounded-xl border-2 border-dashed border-slate-700 bg-slate-900/40 flex items-center justify-center cursor-pointer hover:border-violet-400/60 transition-colors gap-3 px-3 py-3">
 				<input id="weapon-input" type="file" accept="image/png, image/jpeg, image/webp" class="hidden">
 				<span class="material-symbols-outlined text-violet-400" style="font-size:20px">colorize</span>
@@ -3499,22 +3501,36 @@ bindDropzone(weaponDz, weaponInput, true);
 
 // ============================================================
 // Preset library — bundled (manifest.json) + user-added (localStorage).
-// Each preset entry: { id, label, src, sx, sy, sw, sh } where (sx,sy,sw,sh)
-// extracts a single frame from an LPC sheet at runtime via canvas.drawImage.
-// User entries instead carry { dataUrl } (entire sprite, no crop) so they
-// survive page reload + share the same load pipeline.
+// Bundled entry: { id, label, src, sx, sy, sw, sh } — runtime extracts
+// a single frame from an LPC sheet via canvas.drawImage.
+// User entry:    { id, name, dataUrl, addedAt } — original upload bytes
+// reused (no canvas re-encode) so storage stays minimal.
 // ============================================================
 const LIB_KEY_BODY = 'tomi-bouncer:lib:characters';
 const LIB_KEY_WEAPON = 'tomi-bouncer:lib:weapons';
+const LIB_QUOTA_WARN_BYTES = 2_000_000; // ~2MB → warn near common 5MB cap
 let _bundledPresets = { characters: [], weapons: [] };
 
 function _readLib(key) {
-	try { return JSON.parse(localStorage.getItem(key) || '[]'); }
-	catch { return []; }
+	try {
+		const raw = JSON.parse(localStorage.getItem(key) || '[]');
+		// Defensive: keep only entries with the required shape
+		return Array.isArray(raw)
+			? raw.filter((x) => x && typeof x.id === 'string' && typeof x.name === 'string' && typeof x.dataUrl === 'string' && x.dataUrl.startsWith('data:image/'))
+			: [];
+	} catch { return []; }
 }
 function _writeLib(key, list) {
 	try { localStorage.setItem(key, JSON.stringify(list)); }
 	catch (e) { alert('Thư viện đã đầy (localStorage). Xoá bớt entry cũ.'); throw e; }
+}
+
+function _isValidBundledEntry(p) {
+	return p && typeof p.id === 'string' && typeof p.label === 'string'
+		&& typeof p.src === 'string'
+		&& Number.isFinite(p.sx) && Number.isFinite(p.sy)
+		&& Number.isFinite(p.sw) && p.sw > 0
+		&& Number.isFinite(p.sh) && p.sh > 0;
 }
 
 async function _fetchManifest() {
@@ -3522,132 +3538,157 @@ async function _fetchManifest() {
 		const resp = await fetch(new URL('./presets/manifest.json', location.href));
 		if (!resp.ok) return { characters: [], weapons: [] };
 		const m = await resp.json();
-		return { characters: m.characters || [], weapons: m.weapons || [] };
+		return {
+			characters: (m.characters || []).filter(_isValidBundledEntry),
+			weapons:    (m.weapons    || []).filter(_isValidBundledEntry),
+		};
 	} catch { return { characters: [], weapons: [] }; }
 }
 
-function _populatePresetSelect(selectId, kind) {
-	const sel = $(selectId);
+function _libKeyFor(kind) { return kind === 'characters' ? LIB_KEY_BODY : LIB_KEY_WEAPON; }
+function _selectIdFor(kind) { return kind === 'characters' ? 'body-preset' : 'weapon-preset'; }
+function _manageIdFor(kind) { return kind === 'characters' ? 'body-lib-manage' : 'weapon-lib-manage'; }
+
+function _populatePresetSelect(kind) {
+	const sel = $(_selectIdFor(kind));
 	const placeholder = sel.querySelector('option[value=""]')?.outerHTML || '';
 	const bundled = _bundledPresets[kind] || [];
-	const lib = _readLib(kind === 'characters' ? LIB_KEY_BODY : LIB_KEY_WEAPON);
+	const lib = _readLib(_libKeyFor(kind));
 	let html = placeholder;
 	if (bundled.length) {
 		html += `<optgroup label="Mặc định (${bundled.length})">`;
-		for (const p of bundled) {
-			html += `<option value="bundled:${p.id}">${p.label}</option>`;
-		}
+		for (const p of bundled) html += `<option value="bundled:${p.id}">${_esc(p.label)}</option>`;
 		html += '</optgroup>';
 	}
 	if (lib.length) {
 		html += `<optgroup label="Của tôi (${lib.length})">`;
-		for (const p of lib) {
-			html += `<option value="user:${p.id}">${p.name}</option>`;
-		}
+		for (const p of lib) html += `<option value="user:${p.id}">${_esc(p.name)}</option>`;
 		html += '</optgroup>';
 	}
 	sel.innerHTML = html;
+	_renderLibManagePanel(kind, lib);
+}
+
+function _renderLibManagePanel(kind, lib) {
+	const panel = $(_manageIdFor(kind));
+	if (!lib.length) { panel.classList.add('hidden'); return; }
+	panel.classList.remove('hidden');
+	panel.querySelector('summary').textContent = `📋 Quản lý thư viện (${lib.length})`;
+	const inner = panel.querySelector('div');
+	inner.innerHTML = '';
+	for (const p of lib) {
+		const row = document.createElement('div');
+		row.className = 'flex items-center justify-between gap-2';
+		row.innerHTML = `<span class="truncate text-slate-300" title="${_esc(p.name)}">${_esc(p.name)}</span><button class="text-rose-400 hover:text-rose-300 px-1.5 shrink-0" title="Xoá">🗑</button>`;
+		row.querySelector('button').addEventListener('click', () => {
+			if (!confirm(`Xoá "${p.name}" khỏi thư viện?`)) return;
+			const key = _libKeyFor(kind);
+			_writeLib(key, _readLib(key).filter((x) => x.id !== p.id));
+			_populatePresetSelect(kind);
+		});
+		inner.appendChild(row);
+	}
+}
+
+function _esc(s) { return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+
+async function _dataUrlToFile(dataUrl, name) {
+	const blob = await (await fetch(dataUrl)).blob();
+	return new File([blob], name, { type: blob.type || 'image/png' });
+}
+
+async function _extractBundledFrame(p) {
+	const img = new Image();
+	await new Promise((res, rej) => {
+		img.onload = res;
+		img.onerror = () => rej(new Error('Không tải được ' + p.src));
+		img.src = new URL(p.src, location.href).href;
+	});
+	const c = document.createElement('canvas');
+	c.width = p.sw; c.height = p.sh;
+	const ctx = c.getContext('2d');
+	ctx.imageSmoothingEnabled = false;
+	ctx.drawImage(img, p.sx, p.sy, p.sw, p.sh, 0, 0, p.sw, p.sh);
+	return c.toDataURL('image/png');
 }
 
 async function _loadPresetIntoBouncer(value, isWeapon) {
 	if (!value) return;
 	const [kind, id] = value.split(':');
-	let dataUrl, name;
+	const isCharacters = !isWeapon;
+	const k = isCharacters ? 'characters' : 'weapons';
 	if (kind === 'bundled') {
-		const list = isWeapon ? _bundledPresets.weapons : _bundledPresets.characters;
-		const p = list.find((x) => x.id === id);
-		if (!p) return;
-		// Fetch source sheet, extract frame via offscreen canvas
-		const img = new Image();
-		img.crossOrigin = 'anonymous';
-		await new Promise((res, rej) => {
-			img.onload = res;
-			img.onerror = () => rej(new Error('Không tải được ' + p.src));
-			img.src = new URL(p.src, location.href).href;
-		});
-		const c = document.createElement('canvas');
-		c.width = p.sw; c.height = p.sh;
-		const ctx = c.getContext('2d');
-		ctx.imageSmoothingEnabled = false;
-		ctx.drawImage(img, p.sx, p.sy, p.sw, p.sh, 0, 0, p.sw, p.sh);
-		dataUrl = c.toDataURL('image/png');
-		name = `${p.id}.png`;
+		const p = _bundledPresets[k].find((x) => x.id === id);
+		if (!p) throw new Error('Preset không tồn tại');
+		const dataUrl = await _extractBundledFrame(p);
+		handleFile(await _dataUrlToFile(dataUrl, `${p.id}.png`), isWeapon);
 	} else if (kind === 'user') {
-		const list = _readLib(isWeapon ? LIB_KEY_WEAPON : LIB_KEY_BODY);
+		const list = _readLib(_libKeyFor(k));
 		const p = list.find((x) => x.id === id);
-		if (!p) return;
-		dataUrl = p.dataUrl;
-		name = `${p.name}.png`;
-	} else {
-		return;
+		if (!p) {
+			// Stale option (lib mutated in another tab) — refresh and bail
+			_populatePresetSelect(k);
+			throw new Error('Entry không còn trong thư viện (đã refresh)');
+		}
+		try {
+			handleFile(await _dataUrlToFile(p.dataUrl, `${p.name}.png`), isWeapon);
+		} catch (e) {
+			// Corrupted dataUrl → auto-cleanup so the dropdown doesn't keep showing it
+			if (confirm(`Entry "${p.name}" bị hỏng (${e.message}). Xoá khỏi thư viện?`)) {
+				const key = _libKeyFor(k);
+				_writeLib(key, _readLib(key).filter((x) => x.id !== p.id));
+				_populatePresetSelect(k);
+			}
+			throw e;
+		}
 	}
-	// Wrap dataUrl into a File and reuse the existing handleFile pipeline
-	const blob = await (await fetch(dataUrl)).blob();
-	const file = new File([blob], name, { type: blob.type || 'image/png' });
-	handleFile(file, isWeapon);
 }
 
 function _saveCurrentToLib(isWeapon) {
-	const srcImg = isWeapon ? weaponSrcImg : bodySrcImg;
-	if (!srcImg) { alert('Chưa có sprite để lưu.'); return; }
+	// Prefer the ORIGINAL upload bytes (FileReader dataUrl) — typically much
+	// smaller than re-encoding via canvas (indexed PNG → RGBA PNG inflation).
+	const dataUrl = isWeapon ? weaponSrcDataUrl : bodySrcDataUrl;
+	if (!dataUrl) { alert('Chưa có sprite để lưu.'); return; }
 	const defaultName = isWeapon ? 'weapon-' + Date.now().toString(36) : (bodyName || 'character');
 	const name = (prompt('Tên trong thư viện:', defaultName) || '').trim();
 	if (!name) return;
-	// Re-encode srcImg → PNG dataUrl so we capture the uncropped original
-	const c = document.createElement('canvas');
-	c.width = srcImg.width; c.height = srcImg.height;
-	const ctx = c.getContext('2d');
-	ctx.imageSmoothingEnabled = false;
-	ctx.drawImage(srcImg, 0, 0);
-	const dataUrl = c.toDataURL('image/png');
-	// ~1.4× base64 inflation; warn if approaching common 5MB localStorage cap.
-	if (dataUrl.length > 2_000_000) {
-		if (!confirm(`Sprite này nặng ${(dataUrl.length/1024).toFixed(0)}KB. Có thể đầy localStorage. Vẫn lưu?`)) return;
+	if (dataUrl.length > LIB_QUOTA_WARN_BYTES) {
+		if (!confirm(`Sprite này ~${(dataUrl.length/1024).toFixed(0)}KB. Có thể đầy localStorage. Vẫn lưu?`)) return;
 	}
-	const key = isWeapon ? LIB_KEY_WEAPON : LIB_KEY_BODY;
+	const kind = isWeapon ? 'weapons' : 'characters';
+	const key = _libKeyFor(kind);
 	const list = _readLib(key);
 	const id = 'u' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 	list.push({ id, name, dataUrl, addedAt: Date.now() });
 	_writeLib(key, list);
-	_populatePresetSelect(isWeapon ? 'weapon-preset' : 'body-preset', isWeapon ? 'weapons' : 'characters');
-	alert(`Đã lưu "${name}" vào thư viện.`);
+	_populatePresetSelect(kind);
 }
 
-// Wire up
-$('body-preset').addEventListener('change', (e) => {
-	const v = e.target.value;
-	e.target.value = ''; // reset so user can re-pick same item
-	if (v) _loadPresetIntoBouncer(v, false).catch((err) => alert('Lỗi load preset: ' + err.message));
-});
-$('weapon-preset').addEventListener('change', (e) => {
-	const v = e.target.value;
-	e.target.value = '';
-	if (v) _loadPresetIntoBouncer(v, true).catch((err) => alert('Lỗi load preset: ' + err.message));
-});
+// Wire up — change handler resets the select so user can re-pick the same item
+function _bindPresetSelect(selectId, isWeapon) {
+	$(selectId).addEventListener('change', (e) => {
+		const v = e.target.value;
+		e.target.value = '';
+		if (!v) return;
+		_loadPresetIntoBouncer(v, isWeapon).catch((err) => alert('Lỗi load preset: ' + err.message));
+	});
+}
+_bindPresetSelect('body-preset', false);
+_bindPresetSelect('weapon-preset', true);
 $('body-save-lib').addEventListener('click', () => _saveCurrentToLib(false));
 $('weapon-save-lib').addEventListener('click', () => _saveCurrentToLib(true));
 
-// Right-click on a "Của tôi" option → delete prompt
-function _bindRightClickDelete(selectId, kind) {
-	$(selectId).addEventListener('contextmenu', (e) => {
-		const opt = e.target;
-		if (opt.tagName !== 'OPTION' || !opt.value.startsWith('user:')) return;
-		e.preventDefault();
-		const id = opt.value.slice(5);
-		if (!confirm(`Xoá "${opt.textContent}" khỏi thư viện?`)) return;
-		const key = kind === 'characters' ? LIB_KEY_BODY : LIB_KEY_WEAPON;
-		_writeLib(key, _readLib(key).filter((x) => x.id !== id));
-		_populatePresetSelect(selectId, kind);
-	});
-}
-_bindRightClickDelete('body-preset', 'characters');
-_bindRightClickDelete('weapon-preset', 'weapons');
+// Cross-tab sync: another tab adds/removes lib entry → refresh dropdown here.
+window.addEventListener('storage', (e) => {
+	if (e.key === LIB_KEY_BODY) _populatePresetSelect('characters');
+	else if (e.key === LIB_KEY_WEAPON) _populatePresetSelect('weapons');
+});
 
 // Init: load manifest then populate both selects
 _fetchManifest().then((m) => {
 	_bundledPresets = m;
-	_populatePresetSelect('body-preset', 'characters');
-	_populatePresetSelect('weapon-preset', 'weapons');
+	_populatePresetSelect('characters');
+	_populatePresetSelect('weapons');
 });
 
 function paintThumb(thumbCanvas, img) {
