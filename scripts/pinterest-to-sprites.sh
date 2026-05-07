@@ -1,27 +1,26 @@
 #!/usr/bin/env bash
-# pinterest-to-sprites.sh — download a Pinterest video and slice it into PNG
-# frames ready to feed into Bouncer / Universal-LPC sheet builders.
+# pinterest-to-sprites.sh — download a Pinterest video and slice it into a
+# horizontal sprite-sheet ready to feed into Bouncer.
 #
 # Usage:
-#   scripts/pinterest-to-sprites.sh <pinterest-url> [outdir] [fps] [maxwidth]
+#   scripts/pinterest-to-sprites.sh <pinterest-url> [outdir] [fps] [maxwidth] [--frames]
 #
 # Examples:
 #   scripts/pinterest-to-sprites.sh https://pinterest.com/pin/12345/
 #   scripts/pinterest-to-sprites.sh URL out/punch 12
 #   scripts/pinterest-to-sprites.sh URL out/punch 24 256
+#   scripts/pinterest-to-sprites.sh URL out/punch 12 256 --frames   # also keep per-frame PNGs
 #
-# Defaults: outdir=tmp/pinterest/<id>, fps=12, maxwidth=keep
+# Defaults: outdir=tmp/pinterest/<id>, fps=12, maxwidth=keep, frames=off
 #
 # Output:
-#   <outdir>/source.mp4         — the downloaded video (kept for reference)
-#   <outdir>/frame_001.png …    — extracted frames, transparent BG NOT removed
-#                                 (use Bouncer's 🧹 Xoá nền or remove.bg later)
-#   <outdir>/sheet.png          — horizontal sprite-sheet (all frames in one row)
+#   <outdir>/source.mp4    — downloaded video (200MB cap)
+#   <outdir>/sheet.png     — N-cols × 1-row sprite sheet
+#   <outdir>/frame_*.png   — only with --frames
 #
 # Notes:
-# - Requires yt-dlp + ffmpeg (auto-checked).
+# - Single-pass ffmpeg: fps → scale → tile → sheet.png (was 2-pass v0.13.6).
 # - Pinterest GIFs / image carousels won't work — must be a real video pin.
-# - For LPC-style 64×64 frames, pass maxwidth=64 and crop in Bouncer after.
 
 set -euo pipefail
 
@@ -29,62 +28,67 @@ URL="${1:-}"
 OUT="${2:-}"
 FPS="${3:-12}"
 MAXW="${4:-}"
+KEEP_FRAMES=0
+for arg in "$@"; do
+  [[ "$arg" == "--frames" ]] && KEEP_FRAMES=1
+done
 
 if [[ -z "$URL" ]]; then
   cat <<EOF >&2
-Usage: $0 <pinterest-url> [outdir] [fps=12] [maxwidth]
+Usage: $0 <pinterest-url> [outdir] [fps=12] [maxwidth] [--frames]
 Example: $0 https://www.pinterest.com/pin/12345/ tmp/punch 12 256
 EOF
   exit 1
 fi
 
-for cmd in yt-dlp ffmpeg; do
+for cmd in yt-dlp ffmpeg ffprobe; do
   if ! command -v "$cmd" >/dev/null 2>&1; then
-    echo "❌ $cmd chưa cài. Chạy: brew install $cmd" >&2
+    echo "❌ $cmd chưa cài. Chạy: brew install yt-dlp ffmpeg" >&2
     exit 1
   fi
 done
 
-# Default outdir = tmp/pinterest/<pin-id>
 if [[ -z "$OUT" ]]; then
   PIN_ID=$(echo "$URL" | grep -oE '[0-9]{8,}' | head -1)
   OUT="tmp/pinterest/${PIN_ID:-$(date +%s)}"
 fi
 mkdir -p "$OUT"
 
-echo "📥 Downloading: $URL → $OUT/source.mp4"
-yt-dlp -q --no-warnings -o "$OUT/source.%(ext)s" -f 'bv*+ba/b' --merge-output-format mp4 "$URL"
+echo "📥 Downloading: $URL → $OUT/source.*"
+yt-dlp -q --no-warnings \
+  -f 'bv*+ba/b' --max-filesize 200M \
+  --merge-output-format mp4 \
+  -o "$OUT/source.%(ext)s" "$URL"
 
-# yt-dlp may write source.webm or source.mkv; rename to .mp4 if needed for clarity
 SRC=$(ls "$OUT"/source.* 2>/dev/null | head -1)
-if [[ -z "$SRC" ]]; then echo "❌ Tải thất bại." >&2; exit 1; fi
+[[ -z "$SRC" ]] && { echo "❌ Tải thất bại (video > 200MB hoặc cần auth)" >&2; exit 1; }
 echo "✅ Tải xong: $SRC"
 
-# Build the ffmpeg vf filter chain
+# Probe duration → compute frame count
+DUR=$(ffprobe -v error -show_entries format=duration -of csv=p=0 "$SRC")
+N=$(awk -v d="$DUR" -v f="$FPS" 'BEGIN { n = int(d * f + 0.5); if (n < 1) n = 1; if (n > 512) n = 512; print n }')
+echo "🎞  ${DUR}s × ${FPS}fps = $N frames"
+
+# Build vf chain: fps → optional scale → tile (single ffmpeg pass)
 VF="fps=$FPS"
-if [[ -n "$MAXW" ]]; then
-  VF="$VF,scale=$MAXW:-1:flags=neighbor"   # nearest-neighbor for pixel-art feel
+[[ -n "$MAXW" ]] && VF="$VF,scale=$MAXW:-1:flags=neighbor"
+
+if (( KEEP_FRAMES )); then
+  # Two-pass only when user explicitly wants individual frames
+  echo "🧵 Extracting individual frames (--frames flag)…"
+  ffmpeg -y -loglevel error -i "$SRC" -vf "$VF" "$OUT/frame_%03d.png"
 fi
 
-echo "🎞  Extracting frames @${FPS}fps${MAXW:+ scaled to ${MAXW}px wide}…"
-ffmpeg -y -loglevel error -i "$SRC" -vf "$VF" "$OUT/frame_%03d.png"
-
-FRAMES=$(ls "$OUT"/frame_*.png | wc -l | tr -d ' ')
-echo "✅ Extracted $FRAMES frames → $OUT/frame_*.png"
-
-# Build a horizontal sprite-sheet (single row × N cols)
 echo "🧵 Building sprite-sheet…"
-ffmpeg -y -loglevel error -framerate "$FPS" -i "$OUT/frame_%03d.png" \
-  -vf "tile=${FRAMES}x1" -frames:v 1 "$OUT/sheet.png"
-echo "✅ Sheet: $OUT/sheet.png ($FRAMES frames in a row)"
+ffmpeg -y -loglevel error -i "$SRC" -vf "$VF,tile=${N}x1" -frames:v 1 "$OUT/sheet.png"
+echo "✅ Sheet: $OUT/sheet.png ($N frames in a row)"
 
 cat <<EOF
 
 ──────────────────────────────────────────────────────────────
 Done.  Open in Bouncer:
-  • Single frame:   $OUT/frame_001.png  → upload as Body / Weapon
-  • Full sheet:     $OUT/sheet.png      → upload as 🖼️ FX sprite,
-                    set Cols=$FRAMES, Rows=1 in the FX panel.
+  • Full sheet:  $OUT/sheet.png  → 🖼️ FX sprite custom panel,
+                 set Cols=$N, Rows=1.
 Tip: Right-click → 🧹 Xoá nền in Bouncer to drop the background.
 ──────────────────────────────────────────────────────────────
 EOF
