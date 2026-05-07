@@ -64,14 +64,29 @@ SRC=$(ls "$OUT"/source.* 2>/dev/null | head -1)
 [[ -z "$SRC" ]] && { echo "❌ Tải thất bại (video > 200MB hoặc cần auth)" >&2; exit 1; }
 echo "✅ Tải xong: $SRC"
 
-# Probe duration → compute frame count
+# Probe duration → compute frame count (cap N=64; sprite sheets > 64
+# frames rarely make sense for game anims).
 DUR=$(ffprobe -v error -show_entries format=duration -of csv=p=0 "$SRC")
-N=$(awk -v d="$DUR" -v f="$FPS" 'BEGIN { n = int(d * f + 0.5); if (n < 1) n = 1; if (n > 512) n = 512; print n }')
+N=$(awk -v d="$DUR" -v f="$FPS" 'BEGIN { n = int(d * f + 0.5); if (n < 1) n = 1; if (n > 64) n = 64; print n }')
 echo "🎞  ${DUR}s × ${FPS}fps = $N frames"
+
+# Auto-cap final sheet width at 8192px to avoid PNG/canvas overflow.
+NATIVE_W=$(ffprobe -v error -select_streams v:0 -show_entries stream=width -of csv=p=0 "$SRC")
+MAX_SHEET_W=8192
+EFFECTIVE_MAXW="$MAXW"
+if [[ -n "$NATIVE_W" ]] && (( NATIVE_W * N > MAX_SHEET_W )); then
+  CAP=$(( MAX_SHEET_W / N ))
+  if [[ -n "$EFFECTIVE_MAXW" ]]; then
+    (( EFFECTIVE_MAXW > CAP )) && EFFECTIVE_MAXW="$CAP"
+  else
+    EFFECTIVE_MAXW="$CAP"
+  fi
+  echo "ℹ️  ${NATIVE_W}×${N} > ${MAX_SHEET_W}px, auto scale frame to ${EFFECTIVE_MAXW}px wide"
+fi
 
 # Build vf chain: fps → optional scale → tile (single ffmpeg pass)
 VF="fps=$FPS"
-[[ -n "$MAXW" ]] && VF="$VF,scale=$MAXW:-1:flags=neighbor"
+[[ -n "$EFFECTIVE_MAXW" ]] && VF="$VF,scale=$EFFECTIVE_MAXW:-1:flags=neighbor"
 
 if (( KEEP_FRAMES )); then
   # Two-pass only when user explicitly wants individual frames

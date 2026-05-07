@@ -230,13 +230,27 @@ export function vitePluginPinterestExtract({ extraPath = [], presetDir } = {}) {
           if (!srcName) throw new Error("yt-dlp produced no output (video > 200MB or auth required?)");
           const srcPath = join(tmp, srcName);
 
-          // 2. ffprobe → duration → frame count
+          // 2. ffprobe → duration → frame count. Cap N to 64 so the sheet
+          //    stays manageable for sprite-sheet use (most game anims are
+          //    8-16 frames). Long videos: user should lower fps or pass a
+          //    slice URL.
           const duration = await probeDuration(ffprobe, srcPath);
-          const N = Math.max(1, Math.min(512, Math.round(duration * fps)));
+          const N = Math.max(1, Math.min(64, Math.round(duration * fps)));
 
           // 3. SINGLE-PASS ffmpeg: fps → scale → tile → sheet.png
+          //    Auto-cap final sheet width at 8192px (PNG safe + browser
+          //    canvas safe). If user didn't pass maxwidth and N×nativeW
+          //    would exceed it, fall back to maxwidth = 8192/N.
+          const probeRes = await run(ffprobe, ["-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width", "-of", "csv=p=0", srcPath]);
+          const nativeW = Number(String(probeRes.stdout).trim()) || 0;
+          let effectiveMaxW = maxwidth;
+          const MAX_SHEET_W = 8192;
+          if (nativeW * N > MAX_SHEET_W) {
+            const cap = Math.max(16, Math.floor(MAX_SHEET_W / N));
+            effectiveMaxW = effectiveMaxW ? Math.min(effectiveMaxW, cap) : cap;
+          }
           let vf = `fps=${fps}`;
-          if (maxwidth) vf += `,scale=${maxwidth}:-1:flags=neighbor`;
+          if (effectiveMaxW) vf += `,scale=${effectiveMaxW}:-1:flags=neighbor`;
           vf += `,tile=${N}x1`;
           const sheetPath = join(tmp, "sheet.png");
           await run(ffmpeg, [
