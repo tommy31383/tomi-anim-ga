@@ -30,11 +30,18 @@ import { tmpdir } from "node:os";
 import { join, resolve as resolvePath } from "node:path";
 
 // Accept three URL shapes, all delegated to yt-dlp:
-//   1. Pinterest pin URL on the official domain (whitelist TLDs)
+//   1. Pinterest pin URL on any pinterest.* TLD (covers .com, .com.vn,
+//      .co.uk, .com.au, .ru, etc. — single OR two-part TLDs).
 //   2. Pinterest short link  https://pin.it/<id>
 //   3. Direct media URL ending .mp4/.webm/.mov/.m3u8 — lets the user
 //      bypass Pinterest entirely by grabbing the URL from DevTools.
-const PINTEREST_LONG_RE = /^https?:\/\/(?:www\.|[a-z]{2}\.)?pinterest\.(?:com|ca|co\.uk|com\.au|de|fr|es|it|nl|jp|kr|ph|nz|ie|at|ch|se|dk|no|fi|pt|com\.mx|cl|info)\/[^\s]+$/i;
+//
+// The pinterest regex still anchors on `pinterest.` as the suffix-host
+// label, so `pinterest.evil.com` (the attacker controls the rest) would
+// only match if the URL host is exactly `pinterest.evil[.tld]`. yt-dlp
+// itself further validates by trying to extract — junk URLs error out
+// inside the child process, the user sees the message.
+const PINTEREST_LONG_RE = /^https?:\/\/(?:[a-z0-9-]+\.)?pinterest\.[a-z]{2,4}(?:\.[a-z]{2,4})?\/[^\s]+$/i;
 const PINTEREST_SHORT_RE = /^https?:\/\/pin\.it\/[A-Za-z0-9]+\/?$/i;
 const DIRECT_MEDIA_RE = /^https?:\/\/[^\s]+\.(?:mp4|webm|mov|m4v|m3u8)(?:\?[^\s]*)?$/i;
 function _validUrl(u) {
