@@ -411,6 +411,10 @@
 				<!-- 4 global FX modifiers — apply to ALL enabled FX -->
 				<div class="mt-3 grid grid-cols-2 gap-x-3 gap-y-1.5 text-[10px]">
 					<label class="flex flex-col gap-0.5">
+						<span class="flex justify-between"><span class="text-slate-400">↔️ Vị trí X</span><span id="fx-posx-val" class="text-cyan-300 font-mono">0px</span></span>
+						<input id="fx-posx" type="range" min="-80" max="80" step="2" value="0" class="w-full" title="Dịch FX trái (-) hoặc phải (+)">
+					</label>
+					<label class="flex flex-col gap-0.5">
 						<span class="flex justify-between"><span class="text-slate-400">📍 Vị trí Y</span><span id="fx-posy-val" class="text-cyan-300 font-mono">0px</span></span>
 						<input id="fx-posy" type="range" min="-80" max="80" step="2" value="0" class="w-full" title="Dịch FX lên (-) hoặc xuống (+)">
 					</label>
@@ -1743,6 +1747,7 @@ function drawShootMuzzleFx(ctx, t, cx, cy, dir) {
 // when set, otherwise the effect's own duration window inside t∈[0,1].
 //
 // Global modifiers apply to all enabled FX (sliders in sidebar):
+//   fxPosX    -80..+80px       — extra X offset on top of each FX's anchor
 //   fxPosY    -80..+80px       — extra Y offset on top of each FX's anchor
 //   fxSize    0.3..3.0         — scale multiplier (radius / arc length)
 //   fxThick   0.3..3.0         — stroke width / halo thickness multiplier
@@ -1751,6 +1756,7 @@ function drawShootMuzzleFx(ctx, t, cx, cy, dir) {
 // =====================================================================
 const FX_REGISTRY = {};
 let enabledFx = new Set();
+let fxPosX = 0;
 let fxPosY = 0;
 let fxSize = 1;
 let fxThick = 1;
@@ -2255,13 +2261,14 @@ FX_REGISTRY.emojiBubble = {
 
 function drawAllFx(ctx, t, cx, cy, dir) {
 	if (!enabledFx.size) return;
-	// Apply global Y offset once for all FX. Size/thickness/density modifiers
-	// are applied inside each FX via _S/_T/_N helpers (so line widths can
-	// stay independent of geometric size).
+	// Apply global X/Y offset once for all FX. Size/thickness/density
+	// modifiers are applied inside each FX via _S/_T/_N helpers (so line
+	// widths can stay independent of geometric size).
+	const ax = cx + fxPosX;
 	const ay = cy + fxPosY;
 	for (const id of enabledFx) {
 		const fx = FX_REGISTRY[id];
-		if (fx?.draw) fx.draw(ctx, t, cx, ay, dir);
+		if (fx?.draw) fx.draw(ctx, t, ax, ay, dir);
 	}
 }
 
@@ -3902,7 +3909,12 @@ function _renderEmojiPicker() {
 }
 _renderEmojiPicker();
 
-// Wire 4 global FX modifier sliders
+// Wire 5 global FX modifier sliders
+$('fx-posx').addEventListener('input', (e) => {
+	fxPosX = Number(e.target.value) || 0;
+	$('fx-posx-val').textContent = `${fxPosX > 0 ? '+' : ''}${fxPosX}px`;
+	updateBakePreview();
+});
 $('fx-posy').addEventListener('input', (e) => {
 	fxPosY = Number(e.target.value) || 0;
 	$('fx-posy-val').textContent = `${fxPosY > 0 ? '+' : ''}${fxPosY}px`;
