@@ -396,6 +396,15 @@
 				<input id="hit-frame" type="range" min="-1" max="0" step="1" value="-1" class="w-full">
 				<p class="text-[9px] text-slate-500 mt-0.5">−1 = không đánh dấu</p>
 			</div>
+			<details class="pt-2 border-t border-slate-800" id="layers-panel-section">
+				<summary class="cursor-pointer flex justify-between items-center text-xs mb-1.5 hover:text-cyan-300">
+					<span class="text-slate-300 font-semibold">📚 Layers (z-order)</span>
+					<button id="layers-reset-btn" class="text-[10px] text-slate-500 hover:text-white" onclick="event.stopPropagation()">↺ Reset</button>
+				</summary>
+				<p class="text-[9px] text-slate-500 mb-1.5">Điều khiển 👁 ẩn/hiện · Opacity · ⬆⬇ z-order. Click ⬆ để vẽ sau (trên cùng), ⬇ để vẽ trước (background).</p>
+				<div id="layers-list" class="space-y-1"></div>
+			</details>
+
 			<div class="pt-2 border-t border-slate-800">
 				<div class="flex justify-between items-center text-xs mb-1.5">
 					<span class="text-slate-300 font-semibold">🎆 Hiệu ứng bổ sung</span>
@@ -2449,27 +2458,48 @@ function drawCombatSkillFx(ctx, t, cx, cy, dir) {
 	ctx.restore();
 }
 
+// =====================================================================
+// Layer Registry — drives drawFullFrame + the 📚 Layers UI panel.
+// Each entry: { id, label, drawFn, visible, opacity (0..1), z (sort key) }.
+// Render iterates sorted by z; user can reorder via the panel.
+// =====================================================================
+const LAYER_DEFS = [
+	{ id: 'runDust',     label: '💨 Bụi chạy',           drawFn: (c,t,cx,cy,d)=>drawRunFakeFx(c,t,cx,cy,d) },
+	{ id: 'character',   label: '🧍 Nhân vật + Vũ khí',  drawFn: (c,t,cx,cy,d)=>drawFrameAt(c,t,cx,cy,d) },
+	{ id: 'slashTrail',  label: '⚔️ Slash trail',         drawFn: (c,t,cx,cy,d)=>drawSlashTrail(c,t,cx,cy,d) },
+	{ id: 'combatSkill', label: '✨ Combat skill FX',     drawFn: (c,t,cx,cy,d)=>drawCombatSkillFx(c,t,cx,cy,d) },
+	{ id: 'muzzle',      label: '💥 Shoot muzzle',        drawFn: (c,t,cx,cy,d)=>drawShootMuzzleFx(c,t,cx,cy,d) },
+	{ id: 'hitParticles',label: '✨ Hit particles',       drawFn: (c,t,cx,cy,d)=>drawHitParticles(c,t,cx,cy,d) },
+	{ id: 'proceduralFx',label: '🎆 FX bổ sung (group)',  drawFn: (c,t,cx,cy,d)=>drawAllFx(c,t,cx,cy,d) },
+];
+const LAYER_STATE = Object.fromEntries(
+	LAYER_DEFS.map((l, i) => [l.id, { visible: true, opacity: 1, z: (i + 1) * 10 }]),
+);
+
+function _orderedLayers() {
+	return LAYER_DEFS
+		.map((l) => ({ ...l, ...LAYER_STATE[l.id] }))
+		.sort((a, b) => a.z - b.z);
+}
+
 function drawFullFrame(ctx, t, cx, cy, dir, scale = 1) {
-	if (scale === 1) {
-		drawRunFakeFx(ctx, t, cx, cy, dir);
-		drawFrameAt(ctx, t, cx, cy, dir);
-		drawSlashTrail(ctx, t, cx, cy, dir);
-		drawCombatSkillFx(ctx, t, cx, cy, dir);
-		drawShootMuzzleFx(ctx, t, cx, cy, dir);
-		drawHitParticles(ctx, t, cx, cy, dir);
-		drawAllFx(ctx, t, cx, cy, dir);
-		return;
-	}
+	const layers = _orderedLayers();
 	ctx.save();
-	ctx.translate(cx, cy);
-	ctx.scale(scale, scale);
-	drawRunFakeFx(ctx, t, 0, 0, dir);
-	drawFrameAt(ctx, t, 0, 0, dir);
-	drawSlashTrail(ctx, t, 0, 0, dir);
-	drawCombatSkillFx(ctx, t, 0, 0, dir);
-	drawShootMuzzleFx(ctx, t, 0, 0, dir);
-	drawHitParticles(ctx, t, 0, 0, dir);
-	drawAllFx(ctx, t, 0, 0, dir);
+	let ox = cx, oy = cy;
+	if (scale !== 1) {
+		ctx.translate(cx, cy);
+		ctx.scale(scale, scale);
+		ox = 0; oy = 0;
+	}
+	for (const L of layers) {
+		if (!L.visible) continue;
+		const a = L.opacity;
+		if (a <= 0) continue;
+		ctx.save();
+		if (a < 1) ctx.globalAlpha = a;
+		L.drawFn(ctx, t, ox, oy, dir);
+		ctx.restore();
+	}
 	ctx.restore();
 }
 
@@ -3917,6 +3947,63 @@ function _renderEmojiPicker() {
 	}
 }
 _renderEmojiPicker();
+
+// ===== 📚 Layers panel — visibility / opacity / z-order =====
+function _renderLayersPanel() {
+	const list = $('layers-list');
+	if (!list) return;
+	list.innerHTML = '';
+	const ordered = _orderedLayers();
+	ordered.forEach((L, idx) => {
+		const st = LAYER_STATE[L.id];
+		const row = document.createElement('div');
+		row.className = 'flex items-center gap-1 bg-slate-900/50 border border-slate-800 rounded px-1.5 py-1 text-[10px]';
+		row.innerHTML = `
+			<button data-act="vis" class="shrink-0 w-5 text-center" title="Ẩn/hiện">${st.visible ? '👁' : '·'}</button>
+			<span class="flex-1 truncate text-slate-200">${L.label}</span>
+			<input data-act="op" type="range" min="0" max="100" step="5" value="${Math.round(st.opacity * 100)}" class="w-12" title="Opacity ${Math.round(st.opacity * 100)}%">
+			<button data-act="up" class="shrink-0 w-5 text-center text-cyan-300 hover:text-white disabled:opacity-30" ${idx === ordered.length - 1 ? 'disabled' : ''} title="Vẽ sau (lên trên)">⬆</button>
+			<button data-act="down" class="shrink-0 w-5 text-center text-cyan-300 hover:text-white disabled:opacity-30" ${idx === 0 ? 'disabled' : ''} title="Vẽ trước (xuống dưới)">⬇</button>
+		`;
+		row.querySelector('[data-act="vis"]').addEventListener('click', () => {
+			st.visible = !st.visible;
+			_renderLayersPanel();
+			updateBakePreview();
+		});
+		row.querySelector('[data-act="op"]').addEventListener('input', (e) => {
+			st.opacity = Math.max(0, Math.min(1, Number(e.target.value) / 100));
+			updateBakePreview();
+		});
+		row.querySelector('[data-act="up"]').addEventListener('click', () => _swapZ(L.id, +1));
+		row.querySelector('[data-act="down"]').addEventListener('click', () => _swapZ(L.id, -1));
+		list.appendChild(row);
+	});
+}
+
+function _swapZ(id, dir) {
+	// Swap this layer's z with its immediate neighbor in render order.
+	const ordered = _orderedLayers();
+	const idx = ordered.findIndex((L) => L.id === id);
+	const j = idx + dir;
+	if (j < 0 || j >= ordered.length) return;
+	const a = LAYER_STATE[ordered[idx].id];
+	const b = LAYER_STATE[ordered[j].id];
+	[a.z, b.z] = [b.z, a.z];
+	_renderLayersPanel();
+	updateBakePreview();
+}
+
+$('layers-reset-btn').addEventListener('click', () => {
+	LAYER_DEFS.forEach((l, i) => {
+		LAYER_STATE[l.id].visible = true;
+		LAYER_STATE[l.id].opacity = 1;
+		LAYER_STATE[l.id].z = (i + 1) * 10;
+	});
+	_renderLayersPanel();
+	updateBakePreview();
+});
+
+_renderLayersPanel();
 
 // Wire 5 global FX modifier sliders
 $('fx-posx').addEventListener('input', (e) => {
