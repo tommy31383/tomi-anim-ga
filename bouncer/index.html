@@ -465,10 +465,16 @@
 					<span class="material-symbols-outlined align-middle" style="font-size:14px">cloud_upload</span>
 					Kéo thả hoặc click chọn
 				</label>
-				<button id="pinterest-extract-btn" class="mt-1.5 w-full text-[10px] px-2 py-1 rounded border border-rose-500/40 text-rose-300 bg-rose-500/10 hover:bg-rose-500/20 active:scale-95 flex items-center justify-center gap-1" title="Dev only. Pin Pinterest, link pin.it/, hoặc URL .mp4 trực tiếp. Auth pin → đọc cookie từ Chrome.">
-					📌 Lấy video Pinterest → sprite-sheet
-				</button>
+				<div class="mt-1.5 flex gap-1.5">
+					<button id="pinterest-extract-btn" class="flex-1 text-[10px] px-2 py-1 rounded border border-rose-500/40 text-rose-300 bg-rose-500/10 hover:bg-rose-500/20 active:scale-95 flex items-center justify-center gap-1" title="Dev only. Pin Pinterest, link pin.it/, hoặc URL .mp4 trực tiếp. Auth pin → đọc cookie từ Chrome.">
+						📌 Lấy video Pinterest
+					</button>
+					<button id="pinterest-browse-btn" class="text-[10px] px-2 py-1 rounded border border-rose-500/40 text-rose-300 bg-rose-500/10 hover:bg-rose-500/20 active:scale-95" title="Xem các sheet đã lưu trong bouncer/presets/pinterest/">
+						📂
+					</button>
+				</div>
 				<p id="pinterest-extract-status" class="hidden mt-1 text-[9px] text-slate-400 italic"></p>
+				<details id="pinterest-browse-panel" class="hidden mt-1.5 bg-slate-900/50 border border-slate-800 rounded text-[10px]" open><summary class="cursor-pointer px-2 py-1 text-slate-400 hover:text-rose-300">📂 Sheet Pinterest đã lưu</summary><div class="px-2 py-1.5 space-y-1 max-h-60 overflow-auto"></div></details>
 				<div id="custom-fx-info" class="hidden mt-1.5 flex items-center gap-2 text-[10px] text-violet-300">
 					<canvas id="custom-fx-thumb" width="32" height="32" class="rounded bg-slate-950 border border-slate-700" style="image-rendering:pixelated"></canvas>
 					<div class="flex-1 min-w-0">
@@ -4045,31 +4051,81 @@ customFxPreset.addEventListener('change', (e) => {
 // Sheets extracted via the 📌 button get persisted to
 // bouncer/presets/pinterest/<id>.png + manifest.json by the dev plugin,
 // then re-appear here next session.
-async function _refreshPinterestOptgroup() {
-	let list = [];
+async function _readPinterestManifest() {
 	try {
 		const resp = await fetch(new URL('./presets/pinterest/manifest.json', location.href));
-		if (resp.ok) list = await resp.json();
-	} catch { /* manifest missing or empty — fine */ }
+		if (!resp.ok) return [];
+		const list = await resp.json();
+		return Array.isArray(list) ? list : [];
+	} catch { return []; }
+}
+
+async function _refreshPinterestOptgroup() {
+	const list = await _readPinterestManifest();
 	// Remove any existing pinterest optgroup, then re-append
 	const existing = customFxPreset.querySelector('optgroup[data-pinterest]');
 	if (existing) existing.remove();
-	if (!Array.isArray(list) || !list.length) return;
-	const og = document.createElement('optgroup');
-	og.dataset.pinterest = 'true';
-	og.label = `📌 Pinterest (${list.length})`;
-	// Sort newest first so the entry just extracted lands at top
-	list.sort((a, b) => String(b.addedAt || '').localeCompare(String(a.addedAt || '')));
-	for (const e of list) {
-		const opt = document.createElement('option');
-		opt.value = `presets/pinterest/${e.file}`;
-		opt.dataset.cols = String(e.cols || 1);
-		opt.dataset.rows = String(e.rows || 1);
-		opt.textContent = e.label || e.id;
-		og.appendChild(opt);
+	if (list.length) {
+		const og = document.createElement('optgroup');
+		og.dataset.pinterest = 'true';
+		og.label = `📌 Pinterest (${list.length})`;
+		// Sort newest first so the entry just extracted lands at top
+		list.sort((a, b) => String(b.addedAt || '').localeCompare(String(a.addedAt || '')));
+		for (const e of list) {
+			const opt = document.createElement('option');
+			opt.value = `presets/pinterest/${e.file}`;
+			opt.dataset.cols = String(e.cols || 1);
+			opt.dataset.rows = String(e.rows || 1);
+			opt.textContent = e.label || e.id;
+			og.appendChild(opt);
+		}
+		customFxPreset.appendChild(og);
 	}
-	customFxPreset.appendChild(og);
+	await _refreshPinterestBrowsePanel(list);
 }
+
+async function _refreshPinterestBrowsePanel(list) {
+	const panel = $('pinterest-browse-panel');
+	if (!list) list = await _readPinterestManifest();
+	const inner = panel.querySelector('div');
+	const summary = panel.querySelector('summary');
+	summary.textContent = `📂 Sheet Pinterest đã lưu (${list.length})`;
+	inner.innerHTML = '';
+	if (!list.length) {
+		inner.innerHTML = '<p class="text-slate-500 text-[10px] italic">Chưa có sheet nào. Click 📌 để extract.</p>';
+		return;
+	}
+	for (const e of list) {
+		const href = `presets/pinterest/${e.file}`;
+		const row = document.createElement('div');
+		row.className = 'flex items-center justify-between gap-2 py-0.5';
+		row.innerHTML = `
+			<div class="flex-1 min-w-0">
+				<div class="truncate text-slate-200" title="${e.sourceUrl || ''}">${e.label || e.id}</div>
+				<div class="text-slate-500 text-[9px] truncate">${e.file} · ${e.cols}×${e.rows}</div>
+			</div>
+			<a href="${href}" target="_blank" rel="noopener" class="text-rose-300 hover:text-rose-200 px-1.5 shrink-0" title="Mở PNG ở tab mới">🔍</a>
+			<button class="text-cyan-300 hover:text-cyan-200 px-1.5 shrink-0" title="Load vào Bouncer">⤴︎</button>
+		`;
+		row.querySelector('button').addEventListener('click', () => {
+			const img = new Image();
+			img.onload = () => _setCustomFxImg(img, e.file, e.cols, e.rows);
+			img.onerror = () => alert('Không load được ' + href);
+			img.src = href;
+		});
+		inner.appendChild(row);
+	}
+}
+
+$('pinterest-browse-btn').addEventListener('click', async () => {
+	const panel = $('pinterest-browse-panel');
+	panel.classList.toggle('hidden');
+	if (!panel.classList.contains('hidden')) {
+		panel.open = true;
+		await _refreshPinterestBrowsePanel();
+	}
+});
+
 _refreshPinterestOptgroup();
 
 // ===== Pinterest → sprite-sheet (dev-only, requires yt-dlp + ffmpeg) =====
