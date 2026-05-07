@@ -1,5 +1,5 @@
 import m from "mithril";
-import { resetAll, resetBodyToFull, state } from "../../state/state.js";
+import { cycleExpression, resetAll, resetBodyToFull, state } from "../../state/state.js";
 import { randomizeCharacter } from "../../state/random-character.js";
 import { quickSaveCurrent } from "../../state/projects.js";
 import { showToast } from "../../state/toast.js";
@@ -158,6 +158,18 @@ export const TopBar = {
               onclick: async () => {
                 await resetBodyToFull();
                 showToast("✅ Body chuẩn (đầy đủ anim)", { kind: "success" });
+              },
+            }),
+            iconBtn("mood", {
+              label: "Đổi mặt",
+              title: "Cycle expression — face khác (vui / buồn / giận / ...)",
+              onclick: async () => {
+                const name = await cycleExpression();
+                if (name) {
+                  showToast(`🎭 ${name}`, { kind: "success", durationMs: 1500 });
+                } else {
+                  showToast("Catalog chưa sẵn sàng", { kind: "error" });
+                }
               },
             }),
             iconBtn("share", {

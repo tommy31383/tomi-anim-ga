@@ -109,6 +109,43 @@ export function getSubSelectionGroup(itemId, idx) {
   return recolor?.type_name ?? meta.type_name;
 }
 
+// Cycle through available `expression` items in the catalog. Returns the
+// new expression name (for toast/UI feedback) or null if catalog isn't
+// ready yet. Mirrors the body recolor of the current selection so the
+// new face matches skin tone via match_body_color.
+export async function cycleExpression() {
+  const idx = catalog.getMetadataIndexes();
+  const rows = idx?.byTypeName?.expression;
+  if (!rows?.length) return null;
+
+  const cur = state.selections.expression;
+  const curIdx = cur
+    ? rows.findIndex((r) => r.itemId === cur.itemId)
+    : -1;
+  const nextIdx = (curIdx + 1) % rows.length;
+  const next = rows[nextIdx];
+  if (!next) return null;
+
+  const meta = catalog.getItemMerged(next.itemId);
+  if (!meta) return null;
+
+  // Mirror current body recolor onto the new expression (match_body_color).
+  const bodySel = state.selections[getSelectionGroup("body")];
+  const bodyRecolor = bodySel?.recolor || "light";
+
+  state.selections.expression = {
+    itemId: next.itemId,
+    subId: null,
+    variant: null,
+    recolor: bodyRecolor,
+    name: `${meta.name} (${bodyRecolor})`,
+  };
+  stateDeps.syncSelectionsToHash();
+  await stateDeps.renderCharacter(state.selections, state.bodyType);
+  stateDeps.redraw();
+  return meta.name;
+}
+
 // Replace ONLY the body slot with the default full-anim body ("Body Color"),
 // keeping all other selections intact. Use when user picks Zombie/Skeleton
 // and wants to bail back to the canonical body without losing their outfit.

@@ -393,6 +393,11 @@
 				</div>
 				<p class="text-[9px] text-slate-500 mb-2">Tự bật <span class="text-rose-400">Frame sát thương</span> (giữa anim) khi tick checkbox đầu tiên. Combo vô tư.</p>
 				<div id="fx-grid" class="grid grid-cols-2 gap-x-2 gap-y-1 text-[11px]"></div>
+				<!-- Emoji picker for the 💬 Emoji bubble FX -->
+				<div class="mt-2 flex items-center gap-2 text-[10px]">
+					<span class="text-slate-400">💬 Emoji:</span>
+					<div id="emoji-picker" class="flex flex-wrap gap-1 flex-1"></div>
+				</div>
 				<!-- 4 global FX modifiers — apply to ALL enabled FX -->
 				<div class="mt-3 grid grid-cols-2 gap-x-3 gap-y-1.5 text-[10px]">
 					<label class="flex flex-col gap-0.5">
@@ -2206,6 +2211,38 @@ FX_REGISTRY.lightning = {
 	},
 };
 
+// Emoji bubble — pop-in spring scale + float up + fade out, anchored
+// above body head. User picks emoji from sidebar dropdown.
+let emojiFxChar = "💥";
+FX_REGISTRY.emojiBubble = {
+	label: "💬 Emoji bubble",
+	draw: (ctx, t, cx, cy) => {
+		const p = _hitProgress(t);
+		if (p < 0) return;
+		// Spring overshoot: 0 → 1.25 → 1.0 in first 25%, hold, fade after 60%
+		let scale;
+		if (p < 0.25) {
+			const e = p / 0.25;
+			scale = e < 0.6 ? (e / 0.6) * 1.25 : 1.25 - ((e - 0.6) / 0.4) * 0.25;
+		} else {
+			scale = 1.0;
+		}
+		const fade = p < 0.6 ? 1 : Math.max(0, 1 - (p - 0.6) / 0.4);
+		const y = cy - (bodyImg ? bodyImg.height * 0.85 : 64) - p * 22;
+		const fontSize = _S(36) * scale;
+		ctx.save();
+		ctx.font = `${fontSize}px system-ui, "Apple Color Emoji", "Segoe UI Emoji", sans-serif`;
+		ctx.textAlign = 'center';
+		ctx.textBaseline = 'middle';
+		ctx.globalAlpha = fade;
+		// Subtle drop shadow for readability on any background
+		ctx.shadowColor = 'rgba(0,0,0,0.5)';
+		ctx.shadowBlur = 6;
+		ctx.fillText(emojiFxChar, cx, y);
+		ctx.restore();
+	},
+};
+
 function drawAllFx(ctx, t, cx, cy, dir) {
 	if (!enabledFx.size) return;
 	// Apply global Y offset once for all FX. Size/thickness/density modifiers
@@ -3628,6 +3665,38 @@ $('fx-clear-all').addEventListener('click', () => {
 	updateBakePreview();
 });
 
+// Wire emoji picker for "💬 Emoji bubble" FX
+const EMOJI_OPTIONS = [
+	"💥","💢","😡","🤬","😱","😨","🥶","🤯","😵","💀",
+	"❤️","💔","✨","⭐","💫","❓","❗","💬","💪","🩸",
+];
+function _renderEmojiPicker() {
+	const grid = $('emoji-picker');
+	if (!grid) return;
+	while (grid.firstChild) grid.removeChild(grid.firstChild);
+	for (const e of EMOJI_OPTIONS) {
+		const btn = document.createElement('button');
+		btn.className = `w-6 h-6 rounded text-base leading-none flex items-center justify-center hover:bg-slate-700 ${e === emojiFxChar ? 'bg-violet-500/30 ring-1 ring-violet-400' : 'bg-slate-900'}`;
+		btn.textContent = e;
+		btn.title = `Pick ${e}`;
+		btn.addEventListener('click', () => {
+			emojiFxChar = e;
+			// Auto-enable the emoji bubble FX so user sees it immediately
+			enabledFx.add('emojiBubble');
+			if (hitFrame < 0) {
+				hitFrame = Math.max(0, Math.floor(settings.frames / 2));
+				$('hit-frame').value = hitFrame;
+				$('hit-val').textContent = `frame ${hitFrame}`;
+			}
+			_renderEmojiPicker();
+			_renderFxGrid();
+			updateBakePreview();
+		});
+		grid.appendChild(btn);
+	}
+}
+_renderEmojiPicker();
+
 // Wire 4 global FX modifier sliders
 $('fx-posy').addEventListener('input', (e) => {
 	fxPosY = Number(e.target.value) || 0;
@@ -3942,6 +4011,7 @@ function makeSessionConfig(options = {}) {
 		fxSize,
 		fxThick,
 		fxDensity,
+		emojiFxChar,
 		frameAutoFit,
 		frameMaxTile,
 		frameScale,
@@ -4116,6 +4186,8 @@ async function applySessionConfig(cfg, sourceLabel = 'preset') {
 		$('fx-thick-val').textContent = `${Math.round(fxThick * 100)}%`;
 		$('fx-density').value = fxDensity * 100;
 		$('fx-density-val').textContent = `${Math.round(fxDensity * 100)}%`;
+		if (typeof cfg.emojiFxChar === 'string' && cfg.emojiFxChar) emojiFxChar = cfg.emojiFxChar;
+		_renderEmojiPicker();
 		_renderFxGrid();
 		$('show-flash').checked = showFlash;
 		$('show-shake').checked = showShake;
