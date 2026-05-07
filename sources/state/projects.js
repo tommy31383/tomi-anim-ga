@@ -137,7 +137,9 @@ export async function loadProject(id) {
   if (!project?.data) throw new Error("Project không tồn tại");
 
   const d = project.data;
-  state.bodyType = d.bodyType;
+  // Older snapshots may omit bodyType. Fall back to current bodyType, then
+  // to default — never let undefined slip through (renderer crashes on it).
+  state.bodyType = d.bodyType || state.bodyType || "male";
   state.selections = d.selections ?? {};
   if (d.selectedAnimation) state.selectedAnimation = d.selectedAnimation;
   if (d.enabledAnimations) state.enabledAnimations = d.enabledAnimations;

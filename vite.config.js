@@ -84,19 +84,28 @@ export default defineConfig(({ command }) => ({
       },
     },
     // Dev server: serve fx-packs via middleware so /bouncer/fx-packs/...
-    // works the same as in production build.
+    // works the same as in production build. Path-traversal-safe: resolved
+    // path must stay inside the fx-packs root, otherwise 404.
     {
       name: "serve-bouncer-fx-packs",
       apply: "serve",
       configureServer(server) {
+        const root = path.resolve(__dirname, "bouncer/fx-packs");
+        const rootWithSep = root + path.sep;
         server.middlewares.use("/bouncer/fx-packs", (req, res, next) => {
-          const cleanPath = (req.url || "").split("?")[0];
-          const filePath = path.join(__dirname, "bouncer/fx-packs", cleanPath);
-          if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
-            const ext = path.extname(filePath).toLowerCase();
+          const cleanPath = decodeURIComponent((req.url || "").split("?")[0]);
+          const resolved = path.resolve(root, "." + cleanPath);
+          // Reject any traversal attempt or symlink escape
+          if (!resolved.startsWith(rootWithSep) && resolved !== root) {
+            res.statusCode = 404;
+            res.end();
+            return;
+          }
+          if (fs.existsSync(resolved) && fs.statSync(resolved).isFile()) {
+            const ext = path.extname(resolved).toLowerCase();
             const types = { ".png": "image/png", ".webp": "image/webp", ".md": "text/markdown" };
             res.setHeader("Content-Type", types[ext] || "application/octet-stream");
-            fs.createReadStream(filePath).pipe(res);
+            fs.createReadStream(resolved).pipe(res);
           } else {
             next();
           }

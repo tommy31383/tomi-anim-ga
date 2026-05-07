@@ -18,6 +18,30 @@ export function makeGuid() {
   return out;
 }
 
+/**
+ * Deterministic 32-hex GUID derived from a stable string key. Used for
+ * sprite IDs so that re-exporting the same character produces the same
+ * spriteID — Unity scenes that referenced a previous import keep working
+ * after re-export.
+ */
+function _stableGuid(key) {
+  // FNV-1a 32-bit, repeated 4× with different salts to fill 128 bits.
+  const fnv1a = (str, salt) => {
+    let h = 2166136261 ^ salt;
+    for (let i = 0; i < str.length; i++) {
+      h ^= str.charCodeAt(i);
+      h = Math.imul(h, 16777619);
+    }
+    return (h >>> 0).toString(16).padStart(8, "0");
+  };
+  return (
+    fnv1a(key, 0x9e3779b1) +
+    fnv1a(key, 0x85ebca6b) +
+    fnv1a(key, 0xc2b2ae35) +
+    fnv1a(key, 0x27d4eb2f)
+  );
+}
+
 /** Sprite internal fileIDs are even integers starting at 21300000. */
 export function spriteFileId(index) {
   return SPRITE_FILE_ID_BASE + index * 2;
@@ -32,11 +56,13 @@ export function spriteFileId(index) {
 export function buildSpriteList(baseName, count, frameSize) {
   const list = [];
   for (let i = 0; i < count; i++) {
+    const name = `${baseName}_${i}`;
     list.push({
-      name: `${baseName}_${i}`,
+      name,
       rect: { x: i * frameSize, y: 0, w: frameSize, h: frameSize },
       fileID: spriteFileId(i),
-      spriteID: makeGuid(),
+      // Deterministic so re-exports preserve Unity scene references.
+      spriteID: _stableGuid(name),
     });
   }
   return list;

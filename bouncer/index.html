@@ -4935,9 +4935,12 @@ function _bgWorkerInit() {
 		pending.resolve({ buf, cleared });
 	};
 	w.onerror = () => {
-		// Reject all pending; fallback path will pick up subsequent calls.
+		// Reject all pending so callers' .catch / finally restore UI; then
+		// terminate the worker (its onmessage will never fire again) so
+		// next call respawns a fresh one via _getBgWorker().
 		for (const p of _bgWorkerPending.values()) p.reject(new Error('worker error'));
 		_bgWorkerPending.clear();
+		try { w.terminate(); } catch { /* ignore */ }
 		_bgWorker = null;
 	};
 	return w;

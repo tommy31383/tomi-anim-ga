@@ -114,6 +114,14 @@ export async function randomizeCharacter() {
   // Bias toward bodies classified as "BodyFull" (have full anim coverage).
   // Fall back to any body if no Full-class candidate is available.
   const bodyCandidates = candidates.get("body");
+  if (!bodyCandidates?.length) {
+    dismissToast(loadingId);
+    state.isRandomizing = false;
+    showToast("Catalog chưa có body nào hỗ trợ — thử reload trang.", {
+      kind: "error",
+    });
+    return;
+  }
   const fullBodies = bodyCandidates.filter(
     (c) => getWeaponClass(c.itemId) === "BodyFull",
   );
@@ -147,16 +155,18 @@ export async function randomizeCharacter() {
     }
 
     // If recolors carry their own type_name (sub-selections), pick one.
-    const subRecolors = (meta.recolors ?? []).filter(
-      (r) => r?.type_name && r.type_name !== meta.type_name,
-    );
-    if (subRecolors.length) {
-      const subIdx = Math.floor(Math.random() * meta.recolors.length);
-      const sub = meta.recolors[subIdx];
-      if (sub?.type_name && sub.type_name !== meta.type_name) {
-        subId = subIdx;
-        if (sub.variants?.length) recolor = pick(sub.variants);
-      }
+    // Pick the index from the matching subset only — picking from the full
+    // recolors array often lands on a non-sub entry, defeating the intent.
+    const subIndices = [];
+    const recArr = meta.recolors ?? [];
+    for (let i = 0; i < recArr.length; i++) {
+      const r = recArr[i];
+      if (r?.type_name && r.type_name !== meta.type_name) subIndices.push(i);
+    }
+    if (subIndices.length) {
+      subId = pick(subIndices);
+      const sub = recArr[subId];
+      if (sub?.variants?.length) recolor = pick(sub.variants);
     }
 
     const groupKey =
