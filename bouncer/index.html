@@ -4041,6 +4041,37 @@ customFxPreset.addEventListener('change', (e) => {
 	img.src = url;
 });
 
+// ===== Pinterest preset optgroup — populated from saved manifest =====
+// Sheets extracted via the 📌 button get persisted to
+// bouncer/presets/pinterest/<id>.png + manifest.json by the dev plugin,
+// then re-appear here next session.
+async function _refreshPinterestOptgroup() {
+	let list = [];
+	try {
+		const resp = await fetch(new URL('./presets/pinterest/manifest.json', location.href));
+		if (resp.ok) list = await resp.json();
+	} catch { /* manifest missing or empty — fine */ }
+	// Remove any existing pinterest optgroup, then re-append
+	const existing = customFxPreset.querySelector('optgroup[data-pinterest]');
+	if (existing) existing.remove();
+	if (!Array.isArray(list) || !list.length) return;
+	const og = document.createElement('optgroup');
+	og.dataset.pinterest = 'true';
+	og.label = `📌 Pinterest (${list.length})`;
+	// Sort newest first so the entry just extracted lands at top
+	list.sort((a, b) => String(b.addedAt || '').localeCompare(String(a.addedAt || '')));
+	for (const e of list) {
+		const opt = document.createElement('option');
+		opt.value = `presets/pinterest/${e.file}`;
+		opt.dataset.cols = String(e.cols || 1);
+		opt.dataset.rows = String(e.rows || 1);
+		opt.textContent = e.label || e.id;
+		og.appendChild(opt);
+	}
+	customFxPreset.appendChild(og);
+}
+_refreshPinterestOptgroup();
+
 // ===== Pinterest → sprite-sheet (dev-only, requires yt-dlp + ffmpeg) =====
 // Calls the local Vite middleware /api/pinterest-extract which downloads the
 // pin and returns a horizontal sprite-sheet PNG. Frame count comes back in
@@ -4068,14 +4099,19 @@ $('pinterest-extract-btn').addEventListener('click', async () => {
 			throw new Error(msg || `HTTP ${resp.status}`);
 		}
 		const cols = Number(resp.headers.get('X-Pinterest-Frames')) || 1;
+		const cache = resp.headers.get('X-Pinterest-Cache') || 'miss';
+		const savedAs = resp.headers.get('X-Pinterest-Saved-As') || 'pinterest';
 		const blob = await resp.blob();
 		const objUrl = URL.createObjectURL(blob);
 		const img = new Image();
-		img.onload = () => {
+		img.onload = async () => {
 			URL.revokeObjectURL(objUrl);
-			const pinId = (url.match(/\d{8,}/) || ['pinterest'])[0];
-			_setCustomFxImg(img, `pin-${pinId}.png`, cols, 1);
-			status.textContent = `✅ Đã load: ${cols} frame × 1 hàng`;
+			_setCustomFxImg(img, `${savedAs}.png`, cols, 1);
+			// Refresh dropdown so the newly saved sheet shows up next time
+			await _refreshPinterestOptgroup();
+			status.textContent = cache === 'hit'
+				? `✅ Cache hit: ${cols} frame (đã có sẵn trên đĩa)`
+				: `✅ Đã extract + lưu: ${cols} frame → dropdown FX`;
 		};
 		img.onerror = () => { URL.revokeObjectURL(objUrl); throw new Error('Sheet PNG hỏng'); };
 		img.src = objUrl;

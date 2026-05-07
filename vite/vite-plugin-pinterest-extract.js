@@ -22,9 +22,12 @@
 //   intermediate write/read pass (50% I/O on long clips).
 
 import { spawn } from "node:child_process";
-import { mkdtempSync, rmSync, statSync, createReadStream, accessSync } from "node:fs";
+import {
+  mkdtempSync, rmSync, statSync, createReadStream, accessSync,
+  mkdirSync, copyFileSync, readFileSync, writeFileSync, existsSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve as resolvePath } from "node:path";
 
 // Whitelist Pinterest TLDs: .com, .ca, .co.uk, .com.au, .de, .fr, .jp, etc.
 // Subdomain is restricted to www. or 2-letter locale (e.g. "vn.", "uk.")
@@ -96,13 +99,34 @@ async function probeDuration(ffprobe, srcPath) {
   return d;
 }
 
-export function vitePluginPinterestExtract({ extraPath = [] } = {}) {
+export function vitePluginPinterestExtract({ extraPath = [], presetDir } = {}) {
   // Resolve binaries once at plugin construction; remember nulls so we can
   // give a clean error per-request instead of spawning a missing path.
   const ytdlp = which("yt-dlp", extraPath);
   const ffmpeg = which("ffmpeg", extraPath);
   // ffprobe usually ships next to ffmpeg
   const ffprobe = which("ffprobe", extraPath);
+  // Where to persist extracted sheets so they show up in the FX dropdown
+  // next session. Resolved against process.cwd() (repo root when run via
+  // `npm run dev`). Default = bouncer/presets/pinterest.
+  const persistDir = resolvePath(presetDir || "bouncer/presets/pinterest");
+  const persistManifest = join(persistDir, "manifest.json");
+
+  function _readManifest() {
+    if (!existsSync(persistManifest)) return [];
+    try {
+      const raw = JSON.parse(readFileSync(persistManifest, "utf8"));
+      return Array.isArray(raw) ? raw : [];
+    } catch { return []; }
+  }
+  function _writeManifest(list) {
+    mkdirSync(persistDir, { recursive: true });
+    writeFileSync(persistManifest, JSON.stringify(list, null, 2) + "\n", "utf8");
+  }
+  function _pinIdFromUrl(url) {
+    const m = url.match(/\/pin\/(\d{8,})/) || url.match(/(\d{10,})/);
+    return m ? m[1] : `t${Date.now().toString(36)}`;
+  }
 
   return {
     name: "serve-pinterest-extract",
@@ -133,6 +157,29 @@ export function vitePluginPinterestExtract({ extraPath = [] } = {}) {
           }
           const fps = Math.min(60, Math.max(1, Number(body.fps) || 12));
           const maxwidth = body.maxwidth ? Math.min(4096, Math.max(16, Number(body.maxwidth) || 0)) : 0;
+          const force = body.force === true; // bypass cache hit
+
+          // Cache hit — pin already extracted at the same fps/maxwidth. Skip
+          // yt-dlp+ffmpeg entirely and stream the persisted file.
+          const pinId = _pinIdFromUrl(url);
+          const cacheId = `${pinId}-fps${fps}${maxwidth ? "-w" + maxwidth : ""}`;
+          const cachedManifest = _readManifest();
+          const cachedEntry = cachedManifest.find((e) => e.id === cacheId);
+          if (!force && cachedEntry && existsSync(join(persistDir, cachedEntry.file))) {
+            const filePath = join(persistDir, cachedEntry.file);
+            const sz = statSync(filePath).size;
+            res.statusCode = 200;
+            res.setHeader("Content-Type", "image/png");
+            res.setHeader("Content-Length", String(sz));
+            res.setHeader("X-Pinterest-Frames", String(cachedEntry.cols));
+            res.setHeader("X-Pinterest-Fps", String(cachedEntry.fps || fps));
+            res.setHeader("X-Pinterest-Source", url);
+            res.setHeader("X-Pinterest-Saved-As", cachedEntry.id);
+            res.setHeader("X-Pinterest-Cache", "hit");
+            res.setHeader("Cache-Control", "no-store");
+            createReadStream(filePath).pipe(res);
+            return;
+          }
 
           tmp = mkdtempSync(join(tmpdir(), "pinterest-extract-"));
 
@@ -169,7 +216,26 @@ export function vitePluginPinterestExtract({ extraPath = [] } = {}) {
             sheetPath,
           ]);
 
-          // 4. Stream back
+          // 4. Persist into bouncer/presets/pinterest/ so the sheet survives
+          //    page reloads and shows up in the FX preset dropdown next time.
+          mkdirSync(persistDir, { recursive: true });
+          const persistFile = `${cacheId}.png`;
+          copyFileSync(sheetPath, join(persistDir, persistFile));
+          const newManifest = _readManifest().filter((e) => e.id !== cacheId);
+          newManifest.push({
+            id: cacheId,
+            file: persistFile,
+            label: `Pin ${pinId} · ${N}f@${fps}fps`,
+            cols: N,
+            rows: 1,
+            fps,
+            maxwidth: maxwidth || null,
+            sourceUrl: url,
+            addedAt: new Date().toISOString(),
+          });
+          _writeManifest(newManifest);
+
+          // 5. Stream back
           const sz = statSync(sheetPath).size;
           res.statusCode = 200;
           res.setHeader("Content-Type", "image/png");
@@ -177,6 +243,8 @@ export function vitePluginPinterestExtract({ extraPath = [] } = {}) {
           res.setHeader("X-Pinterest-Frames", String(N));
           res.setHeader("X-Pinterest-Fps", String(fps));
           res.setHeader("X-Pinterest-Source", url);
+          res.setHeader("X-Pinterest-Saved-As", cacheId);
+          res.setHeader("X-Pinterest-Cache", "miss");
           res.setHeader("Cache-Control", "no-store");
           const outDir = tmp;
           tmp = null; // hand ownership to the cleanup-after-stream callback
