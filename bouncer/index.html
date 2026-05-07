@@ -401,7 +401,7 @@
 					<span class="text-slate-300 font-semibold">🖼️ FX sprite custom</span>
 					<button id="custom-fx-clear" class="text-[10px] text-slate-500 hover:text-white hidden">× Xoá</button>
 				</div>
-				<p class="text-[9px] text-slate-500 mb-2">Upload PNG sprite sheet hoặc chọn preset CC0 dưới.</p>
+				<p class="text-[9px] text-slate-500 mb-2">Chọn preset / upload → tự bật + play tại Frame sát thương. Cần upload nhân vật trước.</p>
 				<select id="custom-fx-preset" class="w-full mb-2 px-2 py-1 bg-slate-900 border border-slate-700 rounded text-[11px] text-slate-200">
 					<option value="">— Hoặc upload custom —</option>
 					<optgroup label="🩸 OGA Blood (CC0, 4×4=16 frames)">
@@ -3712,6 +3712,15 @@ function _setCustomFxImg(img, name, cols, rows) {
 		customFxRowsInput.value = rows;
 	}
 	_showCustomFx(name);
+	// UX: when user loads a sprite, AUTO-enable the customSheet FX entry
+	// + set a hitFrame so they immediately see the effect playing.
+	enabledFx.add('customSheet');
+	if (hitFrame < 0) {
+		hitFrame = Math.max(0, Math.floor(settings.frames / 2));
+		$('hit-frame').value = hitFrame;
+		$('hit-val').textContent = `frame ${hitFrame}`;
+	}
+	_renderFxGrid(); // refresh checkboxes so customSheet shows ticked
 	updateBakePreview();
 }
 function _handleCustomFxFile(file) {
