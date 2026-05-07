@@ -9,6 +9,7 @@
   "private": true,
   "scripts": {
     "dev": "vite",
+    "bouncer": "vite --open=/bouncer/",
     "prebuild": "rimraf \"dist/!(spritesheets)\"",
     "build": "vite build",
     "preview": "vite preview",

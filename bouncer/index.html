@@ -4133,23 +4133,38 @@ _refreshPinterestOptgroup();
 // pin and returns a horizontal sprite-sheet PNG. Frame count comes back in
 // the X-Pinterest-Frames header so we can auto-set Cols.
 // Detect dev mode — only localhost/127.0.0.1 has the /api endpoint.
-// Disable the 📌 extract button on production (GH Pages) where POST
-// returns the host's 405 page; load + browse still work fine because
-// they're plain GET requests against the static files.
+// On production (GH Pages), swap the 📌 button into a "▶️ Chạy local"
+// helper that copies the start command + tries to open localhost.
 const _IS_DEV_HOST = /^(localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\]|.*\.local)$/i.test(location.hostname);
+const _DEV_CMD = 'cd ~/AnimGa/tomi-anim-ga && npm run bouncer';
 if (!_IS_DEV_HOST) {
 	const _btn = $('pinterest-extract-btn');
-	_btn.disabled = true;
-	_btn.classList.add('opacity-40', 'cursor-not-allowed');
-	_btn.title = 'Chỉ chạy ở dev (npm run dev). Production chỉ load được sheet đã commit.';
-	_btn.textContent = '📌 (chỉ dev mode)';
+	_btn.textContent = '▶️ Chạy local để extract';
+	_btn.title = 'Browser không tự chạy được lệnh shell. Click để copy lệnh + mở localhost.';
+	_btn.classList.remove('border-rose-500/40', 'text-rose-300', 'bg-rose-500/10', 'hover:bg-rose-500/20');
+	_btn.classList.add('border-emerald-500/40', 'text-emerald-300', 'bg-emerald-500/10', 'hover:bg-emerald-500/20');
 }
 
 $('pinterest-extract-btn').addEventListener('click', async () => {
 	const btn = $('pinterest-extract-btn');
 	const status = $('pinterest-extract-status');
 	if (!_IS_DEV_HOST) {
-		alert('Tool extract Pinterest chỉ chạy khi mày npm run dev → mở localhost:5173/bouncer/.\n\nỞ production chỉ load lại được các sheet đã commit (xem panel 📂).');
+		// Production helper: copy start command to clipboard + try opening
+		// localhost:5173 in a new tab. If dev is already running, the new
+		// tab loads Bouncer; otherwise it shows browser error and the user
+		// pastes the copied command into Terminal.
+		try { await navigator.clipboard.writeText(_DEV_CMD); }
+		catch { /* clipboard may be denied — fall back to alert below */ }
+		const win = window.open('http://localhost:5173/bouncer/', '_blank', 'noopener');
+		setTimeout(() => {
+			// If the new tab didn't load (dev not running), it'll show a
+			// connection error — instruct the user to start dev first.
+			alert(
+				'Đã copy vào clipboard:\n\n' + _DEV_CMD +
+				'\n\nMở Terminal → Cmd+V → Enter.\nSau đó tab vừa mở (localhost:5173) sẽ load được.' +
+				(win ? '' : '\n\n(Trình duyệt chặn popup — mở thủ công: http://localhost:5173/bouncer/)'),
+			);
+		}, 100);
 		return;
 	}
 	const url = (prompt(
