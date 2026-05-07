@@ -2476,31 +2476,46 @@ const LAYER_STATE = Object.fromEntries(
 	LAYER_DEFS.map((l, i) => [l.id, { visible: true, opacity: 1, z: (i + 1) * 10 }]),
 );
 
+// Cached render order — invalidated on z/visibility/opacity change so the
+// hot-path drawFullFrame doesn't sort + allocate every animation frame.
+let _layerOrderCache = null;
+function _invalidateLayerCache() { _layerOrderCache = null; }
 function _orderedLayers() {
-	return LAYER_DEFS
-		.map((l) => ({ ...l, ...LAYER_STATE[l.id] }))
+	if (_layerOrderCache) return _layerOrderCache;
+	const arr = LAYER_DEFS
+		.map((l) => ({ id: l.id, label: l.label, drawFn: l.drawFn, ...LAYER_STATE[l.id] }))
 		.sort((a, b) => a.z - b.z);
+	_layerOrderCache = arr;
+	return arr;
 }
 
 function drawFullFrame(ctx, t, cx, cy, dir, scale = 1) {
 	const layers = _orderedLayers();
-	ctx.save();
+	const wrap = scale !== 1;
 	let ox = cx, oy = cy;
-	if (scale !== 1) {
+	if (wrap) {
+		ctx.save();
 		ctx.translate(cx, cy);
 		ctx.scale(scale, scale);
 		ox = 0; oy = 0;
 	}
-	for (const L of layers) {
+	for (let i = 0; i < layers.length; i++) {
+		const L = layers[i];
 		if (!L.visible) continue;
 		const a = L.opacity;
 		if (a <= 0) continue;
-		ctx.save();
-		if (a < 1) ctx.globalAlpha = a;
-		L.drawFn(ctx, t, ox, oy, dir);
-		ctx.restore();
+		// Skip the per-layer save/restore when opacity is full — saves ~100
+		// ctx state ops per frame at 60fps with 7 layers.
+		if (a < 1) {
+			ctx.save();
+			ctx.globalAlpha = a;
+			L.drawFn(ctx, t, ox, oy, dir);
+			ctx.restore();
+		} else {
+			L.drawFn(ctx, t, ox, oy, dir);
+		}
 	}
-	ctx.restore();
+	if (wrap) ctx.restore();
 }
 
 // Fake-run effects: dust puffs trailing behind feet + a tightening
@@ -3949,39 +3964,74 @@ function _renderEmojiPicker() {
 _renderEmojiPicker();
 
 // ===== 📚 Layers panel — visibility / opacity / z-order =====
+// Build once, mutate in place. Reorder = move DOM nodes, not rebuild.
+// Preview redraw is coalesced via rAF so opacity drag at 60Hz costs 1
+// render per frame instead of 1 per slider tick.
+const _layerRows = new Map(); // id → row element
+let _previewScheduled = false;
+function _schedulePreview() {
+	if (_previewScheduled) return;
+	_previewScheduled = true;
+	requestAnimationFrame(() => {
+		_previewScheduled = false;
+		updateBakePreview();
+	});
+}
+
+function _buildLayerRow(L) {
+	const st = LAYER_STATE[L.id];
+	const row = document.createElement('div');
+	row.dataset.layerId = L.id;
+	row.className = 'flex items-center gap-1 bg-slate-900/50 border border-slate-800 rounded px-1.5 py-1 text-[10px]';
+	row.innerHTML = `
+		<button data-act="vis" class="shrink-0 w-5 text-center" title="Ẩn/hiện">${st.visible ? '👁' : '·'}</button>
+		<span class="flex-1 truncate text-slate-200">${L.label}</span>
+		<input data-act="op" type="range" min="0" max="100" step="5" value="${Math.round(st.opacity * 100)}" class="w-12" title="Opacity ${Math.round(st.opacity * 100)}%">
+		<button data-act="up" class="shrink-0 w-5 text-center text-cyan-300 hover:text-white disabled:opacity-30" title="Vẽ sau (lên trên)">⬆</button>
+		<button data-act="down" class="shrink-0 w-5 text-center text-cyan-300 hover:text-white disabled:opacity-30" title="Vẽ trước (xuống dưới)">⬇</button>
+	`;
+	row.querySelector('[data-act="vis"]').addEventListener('click', (e) => {
+		st.visible = !st.visible;
+		_invalidateLayerCache();
+		e.target.textContent = st.visible ? '👁' : '·';
+		_schedulePreview();
+	});
+	row.querySelector('[data-act="op"]').addEventListener('input', (e) => {
+		st.opacity = Math.max(0, Math.min(1, Number(e.target.value) / 100));
+		e.target.title = `Opacity ${Math.round(st.opacity * 100)}%`;
+		_invalidateLayerCache();
+		_schedulePreview();
+	});
+	row.querySelector('[data-act="up"]').addEventListener('click', () => _swapZ(L.id, +1));
+	row.querySelector('[data-act="down"]').addEventListener('click', () => _swapZ(L.id, -1));
+	return row;
+}
+
 function _renderLayersPanel() {
 	const list = $('layers-list');
 	if (!list) return;
+	_layerRows.clear();
 	list.innerHTML = '';
+	for (const L of _orderedLayers()) {
+		const row = _buildLayerRow(L);
+		_layerRows.set(L.id, row);
+		list.appendChild(row);
+	}
+	_updateLayerArrowsDisabled();
+}
+
+function _updateLayerArrowsDisabled() {
 	const ordered = _orderedLayers();
 	ordered.forEach((L, idx) => {
-		const st = LAYER_STATE[L.id];
-		const row = document.createElement('div');
-		row.className = 'flex items-center gap-1 bg-slate-900/50 border border-slate-800 rounded px-1.5 py-1 text-[10px]';
-		row.innerHTML = `
-			<button data-act="vis" class="shrink-0 w-5 text-center" title="Ẩn/hiện">${st.visible ? '👁' : '·'}</button>
-			<span class="flex-1 truncate text-slate-200">${L.label}</span>
-			<input data-act="op" type="range" min="0" max="100" step="5" value="${Math.round(st.opacity * 100)}" class="w-12" title="Opacity ${Math.round(st.opacity * 100)}%">
-			<button data-act="up" class="shrink-0 w-5 text-center text-cyan-300 hover:text-white disabled:opacity-30" ${idx === ordered.length - 1 ? 'disabled' : ''} title="Vẽ sau (lên trên)">⬆</button>
-			<button data-act="down" class="shrink-0 w-5 text-center text-cyan-300 hover:text-white disabled:opacity-30" ${idx === 0 ? 'disabled' : ''} title="Vẽ trước (xuống dưới)">⬇</button>
-		`;
-		row.querySelector('[data-act="vis"]').addEventListener('click', () => {
-			st.visible = !st.visible;
-			_renderLayersPanel();
-			updateBakePreview();
-		});
-		row.querySelector('[data-act="op"]').addEventListener('input', (e) => {
-			st.opacity = Math.max(0, Math.min(1, Number(e.target.value) / 100));
-			updateBakePreview();
-		});
-		row.querySelector('[data-act="up"]').addEventListener('click', () => _swapZ(L.id, +1));
-		row.querySelector('[data-act="down"]').addEventListener('click', () => _swapZ(L.id, -1));
-		list.appendChild(row);
+		const row = _layerRows.get(L.id);
+		if (!row) return;
+		row.querySelector('[data-act="up"]').disabled = idx === ordered.length - 1;
+		row.querySelector('[data-act="down"]').disabled = idx === 0;
 	});
 }
 
 function _swapZ(id, dir) {
-	// Swap this layer's z with its immediate neighbor in render order.
+	_invalidateLayerCache();
 	const ordered = _orderedLayers();
 	const idx = ordered.findIndex((L) => L.id === id);
 	const j = idx + dir;
@@ -3989,8 +4039,17 @@ function _swapZ(id, dir) {
 	const a = LAYER_STATE[ordered[idx].id];
 	const b = LAYER_STATE[ordered[j].id];
 	[a.z, b.z] = [b.z, a.z];
-	_renderLayersPanel();
-	updateBakePreview();
+	_invalidateLayerCache();
+	// Move DOM nodes instead of full rebuild
+	const list = $('layers-list');
+	const rowA = _layerRows.get(id);
+	const rowB = _layerRows.get(ordered[j].id);
+	if (rowA && rowB) {
+		if (dir > 0) list.insertBefore(rowB, rowA); // A moves later in DOM
+		else list.insertBefore(rowA, rowB);          // A moves earlier in DOM
+	}
+	_updateLayerArrowsDisabled();
+	_schedulePreview();
 }
 
 $('layers-reset-btn').addEventListener('click', () => {
@@ -3999,8 +4058,9 @@ $('layers-reset-btn').addEventListener('click', () => {
 		LAYER_STATE[l.id].opacity = 1;
 		LAYER_STATE[l.id].z = (i + 1) * 10;
 	});
+	_invalidateLayerCache();
 	_renderLayersPanel();
-	updateBakePreview();
+	_schedulePreview();
 });
 
 _renderLayersPanel();
@@ -4492,6 +4552,7 @@ function makeSessionConfig(options = {}) {
 		useSpring,
 		cinematicTiming,
 		enabledFx: [...enabledFx],
+		layerState: JSON.parse(JSON.stringify(LAYER_STATE)),
 		fxPosY,
 		fxSize,
 		fxThick,
@@ -4659,6 +4720,19 @@ async function applySessionConfig(cfg, sourceLabel = 'preset') {
 		$('show-trail').checked = showTrail;
 		$('show-particles').checked = showParticles;
 		enabledFx = new Set(Array.isArray(cfg.enabledFx) ? cfg.enabledFx : []);
+		// Restore layer panel state if the project carries one (forward-compat:
+		// older projects don't have this — leave defaults).
+		if (cfg.layerState && typeof cfg.layerState === 'object') {
+			for (const id of Object.keys(LAYER_STATE)) {
+				const s = cfg.layerState[id];
+				if (!s) continue;
+				if (typeof s.visible === 'boolean') LAYER_STATE[id].visible = s.visible;
+				if (Number.isFinite(s.opacity)) LAYER_STATE[id].opacity = Math.max(0, Math.min(1, s.opacity));
+				if (Number.isFinite(s.z)) LAYER_STATE[id].z = s.z;
+			}
+			_invalidateLayerCache();
+			_renderLayersPanel();
+		}
 		fxPosY = Number(cfg.fxPosY) || 0;
 		fxSize = Number(cfg.fxSize) || 1;
 		fxThick = Number(cfg.fxThick) || 1;
