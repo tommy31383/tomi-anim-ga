@@ -29,23 +29,17 @@ import {
 import { tmpdir } from "node:os";
 import { join, resolve as resolvePath } from "node:path";
 
-// Accept three URL shapes, all delegated to yt-dlp:
-//   1. Pinterest pin URL on any pinterest.* TLD (covers .com, .com.vn,
-//      .co.uk, .com.au, .ru, etc. — single OR two-part TLDs).
-//   2. Pinterest short link  https://pin.it/<id>
-//   3. Direct media URL ending .mp4/.webm/.mov/.m3u8 — lets the user
-//      bypass Pinterest entirely by grabbing the URL from DevTools.
-//
-// The pinterest regex still anchors on `pinterest.` as the suffix-host
-// label, so `pinterest.evil.com` (the attacker controls the rest) would
-// only match if the URL host is exactly `pinterest.evil[.tld]`. yt-dlp
-// itself further validates by trying to extract — junk URLs error out
-// inside the child process, the user sees the message.
-const PINTEREST_LONG_RE = /^https?:\/\/(?:[a-z0-9-]+\.)?pinterest\.[a-z]{2,4}(?:\.[a-z]{2,4})?\/[^\s]+$/i;
-const PINTEREST_SHORT_RE = /^https?:\/\/pin\.it\/[A-Za-z0-9]+\/?$/i;
-const DIRECT_MEDIA_RE = /^https?:\/\/[^\s]+\.(?:mp4|webm|mov|m4v|m3u8)(?:\?[^\s]*)?$/i;
+// Permissive URL gate: just require a syntactically valid http(s) URL
+// under a reasonable length. yt-dlp has its own per-site extractor and
+// will fail with a clear error for anything it can't handle. Avoids the
+// game of catching every Pinterest TLD / share-link variant.
+const DIRECT_MEDIA_RE = /\.(?:mp4|webm|mov|m4v|m3u8)(?:\?|$)/i;
 function _validUrl(u) {
-  return PINTEREST_LONG_RE.test(u) || PINTEREST_SHORT_RE.test(u) || DIRECT_MEDIA_RE.test(u);
+  if (typeof u !== "string" || u.length < 8 || u.length > 2048) return false;
+  try {
+    const parsed = new URL(u);
+    return parsed.protocol === "http:" || parsed.protocol === "https:";
+  } catch { return false; }
 }
 
 const PROC_TIMEOUT_MS = 90_000;
@@ -177,7 +171,7 @@ export function vitePluginPinterestExtract({ extraPath = [], presetDir } = {}) {
           const url = String(body.url || "").trim();
           if (!_validUrl(url)) {
             res.statusCode = 400;
-            res.end("URL không hợp lệ — phải là pin Pinterest, link pin.it/, hoặc URL .mp4/.webm trực tiếp");
+            res.end("URL không hợp lệ — paste 1 URL http(s) bất kỳ (yt-dlp sẽ tự xử)");
             return;
           }
           const fps = Math.min(60, Math.max(1, Number(body.fps) || 12));
