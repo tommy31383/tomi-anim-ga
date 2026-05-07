@@ -4132,9 +4132,26 @@ _refreshPinterestOptgroup();
 // Calls the local Vite middleware /api/pinterest-extract which downloads the
 // pin and returns a horizontal sprite-sheet PNG. Frame count comes back in
 // the X-Pinterest-Frames header so we can auto-set Cols.
+// Detect dev mode — only localhost/127.0.0.1 has the /api endpoint.
+// Disable the 📌 extract button on production (GH Pages) where POST
+// returns the host's 405 page; load + browse still work fine because
+// they're plain GET requests against the static files.
+const _IS_DEV_HOST = /^(localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\]|.*\.local)$/i.test(location.hostname);
+if (!_IS_DEV_HOST) {
+	const _btn = $('pinterest-extract-btn');
+	_btn.disabled = true;
+	_btn.classList.add('opacity-40', 'cursor-not-allowed');
+	_btn.title = 'Chỉ chạy ở dev (npm run dev). Production chỉ load được sheet đã commit.';
+	_btn.textContent = '📌 (chỉ dev mode)';
+}
+
 $('pinterest-extract-btn').addEventListener('click', async () => {
 	const btn = $('pinterest-extract-btn');
 	const status = $('pinterest-extract-status');
+	if (!_IS_DEV_HOST) {
+		alert('Tool extract Pinterest chỉ chạy khi mày npm run dev → mở localhost:5173/bouncer/.\n\nỞ production chỉ load lại được các sheet đã commit (xem panel 📂).');
+		return;
+	}
 	const url = (prompt(
 		'Paste 1 trong 3:\n• URL pin Pinterest (vd https://pinterest.com/pin/123…)\n• Link short pin.it/xxx\n• URL .mp4/.webm trực tiếp (DevTools → Network)',
 		'',
@@ -4160,7 +4177,11 @@ $('pinterest-extract-btn').addEventListener('click', async () => {
 			}),
 		});
 		if (!resp.ok) {
-			const msg = await resp.text();
+			let msg = await resp.text();
+			// Strip noisy HTML 405/404 pages so the status line stays readable
+			if (/^\s*<(?:!doctype|html)/i.test(msg)) {
+				msg = `HTTP ${resp.status} — endpoint /api/pinterest-extract không tồn tại (cần npm run dev).`;
+			}
 			throw new Error(msg || `HTTP ${resp.status}`);
 		}
 		const cols = Number(resp.headers.get('X-Pinterest-Frames')) || 1;
