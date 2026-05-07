@@ -465,7 +465,7 @@
 					<span class="material-symbols-outlined align-middle" style="font-size:14px">cloud_upload</span>
 					Kéo thả hoặc click chọn
 				</label>
-				<button id="pinterest-extract-btn" class="mt-1.5 w-full text-[10px] px-2 py-1 rounded border border-rose-500/40 text-rose-300 bg-rose-500/10 hover:bg-rose-500/20 active:scale-95 flex items-center justify-center gap-1" title="Chỉ chạy ở dev (npm run dev). Cần yt-dlp + ffmpeg.">
+				<button id="pinterest-extract-btn" class="mt-1.5 w-full text-[10px] px-2 py-1 rounded border border-rose-500/40 text-rose-300 bg-rose-500/10 hover:bg-rose-500/20 active:scale-95 flex items-center justify-center gap-1" title="Dev only. Pin Pinterest, link pin.it/, hoặc URL .mp4 trực tiếp. Auth pin → đọc cookie từ Chrome.">
 					📌 Lấy video Pinterest → sprite-sheet
 				</button>
 				<p id="pinterest-extract-status" class="hidden mt-1 text-[9px] text-slate-400 italic"></p>
@@ -4079,12 +4079,18 @@ _refreshPinterestOptgroup();
 $('pinterest-extract-btn').addEventListener('click', async () => {
 	const btn = $('pinterest-extract-btn');
 	const status = $('pinterest-extract-status');
-	const url = (prompt('URL pin Pinterest (phải là VIDEO pin, không phải ảnh):', '') || '').trim();
+	const url = (prompt(
+		'Paste 1 trong 3:\n• URL pin Pinterest (vd https://pinterest.com/pin/123…)\n• Link short pin.it/xxx\n• URL .mp4/.webm trực tiếp (DevTools → Network)',
+		'',
+	) || '').trim();
 	if (!url) return;
 	const fpsRaw = prompt('FPS (mặc định 12, max 60):', '12');
 	const fps = Math.min(60, Math.max(1, Number(fpsRaw) || 12));
 	const maxwRaw = prompt('Width tối đa px (Enter = giữ nguyên, vd 256):', '');
 	const maxwidth = maxwRaw ? Math.min(4096, Math.max(16, Number(maxwRaw) || 0)) : 0;
+	// Auth-walled pins: yt-dlp reads cookies from logged-in Chrome by default.
+	// Empty string disables (faster, won't bug user with keyring prompt).
+	const useChromeCookies = confirm('Pin yêu cầu login? OK = dùng cookie Chrome, Cancel = không.');
 	btn.disabled = true;
 	status.classList.remove('hidden');
 	status.textContent = '⏳ Đang tải + extract… (có thể 10-30s tuỳ video)';
@@ -4092,7 +4098,10 @@ $('pinterest-extract-btn').addEventListener('click', async () => {
 		const resp = await fetch('/api/pinterest-extract', {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ url, fps, maxwidth }),
+			body: JSON.stringify({
+				url, fps, maxwidth,
+				cookieBrowser: useChromeCookies ? 'chrome' : '',
+			}),
 		});
 		if (!resp.ok) {
 			const msg = await resp.text();

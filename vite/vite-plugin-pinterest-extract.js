@@ -29,10 +29,17 @@ import {
 import { tmpdir } from "node:os";
 import { join, resolve as resolvePath } from "node:path";
 
-// Whitelist Pinterest TLDs: .com, .ca, .co.uk, .com.au, .de, .fr, .jp, etc.
-// Subdomain is restricted to www. or 2-letter locale (e.g. "vn.", "uk.")
-// Prevents pinterest.evil.com type spoofs.
-const URL_RE = /^https?:\/\/(?:www\.|[a-z]{2}\.)?pinterest\.(?:com|ca|co\.uk|com\.au|de|fr|es|it|nl|jp|kr|ph|nz|ie|at|ch|se|dk|no|fi|pt|com\.mx|cl|info)\/[^\s]+$/i;
+// Accept three URL shapes, all delegated to yt-dlp:
+//   1. Pinterest pin URL on the official domain (whitelist TLDs)
+//   2. Pinterest short link  https://pin.it/<id>
+//   3. Direct media URL ending .mp4/.webm/.mov/.m3u8 — lets the user
+//      bypass Pinterest entirely by grabbing the URL from DevTools.
+const PINTEREST_LONG_RE = /^https?:\/\/(?:www\.|[a-z]{2}\.)?pinterest\.(?:com|ca|co\.uk|com\.au|de|fr|es|it|nl|jp|kr|ph|nz|ie|at|ch|se|dk|no|fi|pt|com\.mx|cl|info)\/[^\s]+$/i;
+const PINTEREST_SHORT_RE = /^https?:\/\/pin\.it\/[A-Za-z0-9]+\/?$/i;
+const DIRECT_MEDIA_RE = /^https?:\/\/[^\s]+\.(?:mp4|webm|mov|m4v|m3u8)(?:\?[^\s]*)?$/i;
+function _validUrl(u) {
+  return PINTEREST_LONG_RE.test(u) || PINTEREST_SHORT_RE.test(u) || DIRECT_MEDIA_RE.test(u);
+}
 
 const PROC_TIMEOUT_MS = 90_000;
 const MAX_BODY_BYTES = 4096;
@@ -124,8 +131,17 @@ export function vitePluginPinterestExtract({ extraPath = [], presetDir } = {}) {
     writeFileSync(persistManifest, JSON.stringify(list, null, 2) + "\n", "utf8");
   }
   function _pinIdFromUrl(url) {
-    const m = url.match(/\/pin\/(\d{8,})/) || url.match(/(\d{10,})/);
-    return m ? m[1] : `t${Date.now().toString(36)}`;
+    // Long-form Pinterest pin: prefer the numeric id (stable across queries).
+    const m = url.match(/\/pin\/(\d{8,})/) || url.match(/^https?:\/\/[^\/]*pinterest[^\/]*\/[^\/?#]*\/(\d{10,})/);
+    if (m) return m[1];
+    // pin.it short link: take the slug.
+    const sm = url.match(/^https?:\/\/pin\.it\/([A-Za-z0-9]+)/i);
+    if (sm) return `pinit-${sm[1].toLowerCase()}`;
+    // Direct media URL or anything else: derive a deterministic short hash so
+    // cache hits work even though there's no pin number.
+    let h = 0;
+    for (let i = 0; i < url.length; i++) h = ((h << 5) - h + url.charCodeAt(i)) | 0;
+    return `u${(h >>> 0).toString(36)}`;
   }
 
   return {
@@ -152,12 +168,20 @@ export function vitePluginPinterestExtract({ extraPath = [], presetDir } = {}) {
         try {
           const body = await readJsonBody(req);
           const url = String(body.url || "").trim();
-          if (!URL_RE.test(url)) {
-            res.statusCode = 400; res.end("URL không hợp lệ — phải là pin Pinterest thật"); return;
+          if (!_validUrl(url)) {
+            res.statusCode = 400;
+            res.end("URL không hợp lệ — phải là pin Pinterest, link pin.it/, hoặc URL .mp4/.webm trực tiếp");
+            return;
           }
           const fps = Math.min(60, Math.max(1, Number(body.fps) || 12));
           const maxwidth = body.maxwidth ? Math.min(4096, Math.max(16, Number(body.maxwidth) || 0)) : 0;
           const force = body.force === true; // bypass cache hit
+          // Optional: read auth cookies from a logged-in browser. Default
+          // 'chrome'; set to '' / null to disable.
+          const cookieBrowser = body.cookieBrowser === undefined
+            ? "chrome"
+            : (body.cookieBrowser ? String(body.cookieBrowser).toLowerCase() : "");
+          const isDirect = DIRECT_MEDIA_RE.test(url);
 
           // Cache hit — pin already extracted at the same fps/maxwidth. Skip
           // yt-dlp+ffmpeg entirely and stream the persisted file.
@@ -183,15 +207,22 @@ export function vitePluginPinterestExtract({ extraPath = [], presetDir } = {}) {
 
           tmp = mkdtempSync(join(tmpdir(), "pinterest-extract-"));
 
-          // 1. yt-dlp → tmp/source.<ext>  (capped at MAX_FILESIZE)
-          await run(ytdlp, [
+          // 1. Download source. For direct .mp4/.webm/.m3u8 URLs we still
+          //    use yt-dlp (handles redirects + HLS segmentation). For
+          //    Pinterest pins, optionally pull cookies from a browser so
+          //    auth-walled videos work.
+          const args = [
             "-q", "--no-warnings",
             "-f", "bv*+ba/b",
             "--max-filesize", MAX_FILESIZE,
             "--merge-output-format", "mp4",
             "-o", join(tmp, "source.%(ext)s"),
-            url,
-          ]);
+          ];
+          if (cookieBrowser && !isDirect) {
+            args.push("--cookies-from-browser", cookieBrowser);
+          }
+          args.push(url);
+          await run(ytdlp, args);
 
           const fs = await import("node:fs/promises");
           const files = await fs.readdir(tmp);
