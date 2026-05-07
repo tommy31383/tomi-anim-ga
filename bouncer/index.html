@@ -393,6 +393,25 @@
 				</div>
 				<p class="text-[9px] text-slate-500 mb-2">Tự bật <span class="text-rose-400">Frame sát thương</span> (giữa anim) khi tick checkbox đầu tiên. Combo vô tư.</p>
 				<div id="fx-grid" class="grid grid-cols-2 gap-x-2 gap-y-1 text-[11px]"></div>
+				<!-- 4 global FX modifiers — apply to ALL enabled FX -->
+				<div class="mt-3 grid grid-cols-2 gap-x-3 gap-y-1.5 text-[10px]">
+					<label class="flex flex-col gap-0.5">
+						<span class="flex justify-between"><span class="text-slate-400">📍 Vị trí Y</span><span id="fx-posy-val" class="text-cyan-300 font-mono">0px</span></span>
+						<input id="fx-posy" type="range" min="-80" max="80" step="2" value="0" class="w-full" title="Dịch FX lên (-) hoặc xuống (+)">
+					</label>
+					<label class="flex flex-col gap-0.5">
+						<span class="flex justify-between"><span class="text-slate-400">📐 Kích thước</span><span id="fx-size-val" class="text-cyan-300 font-mono">100%</span></span>
+						<input id="fx-size" type="range" min="30" max="300" step="5" value="100" class="w-full" title="Scale tổng thể">
+					</label>
+					<label class="flex flex-col gap-0.5">
+						<span class="flex justify-between"><span class="text-slate-400">✏️ Độ dày</span><span id="fx-thick-val" class="text-cyan-300 font-mono">100%</span></span>
+						<input id="fx-thick" type="range" min="30" max="300" step="5" value="100" class="w-full" title="Stroke width / glow halo">
+					</label>
+					<label class="flex flex-col gap-0.5">
+						<span class="flex justify-between"><span class="text-slate-400">✨ Mật độ</span><span id="fx-density-val" class="text-cyan-300 font-mono">100%</span></span>
+						<input id="fx-density" type="range" min="20" max="300" step="5" value="100" class="w-full" title="Số particle / drops / segments">
+					</label>
+				</div>
 			</div>
 
 			<!-- Custom FX sprite upload -->
@@ -1707,9 +1726,23 @@ function drawShootMuzzleFx(ctx, t, cx, cy, dir) {
 // Each entry: { label, draw: (ctx, t, cx, cy, dir, ext) => void }.
 // Anchored at body center (cx, cy) by default. Timing tied to hitFrame
 // when set, otherwise the effect's own duration window inside t∈[0,1].
+//
+// Global modifiers apply to all enabled FX (sliders in sidebar):
+//   fxPosY    -80..+80px       — extra Y offset on top of each FX's anchor
+//   fxSize    0.3..3.0         — scale multiplier (radius / arc length)
+//   fxThick   0.3..3.0         — stroke width / halo thickness multiplier
+//   fxDensity 0.2..3.0         — particle count / segment count multiplier
+// Helpers _S / _T / _N apply them inside FX draw functions.
 // =====================================================================
 const FX_REGISTRY = {};
 let enabledFx = new Set();
+let fxPosY = 0;
+let fxSize = 1;
+let fxThick = 1;
+let fxDensity = 1;
+const _S = (v) => v * fxSize;
+const _T = (v) => v * fxThick;
+const _N = (v) => Math.max(1, Math.round(v * fxDensity));
 
 function _fxHash(seed) {
 	const s = Math.sin(seed * 12.9898 + 78.233) * 43758.5453;
@@ -1733,85 +1766,67 @@ FX_REGISTRY.slashArc = {
 		const p = _hitProgress(t);
 		if (p < 0) return;
 		const dirSign = dir === 'left' ? -1 : 1;
-		const size = 70;
+		const size = _S(70);
 		const fade = 1 - p;
 		const a0 = Math.PI * 0.42;
 		const a1 = Math.PI * -0.18;
+		const r = size + _S(p * 8);
 		ctx.save();
 		ctx.translate(cx, cy - 32);
 		ctx.scale(dirSign, 1);
 		ctx.lineCap = 'round';
 		ctx.globalCompositeOperation = 'lighter';
-		// Outer wide halo (cyan glow)
 		ctx.strokeStyle = `rgba(80,200,255,${(fade * 0.5).toFixed(3)})`;
-		ctx.lineWidth = 16 * fade + 4;
-		ctx.beginPath();
-		ctx.arc(0, 0, size + p * 8, a0, a1, true);
-		ctx.stroke();
-		// Mid stroke
+		ctx.lineWidth = _T(16 * fade + 4);
+		ctx.beginPath(); ctx.arc(0, 0, r, a0, a1, true); ctx.stroke();
 		ctx.strokeStyle = `rgba(140,240,255,${(fade * 0.95).toFixed(3)})`;
-		ctx.lineWidth = 7 * fade + 2;
-		ctx.beginPath();
-		ctx.arc(0, 0, size + p * 8, a0, a1, true);
-		ctx.stroke();
-		// Hot white core
+		ctx.lineWidth = _T(7 * fade + 2);
+		ctx.beginPath(); ctx.arc(0, 0, r, a0, a1, true); ctx.stroke();
 		ctx.strokeStyle = `rgba(255,255,255,${fade.toFixed(3)})`;
-		ctx.lineWidth = 2;
-		ctx.beginPath();
-		ctx.arc(0, 0, size + p * 8, a0, a1, true);
-		ctx.stroke();
-		// Sparks along arc
-		const SPARKS = 6;
+		ctx.lineWidth = _T(2);
+		ctx.beginPath(); ctx.arc(0, 0, r, a0, a1, true); ctx.stroke();
+		const SPARKS = _N(6);
 		for (let i = 0; i < SPARKS; i++) {
 			const ta = a0 + (a1 - a0) * (i / SPARKS) * (0.8 + _fxHash(i) * 0.4);
-			const sR = size + p * 8 + (_fxHash(i + 3) - 0.5) * 14;
+			const sR = r + (_fxHash(i + 3) - 0.5) * _S(14);
 			const sx = Math.cos(ta) * sR;
 			const sy = Math.sin(ta) * sR;
 			ctx.fillStyle = `rgba(255,255,200,${(fade * 0.9).toFixed(3)})`;
 			ctx.beginPath();
-			ctx.arc(sx, sy, 2 + fade * 1.5, 0, Math.PI * 2);
+			ctx.arc(sx, sy, _S(2 + fade * 1.5), 0, Math.PI * 2);
 			ctx.fill();
 		}
 		ctx.restore();
 	},
 };
 
-// Cross slash — 2 thick X cuts with glow halos + impact spark at center.
 FX_REGISTRY.crossSlash = {
 	label: "❌ Chém X",
 	draw: (ctx, t, cx, cy) => {
 		const p = _hitProgress(t);
 		if (p < 0) return;
 		const fade = 1 - p;
-		const len = 60 + p * 14;
+		const len = _S(60 + p * 14);
 		ctx.save();
 		ctx.translate(cx, cy - 32);
 		ctx.lineCap = 'round';
 		ctx.globalCompositeOperation = 'lighter';
-		// Outer red halo
 		ctx.strokeStyle = `rgba(255,50,50,${(fade * 0.55).toFixed(3)})`;
-		ctx.lineWidth = 18 * fade + 4;
+		ctx.lineWidth = _T(18 * fade + 4);
 		ctx.beginPath(); ctx.moveTo(-len, -len); ctx.lineTo(len, len); ctx.stroke();
 		ctx.beginPath(); ctx.moveTo(len, -len); ctx.lineTo(-len, len); ctx.stroke();
-		// Mid red
 		ctx.strokeStyle = `rgba(255,120,120,${fade.toFixed(3)})`;
-		ctx.lineWidth = 8 * fade + 2;
+		ctx.lineWidth = _T(8 * fade + 2);
 		ctx.beginPath(); ctx.moveTo(-len, -len); ctx.lineTo(len, len); ctx.stroke();
 		ctx.beginPath(); ctx.moveTo(len, -len); ctx.lineTo(-len, len); ctx.stroke();
-		// White core
 		ctx.strokeStyle = `rgba(255,255,255,${fade.toFixed(3)})`;
-		ctx.lineWidth = 3;
+		ctx.lineWidth = _T(3);
 		ctx.beginPath(); ctx.moveTo(-len, -len); ctx.lineTo(len, len); ctx.stroke();
 		ctx.beginPath(); ctx.moveTo(len, -len); ctx.lineTo(-len, len); ctx.stroke();
-		// Center impact burst
 		ctx.fillStyle = `rgba(255,255,255,${fade.toFixed(3)})`;
-		ctx.beginPath();
-		ctx.arc(0, 0, 6 * fade + 2, 0, Math.PI * 2);
-		ctx.fill();
+		ctx.beginPath(); ctx.arc(0, 0, _S(6 * fade + 2), 0, Math.PI * 2); ctx.fill();
 		ctx.fillStyle = `rgba(255,180,80,${(fade * 0.6).toFixed(3)})`;
-		ctx.beginPath();
-		ctx.arc(0, 0, 14 * fade + 4, 0, Math.PI * 2);
-		ctx.fill();
+		ctx.beginPath(); ctx.arc(0, 0, _S(14 * fade + 4), 0, Math.PI * 2); ctx.fill();
 		ctx.restore();
 	},
 };
@@ -1824,7 +1839,7 @@ FX_REGISTRY.bulletTrail = {
 		if (p < 0) return;
 		const dirSign = dir === 'left' ? -1 : 1;
 		const fade = 1 - p;
-		const len = 120 + p * 60;
+		const len = _S(120 + p * 60);
 		const y = cy - (bodyImg ? bodyImg.height * 0.45 : 36);
 		const tipX = cx + dirSign * len;
 		ctx.save();
@@ -1836,31 +1851,19 @@ FX_REGISTRY.bulletTrail = {
 		grad1.addColorStop(0.6, `rgba(255,200,80,${(fade * 0.5).toFixed(3)})`);
 		grad1.addColorStop(1, `rgba(255,255,200,${(fade * 0.7).toFixed(3)})`);
 		ctx.strokeStyle = grad1;
-		ctx.lineWidth = 10 * fade + 2;
-		ctx.beginPath();
-		ctx.moveTo(cx, y);
-		ctx.lineTo(tipX, y);
-		ctx.stroke();
-		// Hot core
+		ctx.lineWidth = _T(10 * fade + 2);
+		ctx.beginPath(); ctx.moveTo(cx, y); ctx.lineTo(tipX, y); ctx.stroke();
 		const grad2 = ctx.createLinearGradient(cx, y, tipX, y);
 		grad2.addColorStop(0, `rgba(255,255,180,0)`);
 		grad2.addColorStop(0.7, `rgba(255,255,200,${fade.toFixed(3)})`);
 		grad2.addColorStop(1, `rgba(255,255,255,${fade.toFixed(3)})`);
 		ctx.strokeStyle = grad2;
-		ctx.lineWidth = 3;
-		ctx.beginPath();
-		ctx.moveTo(cx, y);
-		ctx.lineTo(tipX, y);
-		ctx.stroke();
-		// Bullet head burst
+		ctx.lineWidth = _T(3);
+		ctx.beginPath(); ctx.moveTo(cx, y); ctx.lineTo(tipX, y); ctx.stroke();
 		ctx.fillStyle = `rgba(255,255,255,${fade.toFixed(3)})`;
-		ctx.beginPath();
-		ctx.arc(tipX, y, 4 * fade + 1.5, 0, Math.PI * 2);
-		ctx.fill();
+		ctx.beginPath(); ctx.arc(tipX, y, _S(4 * fade + 1.5), 0, Math.PI * 2); ctx.fill();
 		ctx.fillStyle = `rgba(255,200,80,${(fade * 0.6).toFixed(3)})`;
-		ctx.beginPath();
-		ctx.arc(tipX, y, 11 * fade + 3, 0, Math.PI * 2);
-		ctx.fill();
+		ctx.beginPath(); ctx.arc(tipX, y, _S(11 * fade + 3), 0, Math.PI * 2); ctx.fill();
 		ctx.restore();
 	},
 };
@@ -1872,36 +1875,26 @@ FX_REGISTRY.ringShockwave = {
 		const p = _hitProgress(t);
 		if (p < 0) return;
 		const fade = 1 - p;
-		const r = 10 + p * 100;
+		const r = _S(10 + p * 100);
 		const ax = cx, ay = cy - 16;
 		ctx.save();
 		ctx.globalCompositeOperation = 'lighter';
-		// Initial flash core (only first 30%)
 		if (p < 0.3) {
 			const flashFade = 1 - p / 0.3;
 			ctx.fillStyle = `rgba(255,240,180,${(flashFade * 0.85).toFixed(3)})`;
 			ctx.beginPath();
-			ctx.arc(ax, ay, 18 * flashFade + 4, 0, Math.PI * 2);
+			ctx.arc(ax, ay, _S(18 * flashFade + 4), 0, Math.PI * 2);
 			ctx.fill();
 		}
-		// Outer wide halo ring
 		ctx.strokeStyle = `rgba(255,180,60,${(fade * 0.6).toFixed(3)})`;
-		ctx.lineWidth = 12 * fade + 3;
-		ctx.beginPath();
-		ctx.arc(ax, ay, r * 1.1, 0, Math.PI * 2);
-		ctx.stroke();
-		// White inner ring
+		ctx.lineWidth = _T(12 * fade + 3);
+		ctx.beginPath(); ctx.arc(ax, ay, r * 1.1, 0, Math.PI * 2); ctx.stroke();
 		ctx.strokeStyle = `rgba(255,255,255,${fade.toFixed(3)})`;
-		ctx.lineWidth = 5 * fade + 1.5;
-		ctx.beginPath();
-		ctx.arc(ax, ay, r, 0, Math.PI * 2);
-		ctx.stroke();
-		// Outer faint trail
+		ctx.lineWidth = _T(5 * fade + 1.5);
+		ctx.beginPath(); ctx.arc(ax, ay, r, 0, Math.PI * 2); ctx.stroke();
 		ctx.strokeStyle = `rgba(255,200,80,${(fade * 0.4).toFixed(3)})`;
-		ctx.lineWidth = 2;
-		ctx.beginPath();
-		ctx.arc(ax, ay, r * 1.3, 0, Math.PI * 2);
-		ctx.stroke();
+		ctx.lineWidth = _T(2);
+		ctx.beginPath(); ctx.arc(ax, ay, r * 1.3, 0, Math.PI * 2); ctx.stroke();
 		ctx.restore();
 	},
 };
@@ -1915,24 +1908,19 @@ FX_REGISTRY.multiRing = {
 		const ax = cx, ay = cy - 16;
 		ctx.save();
 		ctx.globalCompositeOperation = 'lighter';
-		for (let i = 0; i < 4; i++) {
+		const RINGS = _N(4);
+		for (let i = 0; i < RINGS; i++) {
 			const offset = i * 0.13;
 			const localP = (p - offset) / Math.max(0.001, 1 - offset);
 			if (localP <= 0 || localP >= 1) continue;
 			const fade = 1 - localP;
-			const r = 6 + localP * (50 + i * 22);
-			// Halo
+			const r = _S(6 + localP * (50 + i * 22));
 			ctx.strokeStyle = `rgba(80,180,255,${(fade * 0.5).toFixed(3)})`;
-			ctx.lineWidth = 8 * fade + 2;
-			ctx.beginPath();
-			ctx.arc(ax, ay, r, 0, Math.PI * 2);
-			ctx.stroke();
-			// Core
+			ctx.lineWidth = _T(8 * fade + 2);
+			ctx.beginPath(); ctx.arc(ax, ay, r, 0, Math.PI * 2); ctx.stroke();
 			ctx.strokeStyle = `rgba(180,240,255,${fade.toFixed(3)})`;
-			ctx.lineWidth = 2.5;
-			ctx.beginPath();
-			ctx.arc(ax, ay, r, 0, Math.PI * 2);
-			ctx.stroke();
+			ctx.lineWidth = _T(2.5);
+			ctx.beginPath(); ctx.arc(ax, ay, r, 0, Math.PI * 2); ctx.stroke();
 		}
 		ctx.restore();
 	},
@@ -1948,47 +1936,39 @@ FX_REGISTRY.explosion = {
 		const ax = cx, ay = cy - 24;
 		ctx.save();
 		ctx.globalCompositeOperation = 'lighter';
-		// Outer fireball halo (orange)
-		const grad = ctx.createRadialGradient(ax, ay, 2, ax, ay, 60 * fade + 8);
+		const fireR = _S(60 * fade + 8);
+		const grad = ctx.createRadialGradient(ax, ay, 2, ax, ay, fireR);
 		grad.addColorStop(0, `rgba(255,255,220,${fade.toFixed(3)})`);
 		grad.addColorStop(0.4, `rgba(255,180,60,${(fade * 0.85).toFixed(3)})`);
 		grad.addColorStop(1, `rgba(255,80,20,0)`);
 		ctx.fillStyle = grad;
-		ctx.beginPath();
-		ctx.arc(ax, ay, 60 * fade + 8, 0, Math.PI * 2);
-		ctx.fill();
-		// Bright white core
+		ctx.beginPath(); ctx.arc(ax, ay, fireR, 0, Math.PI * 2); ctx.fill();
 		ctx.fillStyle = `rgba(255,255,240,${(fade * 0.95).toFixed(3)})`;
-		ctx.beginPath();
-		ctx.arc(ax, ay, 22 * fade + 4, 0, Math.PI * 2);
-		ctx.fill();
-		// 60 particles spreading outward at random angles + speeds
-		const NUM = 60;
+		ctx.beginPath(); ctx.arc(ax, ay, _S(22 * fade + 4), 0, Math.PI * 2); ctx.fill();
+		const NUM = _N(60);
 		for (let i = 0; i < NUM; i++) {
 			const angle = _fxHash(i) * Math.PI * 2;
 			const speedJ = 0.5 + _fxHash(i + 7);
-			const r = 12 + p * 70 * speedJ;
+			const r = _S(12 + p * 70 * speedJ);
 			const px = ax + Math.cos(angle) * r;
 			const py = ay + Math.sin(angle) * r * 0.85 - p * 6 + p * p * 18 * _fxHash(i + 11);
-			const sz = 1.2 + fade * 3;
+			const sz = _S(1.2 + fade * 3);
 			const colorR = 255;
 			const colorG = Math.round(120 + _fxHash(i + 5) * 130);
 			const colorB = Math.round(_fxHash(i + 9) * 80);
 			ctx.fillStyle = `rgba(${colorR},${colorG},${colorB},${(fade * 0.95).toFixed(3)})`;
-			ctx.beginPath();
-			ctx.arc(px, py, sz, 0, Math.PI * 2);
-			ctx.fill();
+			ctx.beginPath(); ctx.arc(px, py, sz, 0, Math.PI * 2); ctx.fill();
 		}
-		// Outer smoke ring (later in life)
 		if (p > 0.3) {
 			const smokeFade = (p - 0.3) / 0.7;
 			ctx.globalCompositeOperation = 'source-over';
 			ctx.fillStyle = `rgba(80,80,90,${((1 - smokeFade) * 0.4).toFixed(3)})`;
-			for (let i = 0; i < 12; i++) {
-				const a = (i / 12) * Math.PI * 2;
-				const r = 30 + smokeFade * 40;
+			const SMOKES = _N(12);
+			for (let i = 0; i < SMOKES; i++) {
+				const a = (i / SMOKES) * Math.PI * 2;
+				const r = _S(30 + smokeFade * 40);
 				ctx.beginPath();
-				ctx.arc(ax + Math.cos(a) * r, ay + Math.sin(a) * r * 0.7, 8 + smokeFade * 6, 0, Math.PI * 2);
+				ctx.arc(ax + Math.cos(a) * r, ay + Math.sin(a) * r * 0.7, _S(8 + smokeFade * 6), 0, Math.PI * 2);
 				ctx.fill();
 			}
 		}
@@ -2004,48 +1984,38 @@ FX_REGISTRY.bloodDrip = {
 		if (p < 0) return;
 		const groundY = cy + 4;
 		const dropTop = cy - (bodyImg ? bodyImg.height * 0.4 : 32);
-		const NUM = 12;
+		const NUM = _N(12);
 		ctx.save();
 		for (let i = 0; i < NUM; i++) {
 			const seed = _fxHash(i + 1);
-			const xJitter = (_fxHash(i + 7) - 0.5) * 50;
+			const xJitter = (_fxHash(i + 7) - 0.5) * _S(50);
 			const localT = Math.max(0, Math.min(1, p * 1.5 - seed * 0.5));
 			const dropY = dropTop + (groundY - dropTop) * localT;
 			const dropX = cx + xJitter;
 			if (localT < 1) {
-				// Drip trail above the drop
-				const trailH = Math.min(14, localT * 30);
+				const trailH = Math.min(_S(14), localT * _S(30));
 				const trailGrad = ctx.createLinearGradient(dropX, dropY - trailH, dropX, dropY);
 				trailGrad.addColorStop(0, 'rgba(140,15,20,0)');
 				trailGrad.addColorStop(1, `rgba(180,20,30,${0.85})`);
 				ctx.fillStyle = trailGrad;
-				ctx.fillRect(dropX - 1, dropY - trailH, 2, trailH);
-				// Drop body
+				ctx.fillRect(dropX - _T(1), dropY - trailH, _T(2), trailH);
 				ctx.fillStyle = `rgba(190,25,35,${0.95})`;
-				ctx.beginPath();
-				ctx.ellipse(dropX, dropY, 2.5, 4, 0, 0, Math.PI * 2);
-				ctx.fill();
-				// Highlight
+				ctx.beginPath(); ctx.ellipse(dropX, dropY, _S(2.5), _S(4), 0, 0, Math.PI * 2); ctx.fill();
 				ctx.fillStyle = `rgba(255,150,150,${0.5})`;
-				ctx.beginPath();
-				ctx.ellipse(dropX - 1, dropY - 1, 0.8, 1.5, 0, 0, Math.PI * 2);
-				ctx.fill();
+				ctx.beginPath(); ctx.ellipse(dropX - 1, dropY - 1, _S(0.8), _S(1.5), 0, 0, Math.PI * 2); ctx.fill();
 			} else {
-				// Persistent splat on ground
 				const splatT = Math.min(1, (p - (1 - seed * 0.5) / 1.5) / 0.3);
 				if (splatT > 0) {
-					const sR = 4 + splatT * 7;
+					const sR = _S(4 + splatT * 7);
 					ctx.fillStyle = `rgba(140,15,20,${0.85})`;
-					ctx.beginPath();
-					ctx.ellipse(dropX, groundY, sR, sR * 0.5, 0, 0, Math.PI * 2);
-					ctx.fill();
-					// Tiny droplets around splat
-					for (let j = 0; j < 3; j++) {
+					ctx.beginPath(); ctx.ellipse(dropX, groundY, sR, sR * 0.5, 0, 0, Math.PI * 2); ctx.fill();
+					const TINY = _N(3);
+					for (let j = 0; j < TINY; j++) {
 						const a = _fxHash(i * 3 + j) * Math.PI * 2;
 						const r = sR * (0.9 + _fxHash(i + j + 5) * 0.6);
 						ctx.fillStyle = `rgba(160,18,25,${0.7})`;
 						ctx.beginPath();
-						ctx.arc(dropX + Math.cos(a) * r, groundY + Math.sin(a) * r * 0.3, 1 + _fxHash(i + j) * 1.5, 0, Math.PI * 2);
+						ctx.arc(dropX + Math.cos(a) * r, groundY + Math.sin(a) * r * 0.3, _S(1 + _fxHash(i + j) * 1.5), 0, Math.PI * 2);
 						ctx.fill();
 					}
 				}
@@ -2065,16 +2035,15 @@ FX_REGISTRY.bloodSpray = {
 		const fade = 1 - p;
 		const ax = cx;
 		const ay = cy - (bodyImg ? bodyImg.height * 0.5 : 32);
-		const NUM = 50;
+		const NUM = _N(50);
 		const coneA = -dirSign > 0 ? Math.PI : 0;
 		ctx.save();
-		// Initial spray cone (only first 25%)
 		if (p < 0.25) {
 			const ff = 1 - p / 0.25;
 			ctx.fillStyle = `rgba(170,20,30,${(ff * 0.7).toFixed(3)})`;
 			ctx.beginPath();
 			ctx.moveTo(ax, ay);
-			ctx.arc(ax, ay, 30 * ff + 10, coneA - 0.45, coneA + 0.45);
+			ctx.arc(ax, ay, _S(30 * ff + 10), coneA - 0.45, coneA + 0.45);
 			ctx.closePath();
 			ctx.fill();
 		}
@@ -2082,11 +2051,11 @@ FX_REGISTRY.bloodSpray = {
 			const seed = _fxHash(i);
 			const seed2 = _fxHash(i + 31);
 			const angle = coneA + (seed - 0.5) * Math.PI * 0.85;
-			const speed = 30 + seed * 90;
+			const speed = _S(30 + seed * 90);
 			const r = speed * p;
 			const px = ax + Math.cos(angle) * r;
 			const py = ay + Math.sin(angle) * r * 0.7 + p * p * 50 * (0.5 + seed2);
-			const sz = 1.2 + fade * (2 + seed * 2);
+			const sz = _S(1.2 + fade * (2 + seed * 2));
 			const cR = 150 + Math.floor(seed * 60);
 			const cG = 15 + Math.floor(seed2 * 25);
 			const cB = 25 + Math.floor(seed * 20);
@@ -2113,7 +2082,7 @@ FX_REGISTRY.damageNumber = {
 		const seed = _fxHash(hitFrame + 1);
 		const isCrit = seed > 0.7;
 		const fade = 1 - Math.max(0, p - 0.3) / 0.7; // hold strong for first 30%
-		const popScale = p < 0.18 ? Math.pow(p / 0.18, 0.6) * 1.25 : 1 + Math.sin((p - 0.18) * Math.PI * 2) * 0.04;
+		const popScale = (p < 0.18 ? Math.pow(p / 0.18, 0.6) * 1.25 : 1 + Math.sin((p - 0.18) * Math.PI * 2) * 0.04) * fxSize;
 		const driftX = (seed - 0.5) * 24 * p;
 		const y = cy - 70 - p * 36;
 		const num = -Math.floor((isCrit ? 80 : 20) + seed * (isCrit ? 220 : 80));
@@ -2157,30 +2126,21 @@ FX_REGISTRY.smokePuff = {
 		const ax = cx;
 		const ay = cy - 6;
 		ctx.save();
-		// Multiple puffs at staggered times
-		for (let i = 0; i < 8; i++) {
+		const PUFFS = _N(8);
+		for (let i = 0; i < PUFFS; i++) {
 			const offset = i * 0.07;
 			const localP = (p - offset) / Math.max(0.001, 1 - offset);
 			if (localP <= 0 || localP >= 1) continue;
 			const fade = 1 - localP;
-			const r = 8 + localP * 26 + _fxHash(i) * 4;
-			const xJ = ((i % 2) - 0.5) * 12 + (_fxHash(i + 9) - 0.5) * 14;
-			const yOff = -localP * 50 - i * 2;
-			// Outer faint puff
+			const r = _S(8 + localP * 26 + _fxHash(i) * 4);
+			const xJ = ((i % 2) - 0.5) * _S(12) + (_fxHash(i + 9) - 0.5) * _S(14);
+			const yOff = -_S(localP * 50 + i * 2);
 			ctx.fillStyle = `rgba(160,160,170,${(fade * 0.3).toFixed(3)})`;
-			ctx.beginPath();
-			ctx.arc(ax + xJ, ay + yOff, r * 1.3, 0, Math.PI * 2);
-			ctx.fill();
-			// Mid
+			ctx.beginPath(); ctx.arc(ax + xJ, ay + yOff, r * 1.3, 0, Math.PI * 2); ctx.fill();
 			ctx.fillStyle = `rgba(130,130,140,${(fade * 0.5).toFixed(3)})`;
-			ctx.beginPath();
-			ctx.arc(ax + xJ, ay + yOff, r, 0, Math.PI * 2);
-			ctx.fill();
-			// Highlight (top of puff)
+			ctx.beginPath(); ctx.arc(ax + xJ, ay + yOff, r, 0, Math.PI * 2); ctx.fill();
 			ctx.fillStyle = `rgba(200,200,210,${(fade * 0.4).toFixed(3)})`;
-			ctx.beginPath();
-			ctx.arc(ax + xJ - r * 0.3, ay + yOff - r * 0.3, r * 0.5, 0, Math.PI * 2);
-			ctx.fill();
+			ctx.beginPath(); ctx.arc(ax + xJ - r * 0.3, ay + yOff - r * 0.3, r * 0.5, 0, Math.PI * 2); ctx.fill();
 		}
 		ctx.restore();
 	},
@@ -2195,56 +2155,51 @@ FX_REGISTRY.lightning = {
 		const fade = 1 - p / 0.7;
 		const top = cy - (bodyImg ? bodyImg.height * 0.7 : 50);
 		const bot = cy + 4;
-		const segs = 10;
+		const segs = _N(10);
 		const seedShift = Math.floor(p * settings.frames);
 		ctx.save();
 		ctx.globalCompositeOperation = 'lighter';
 		ctx.lineCap = 'round';
-		// Build main bolt path
 		const pts = [{ x: cx, y: top }];
 		for (let i = 1; i <= segs; i++) {
 			const ty = top + (bot - top) * (i / segs);
-			const tx = cx + (_fxHash(i + seedShift) - 0.5) * 36 * (1 - (i / segs) * 0.6);
+			const tx = cx + (_fxHash(i + seedShift) - 0.5) * _S(36) * (1 - (i / segs) * 0.6);
 			pts.push({ x: tx, y: ty });
 		}
 		const drawPath = (color, w) => {
 			ctx.strokeStyle = color;
-			ctx.lineWidth = w;
+			ctx.lineWidth = _T(w);
 			ctx.beginPath();
 			ctx.moveTo(pts[0].x, pts[0].y);
 			for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
 			ctx.stroke();
 		};
-		// Outer wide halo (cyan/blue)
 		drawPath(`rgba(80,150,255,${(fade * 0.5).toFixed(3)})`, 14);
-		// Mid (light blue)
 		drawPath(`rgba(180,220,255,${fade.toFixed(3)})`, 5);
-		// Hot white core
 		drawPath(`rgba(255,255,255,${fade.toFixed(3)})`, 1.5);
-		// Branch arcs — 3 small forks off the main bolt
-		for (let b = 0; b < 3; b++) {
-			const branchStart = pts[2 + b * 2] || pts[pts.length - 2];
+		const BRANCHES = _N(3);
+		for (let b = 0; b < BRANCHES; b++) {
+			const branchStart = pts[Math.min(2 + b * 2, pts.length - 2)];
 			const bsegs = 4;
 			const bdir = b % 2 === 0 ? -1 : 1;
 			ctx.strokeStyle = `rgba(180,220,255,${(fade * 0.7).toFixed(3)})`;
-			ctx.lineWidth = 1.8;
+			ctx.lineWidth = _T(1.8);
 			ctx.beginPath();
 			ctx.moveTo(branchStart.x, branchStart.y);
 			let bx = branchStart.x;
 			let by = branchStart.y;
 			for (let i = 1; i <= bsegs; i++) {
-				bx += bdir * 6 + (_fxHash(b * 7 + i + seedShift) - 0.5) * 8;
-				by += 6 + _fxHash(b + i + 13) * 4;
+				bx += bdir * _S(6) + (_fxHash(b * 7 + i + seedShift) - 0.5) * _S(8);
+				by += _S(6 + _fxHash(b + i + 13) * 4);
 				ctx.lineTo(bx, by);
 			}
 			ctx.stroke();
 		}
-		// Impact flash at base
 		if (p < 0.3) {
 			const ff = 1 - p / 0.3;
 			ctx.fillStyle = `rgba(220,240,255,${(ff * 0.7).toFixed(3)})`;
 			ctx.beginPath();
-			ctx.arc(pts[pts.length - 1].x, pts[pts.length - 1].y, 18 * ff + 4, 0, Math.PI * 2);
+			ctx.arc(pts[pts.length - 1].x, pts[pts.length - 1].y, _S(18 * ff + 4), 0, Math.PI * 2);
 			ctx.fill();
 		}
 		ctx.restore();
@@ -2253,9 +2208,13 @@ FX_REGISTRY.lightning = {
 
 function drawAllFx(ctx, t, cx, cy, dir) {
 	if (!enabledFx.size) return;
+	// Apply global Y offset once for all FX. Size/thickness/density modifiers
+	// are applied inside each FX via _S/_T/_N helpers (so line widths can
+	// stay independent of geometric size).
+	const ay = cy + fxPosY;
 	for (const id of enabledFx) {
 		const fx = FX_REGISTRY[id];
-		if (fx?.draw) fx.draw(ctx, t, cx, cy, dir);
+		if (fx?.draw) fx.draw(ctx, t, cx, ay, dir);
 	}
 }
 
@@ -3669,6 +3628,28 @@ $('fx-clear-all').addEventListener('click', () => {
 	updateBakePreview();
 });
 
+// Wire 4 global FX modifier sliders
+$('fx-posy').addEventListener('input', (e) => {
+	fxPosY = Number(e.target.value) || 0;
+	$('fx-posy-val').textContent = `${fxPosY > 0 ? '+' : ''}${fxPosY}px`;
+	updateBakePreview();
+});
+$('fx-size').addEventListener('input', (e) => {
+	fxSize = (Number(e.target.value) || 100) / 100;
+	$('fx-size-val').textContent = `${Math.round(fxSize * 100)}%`;
+	updateBakePreview();
+});
+$('fx-thick').addEventListener('input', (e) => {
+	fxThick = (Number(e.target.value) || 100) / 100;
+	$('fx-thick-val').textContent = `${Math.round(fxThick * 100)}%`;
+	updateBakePreview();
+});
+$('fx-density').addEventListener('input', (e) => {
+	fxDensity = (Number(e.target.value) || 100) / 100;
+	$('fx-density-val').textContent = `${Math.round(fxDensity * 100)}%`;
+	updateBakePreview();
+});
+
 // ===== Custom FX sprite upload =====
 let customFxImg = null;
 let customFxCols = 8;
@@ -3957,6 +3938,10 @@ function makeSessionConfig(options = {}) {
 		useSpring,
 		cinematicTiming,
 		enabledFx: [...enabledFx],
+		fxPosY,
+		fxSize,
+		fxThick,
+		fxDensity,
 		frameAutoFit,
 		frameMaxTile,
 		frameScale,
@@ -4119,6 +4104,18 @@ async function applySessionConfig(cfg, sourceLabel = 'preset') {
 		$('show-trail').checked = showTrail;
 		$('show-particles').checked = showParticles;
 		enabledFx = new Set(Array.isArray(cfg.enabledFx) ? cfg.enabledFx : []);
+		fxPosY = Number(cfg.fxPosY) || 0;
+		fxSize = Number(cfg.fxSize) || 1;
+		fxThick = Number(cfg.fxThick) || 1;
+		fxDensity = Number(cfg.fxDensity) || 1;
+		$('fx-posy').value = fxPosY;
+		$('fx-posy-val').textContent = `${fxPosY > 0 ? '+' : ''}${fxPosY}px`;
+		$('fx-size').value = fxSize * 100;
+		$('fx-size-val').textContent = `${Math.round(fxSize * 100)}%`;
+		$('fx-thick').value = fxThick * 100;
+		$('fx-thick-val').textContent = `${Math.round(fxThick * 100)}%`;
+		$('fx-density').value = fxDensity * 100;
+		$('fx-density-val').textContent = `${Math.round(fxDensity * 100)}%`;
 		_renderFxGrid();
 		$('show-flash').checked = showFlash;
 		$('show-shake').checked = showShake;
