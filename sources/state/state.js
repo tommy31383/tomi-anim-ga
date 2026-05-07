@@ -119,9 +119,7 @@ export async function cycleExpression() {
   if (!rows?.length) return null;
 
   const cur = state.selections.expression;
-  const curIdx = cur
-    ? rows.findIndex((r) => r.itemId === cur.itemId)
-    : -1;
+  const curIdx = cur ? rows.findIndex((r) => r.itemId === cur.itemId) : -1;
   const nextIdx = (curIdx + 1) % rows.length;
   const next = rows[nextIdx];
   if (!next) return null;

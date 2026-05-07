@@ -1,5 +1,10 @@
 import m from "mithril";
-import { cycleExpression, resetAll, resetBodyToFull, state } from "../../state/state.js";
+import {
+  cycleExpression,
+  resetAll,
+  resetBodyToFull,
+  state,
+} from "../../state/state.js";
 import { randomizeCharacter } from "../../state/random-character.js";
 import { quickSaveCurrent } from "../../state/projects.js";
 import { showToast } from "../../state/toast.js";
@@ -166,7 +171,10 @@ export const TopBar = {
               onclick: async () => {
                 const name = await cycleExpression();
                 if (name) {
-                  showToast(`🎭 ${name}`, { kind: "success", durationMs: 1500 });
+                  showToast(`🎭 ${name}`, {
+                    kind: "success",
+                    durationMs: 1500,
+                  });
                 } else {
                   showToast("Catalog chưa sẵn sàng", { kind: "error" });
                 }
