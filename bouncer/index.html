@@ -474,8 +474,7 @@
 							<input id="custom-fx-cols" type="number" min="1" max="32" value="8" class="w-10 px-1 py-0.5 bg-slate-900 border border-slate-700 rounded text-[10px]">
 							<span class="text-slate-500">Rows:</span>
 							<input id="custom-fx-rows" type="number" min="1" max="32" value="1" class="w-10 px-1 py-0.5 bg-slate-900 border border-slate-700 rounded text-[10px]">
-							<span class="text-slate-500">Scale:</span>
-							<input id="custom-fx-scale" type="number" min="20" max="400" step="10" value="100" class="w-12 px-1 py-0.5 bg-slate-900 border border-slate-700 rounded text-[10px]">%
+							<span class="text-slate-600 text-[9px]" title="Dùng slider 📐 Kích thước global">scale: global</span>
 						</div>
 					</div>
 				</div>
@@ -3940,7 +3939,6 @@ $('fx-density').addEventListener('input', (e) => {
 let customFxImg = null;
 let customFxCols = 8;
 let customFxRows = 1;
-let customFxScale = 100;
 const customFxInput = $('custom-fx-input');
 const customFxDz = $('custom-fx-dz');
 const customFxInfo = $('custom-fx-info');
@@ -3948,7 +3946,6 @@ const customFxName = $('custom-fx-name');
 const customFxThumb = $('custom-fx-thumb');
 const customFxColsInput = $('custom-fx-cols');
 const customFxRowsInput = $('custom-fx-rows');
-const customFxScaleInput = $('custom-fx-scale');
 const customFxClear = $('custom-fx-clear');
 const customFxPreset = $('custom-fx-preset');
 
@@ -4018,10 +4015,6 @@ customFxRowsInput.addEventListener('input', (e) => {
 	customFxRows = Math.max(1, Number(e.target.value) || 1);
 	updateBakePreview();
 });
-customFxScaleInput.addEventListener('input', (e) => {
-	customFxScale = Math.max(10, Number(e.target.value) || 100);
-	updateBakePreview();
-});
 customFxClear.addEventListener('click', () => {
 	customFxImg = null;
 	customFxInput.value = '';
@@ -4060,9 +4053,10 @@ FX_REGISTRY.customSheet = {
 		const row = Math.floor(idx / cols);
 		const fW = customFxImg.width / cols;
 		const fH = customFxImg.height / rows;
-		const scl = customFxScale / 100;
-		const drawW = fW * scl;
-		const drawH = fH * scl;
+		// Scale via global "📐 Kích thước" slider (fxSize) — per-FX scale was
+		// removed in v0.13.5 to avoid duplication.
+		const drawW = _S(fW);
+		const drawH = _S(fH);
 		ctx.save();
 		ctx.imageSmoothingEnabled = false;
 		ctx.drawImage(
