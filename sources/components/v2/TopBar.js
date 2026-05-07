@@ -1,10 +1,5 @@
 import m from "mithril";
-import {
-  cycleExpression,
-  resetAll,
-  resetBodyToFull,
-  state,
-} from "../../state/state.js";
+import { resetAll, resetBodyToFull, state } from "../../state/state.js";
 import { randomizeCharacter } from "../../state/random-character.js";
 import { quickSaveCurrent } from "../../state/projects.js";
 import { showToast } from "../../state/toast.js";
@@ -38,7 +33,7 @@ const iconBtn = (icon, attrs = {}) => {
 
 export const TopBar = {
   view: function (vnode) {
-    const { onExport, onProjects } = vnode.attrs;
+    const { onExport, onProjects, onExpressionPicker } = vnode.attrs;
     const projName = state.currentProjectName;
     return m(
       "header",
@@ -167,18 +162,8 @@ export const TopBar = {
             }),
             iconBtn("mood", {
               label: "Đổi mặt",
-              title: "Cycle expression — face khác (vui / buồn / giận / ...)",
-              onclick: async () => {
-                const name = await cycleExpression();
-                if (name) {
-                  showToast(`🎭 ${name}`, {
-                    kind: "success",
-                    durationMs: 1500,
-                  });
-                } else {
-                  showToast("Catalog chưa sẵn sàng", { kind: "error" });
-                }
-              },
+              title: "Mở picker chọn biểu cảm khuôn mặt",
+              onclick: () => onExpressionPicker?.(),
             }),
             iconBtn("share", {
               label: "Share",

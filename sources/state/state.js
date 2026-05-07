@@ -109,6 +109,38 @@ export function getSubSelectionGroup(itemId, idx) {
   return recolor?.type_name ?? meta.type_name;
 }
 
+// Return all available expression items from the catalog (or empty if not
+// ready). Each entry is the byTypeName row { itemId, name, type_name, ... }.
+export function listExpressions() {
+  const idx = catalog.getMetadataIndexes();
+  return idx?.byTypeName?.expression ?? [];
+}
+
+/** Currently-selected expression itemId, or null. */
+export function getCurrentExpressionId() {
+  return state.selections.expression?.itemId ?? null;
+}
+
+// Apply a specific expression by itemId. Mirrors body recolor (skin tone).
+// Returns the picked metadata or null if itemId isn't a real expression.
+export async function setExpression(itemId) {
+  const meta = catalog.getItemMerged(itemId);
+  if (!meta || meta.type_name !== "expression") return null;
+  const bodySel = state.selections[getSelectionGroup("body")];
+  const bodyRecolor = bodySel?.recolor || "light";
+  state.selections.expression = {
+    itemId,
+    subId: null,
+    variant: null,
+    recolor: bodyRecolor,
+    name: `${meta.name} (${bodyRecolor})`,
+  };
+  stateDeps.syncSelectionsToHash();
+  await stateDeps.renderCharacter(state.selections, state.bodyType);
+  stateDeps.redraw();
+  return meta;
+}
+
 // Cycle through available `expression` items in the catalog. Returns the
 // new expression name (for toast/UI feedback) or null if catalog isn't
 // ready yet. Mirrors the body recolor of the current selection so the

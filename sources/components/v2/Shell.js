@@ -12,11 +12,13 @@ import { Inspector } from "./Inspector.js";
 import { ExportModal } from "./ExportModal.js";
 import { Toast } from "./Toast.js";
 import { ProjectsDialog } from "./ProjectsDialog.js";
+import { ExpressionPickerDialog } from "./ExpressionPickerDialog.js";
 
 export const Shell = {
   oninit: function (vnode) {
     vnode.state.exportOpen = false;
     vnode.state.projectsOpen = false;
+    vnode.state.expressionOpen = false;
     vnode.state.prevSelections = JSON.stringify(state.selections);
     vnode.state.prevBodyType = state.bodyType;
     vnode.state.prevCustomImage = state.customUploadedImage;
@@ -55,10 +57,20 @@ export const Shell = {
     const closeProjects = () => {
       vnode.state.projectsOpen = false;
     };
+    const openExpression = () => {
+      vnode.state.expressionOpen = true;
+    };
+    const closeExpression = () => {
+      vnode.state.expressionOpen = false;
+    };
     return m(
       "div.flex.flex-col.h-screen.w-screen.bg-background.text-on-background",
       [
-        m(TopBar, { onExport: openExport, onProjects: openProjects }),
+        m(TopBar, {
+          onExport: openExport,
+          onProjects: openProjects,
+          onExpressionPicker: openExpression,
+        }),
         m("main.flex-1.flex.overflow-hidden", [
           m(AssetLibrary),
           m(CanvasArea),
@@ -67,6 +79,8 @@ export const Shell = {
         vnode.state.exportOpen && m(ExportModal, { onClose: closeExport }),
         vnode.state.projectsOpen &&
           m(ProjectsDialog, { onClose: closeProjects }),
+        vnode.state.expressionOpen &&
+          m(ExpressionPickerDialog, { onClose: closeExpression }),
         m(Toast),
       ],
     );
