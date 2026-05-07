@@ -465,6 +465,10 @@
 					<span class="material-symbols-outlined align-middle" style="font-size:14px">cloud_upload</span>
 					Kéo thả hoặc click chọn
 				</label>
+				<button id="pinterest-extract-btn" class="mt-1.5 w-full text-[10px] px-2 py-1 rounded border border-rose-500/40 text-rose-300 bg-rose-500/10 hover:bg-rose-500/20 active:scale-95 flex items-center justify-center gap-1" title="Chỉ chạy ở dev (npm run dev). Cần yt-dlp + ffmpeg.">
+					📌 Lấy video Pinterest → sprite-sheet
+				</button>
+				<p id="pinterest-extract-status" class="hidden mt-1 text-[9px] text-slate-400 italic"></p>
 				<div id="custom-fx-info" class="hidden mt-1.5 flex items-center gap-2 text-[10px] text-violet-300">
 					<canvas id="custom-fx-thumb" width="32" height="32" class="rounded bg-slate-950 border border-slate-700" style="image-rendering:pixelated"></canvas>
 					<div class="flex-1 min-w-0">
@@ -4035,6 +4039,52 @@ customFxPreset.addEventListener('change', (e) => {
 	img.onload = () => _setCustomFxImg(img, name, cols, rows);
 	img.onerror = () => alert('Không load được preset: ' + url);
 	img.src = url;
+});
+
+// ===== Pinterest → sprite-sheet (dev-only, requires yt-dlp + ffmpeg) =====
+// Calls the local Vite middleware /api/pinterest-extract which downloads the
+// pin and returns a horizontal sprite-sheet PNG. Frame count comes back in
+// the X-Pinterest-Frames header so we can auto-set Cols.
+$('pinterest-extract-btn').addEventListener('click', async () => {
+	const btn = $('pinterest-extract-btn');
+	const status = $('pinterest-extract-status');
+	const url = (prompt('URL pin Pinterest (phải là VIDEO pin, không phải ảnh):', '') || '').trim();
+	if (!url) return;
+	const fpsRaw = prompt('FPS (mặc định 12, max 60):', '12');
+	const fps = Math.min(60, Math.max(1, Number(fpsRaw) || 12));
+	const maxwRaw = prompt('Width tối đa px (Enter = giữ nguyên, vd 256):', '');
+	const maxwidth = maxwRaw ? Math.min(4096, Math.max(16, Number(maxwRaw) || 0)) : 0;
+	btn.disabled = true;
+	status.classList.remove('hidden');
+	status.textContent = '⏳ Đang tải + extract… (có thể 10-30s tuỳ video)';
+	try {
+		const resp = await fetch('/api/pinterest-extract', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ url, fps, maxwidth }),
+		});
+		if (!resp.ok) {
+			const msg = await resp.text();
+			throw new Error(msg || `HTTP ${resp.status}`);
+		}
+		const cols = Number(resp.headers.get('X-Pinterest-Frames')) || 1;
+		const blob = await resp.blob();
+		const objUrl = URL.createObjectURL(blob);
+		const img = new Image();
+		img.onload = () => {
+			URL.revokeObjectURL(objUrl);
+			const pinId = (url.match(/\d{8,}/) || ['pinterest'])[0];
+			_setCustomFxImg(img, `pin-${pinId}.png`, cols, 1);
+			status.textContent = `✅ Đã load: ${cols} frame × 1 hàng`;
+		};
+		img.onerror = () => { URL.revokeObjectURL(objUrl); throw new Error('Sheet PNG hỏng'); };
+		img.src = objUrl;
+	} catch (e) {
+		status.textContent = '❌ ' + (e?.message || e);
+	} finally {
+		btn.disabled = false;
+		setTimeout(() => status.classList.add('hidden'), 6000);
+	}
 });
 
 // Register custom FX sheet — plays uploaded sprite at hitFrame.

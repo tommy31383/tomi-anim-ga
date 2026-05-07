@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite";
 import { getSpritesheetsPlugin } from "./vite/get-spritesheets-plugin.js";
 import { vitePluginPreviewServeDistSpritesheets } from "./vite/vite-plugin-preview-serve-dist-spritesheets.js";
+import { vitePluginPinterestExtract } from "./vite/vite-plugin-pinterest-extract.js";
 import { vitePluginBundledCssAfterBulma } from "./vite/vite-plugin-bundled-css-after-bulma.js";
 import { vitePluginPurgeCriticalCss } from "./vite/vite-plugin-purge-critical-css.js";
 import { vitePluginMetadataModulePreload } from "./vite/vite-plugin-metadata-modulepreload.js";
@@ -150,6 +151,12 @@ export default defineConfig(({ command }) => ({
       },
     },
     vitePluginPreviewServeDistSpritesheets(),
+    // Pinterest → sprite-sheet extractor (dev only). Looks for yt-dlp/ffmpeg
+    // on PATH and also in ~/.local/bin (where the standalone binaries land
+    // when brew isn't available).
+    vitePluginPinterestExtract({
+      extraPath: [path.join(process.env.HOME || "", ".local/bin"), "/opt/homebrew/bin"],
+    }),
     ...itemMetadataPlugins(command),
     vitePluginMetadataModulePreload(),
     vitePluginBundledCssAfterBulma(),
