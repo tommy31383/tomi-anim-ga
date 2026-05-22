@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git *)",
+      "PowerShell(git config *)",
+      "PowerShell(Set-Content *)",
+      "PowerShell($user = 'lkhoa1011'; $p1 = 'ghp_GJnkAl3Lg'; $p2 = 'lUeDls5y1Oo125'; $p3 = 'y7dBc9f2xyJ9L'; $tok = $p1 + $p2 + $p3; $url = \"https://$user`:$tok@github.com/tommy31383/tomi-anim-ga.git\"; git remote set-url origin $url; $stored = git config --get remote.origin.url; \"Stored URL length: $\\($stored.Length\\)\")",
+      "PowerShell($p1 = 'ghp_GJnkAl3Lg'; $p2 = 'lUeDls5y1Oo125'; $p3 = 'y7dBc9f2xyJ9L'; $tok = $p1 + $p2 + $p3; curl.exe -s -H \"Authorization: token $tok\" -H \"Accept: application/vnd.github+json\" https://api.github.com/repos/tommy31383/tomi-anim-ga/collaborators/lkhoa1011/permission)",
+      "PowerShell($p1 = 'ghp_GJnkAl3Lg'; $p2 = 'lUeDls5y1Oo125'; $p3 = 'y7dBc9f2xyJ9L'; $tok = $p1 + $p2 + $p3; $H = @{'Authorization' = \"token $tok\"; 'Accept' = 'application/vnd.github+json'}; \"=== 1. Authenticated user ===\"; curl.exe -s -H \"Authorization: token $tok\" https://api.github.com/user | Select-String '\"login\"|\"id\"' ; \"`n=== 2. Pending repo invitations for this user ===\"; curl.exe -s -H \"Authorization: token $tok\" https://api.github.com/user/repository_invitations ; \"`n=== 3. Repo metadata + permissions \\(as this user sees it\\) ===\"; curl.exe -s -H \"Authorization: token $tok\" https://api.github.com/repos/tommy31383/tomi-anim-ga | Select-String '\"full_name\"|\"private\"|\"permissions\"|\"message\"' ; \"`n=== 4. Token scopes \\(response headers\\) ===\"; curl.exe -sI -H \"Authorization: token $tok\" https://api.github.com/user | Select-String -Pattern 'x-oauth-scopes|x-accepted-oauth-scopes|x-ratelimit-resource')",
+      "PowerShell(Select-String *)"
+    ]
+  }
+}

@@ -626,26 +626,106 @@ const PRESETS = {
 	},
 	die: {
 		key: 'die', emoji: '💀', label: 'Chết',
-		desc: 'Gục xuống tại chỗ: xoay nhẹ, lún chân, xẹp thân và mờ dần. Hợp minion chết tại vị trí đứng.',
+		desc: 'Nhún anticipation → bật nhẹ lên → xoay lật ngửa bụng → đáp tại chỗ. Vũ khí rời tay VĂNG LÊN TRỜI (giữ góc tự nhiên, không xoay) rồi rơi xuống đất, snap nằm horizontal cùng Y với unit. Compose với FX Khói + Emoji bubble (👼) ở hit frame để có cảm giác hồn bay lên.',
 		loop: false,
-		defaults: { frames: 12, duration: 620, fall: 10, dieAngle: 24, collapse: 34, fade: 24 },
-		sliders: ['frames', 'duration', 'fall', 'dieAngle', 'collapse', 'fade'],
+		defaults: { frames: 16, duration: 900, fall: 14, dieAngle: -95, collapse: 28, fade: 55, pop: 22, weaponDrop: 28 },
+		sliders: ['frames', 'duration', 'fall', 'dieAngle', 'collapse', 'fade', 'pop', 'weaponDrop'],
 		transform: (t, s) => {
-			const e = easeOutCubic(t);
-			const impact = Math.sin(Math.min(1, t / 0.36) * Math.PI) * Math.max(0, 1 - t * 1.7);
-			const angle = e * s.dieAngle;
-			const h = bodyImg?.height || 96;
-			return {
-				// Counter-shift keeps the fallen pose visually centered on the original standing spot.
-				tx: -Math.sin((angle * Math.PI) / 180) * h * 0.12,
-				ty: e * s.fall + impact * 2,
-				rot: angle + impact * 2,
-				sx: lerp(1, 1 + s.collapse / 100, e),
-				sy: lerp(1, Math.max(0.42, 1 - s.collapse / 72), e),
-				alpha: lerp(1, 1 - s.fade / 100, e),
-				filter: `saturate(${(1 - e * 0.45).toFixed(2)}) brightness(${(1 - e * 0.18).toFixed(2)})`,
-				weaponRot: e * 18 + impact * 6,
-			};
+			// 5 body phase + weapon detach từ t=0.15
+			// P1 (0-12%):    Nhún squat
+			// P2 (12-30%):   Bật lên + tilt nhẹ ra sau
+			// P3 (30-60%):   Lật trên không, rot 0 → dieAngle (95° = ngửa bụng)
+			// P4 (60-72%):   Đáp đất, impact squash
+			// P5 (72-100%):  Nằm yên + fade
+			// Vũ khí: t<0.15 dính tay, t∈[0.15,0.40] rơi, t∈[0.40,0.55] đáp đất, t≥0.55 nằm im
+			let tx = 0, ty = 0, sx = 1, sy = 1, rot = 0, alpha = 1, filter = 'none';
+			let weaponDetached = false, weaponWorldDx = 0, weaponWorldDy = 0, weaponWorldRot = 0;
+
+			// === BODY ===
+			if (t < 0.12) {
+				// P1 Nhún
+				const p = t / 0.12;
+				const e = easeOutCubic(p);
+				sy = lerp(1, 0.72, e);
+				sx = lerp(1, 1.16, e);
+			} else if (t < 0.30) {
+				// P2 Bật lên + tilt nhẹ
+				const p = (t - 0.12) / 0.18;
+				const e = easeOutCubic(p);
+				ty = lerp(0, -s.pop, e);
+				sy = lerp(0.72, 1.10, e);
+				sx = lerp(1.16, 0.92, e);
+				rot = lerp(0, -12, e);
+			} else if (t < 0.60) {
+				// P3 Lật trên không — quay về đúng mặt đất (ty = 0)
+				const p = (t - 0.30) / 0.30;
+				const e = easeOutCubic(p);
+				rot = lerp(-12, s.dieAngle, e);
+				ty = lerp(-s.pop, 0, e);
+				sy = lerp(1.10, 0.95, e);
+				sx = lerp(0.92, 1.0, e);
+			} else if (t < 0.72) {
+				// P4 Đáp đất — impact bounce nhỏ rồi về 0 (ngã tại chỗ, không lún xuống)
+				const p = (t - 0.60) / 0.12;
+				const e = easeOutCubic(p);
+				const impact = Math.sin(p * Math.PI) * (1 - p);
+				rot = s.dieAngle + impact * 4;
+				ty = impact * Math.max(2, s.fall * 0.3); // bounce nhỏ rồi về 0 (chỉ là chấn động đáp)
+				sy = lerp(0.95, 1 - s.collapse / 100, e);
+				sx = lerp(1.0, 1 + s.collapse / 140, e);
+			} else {
+				// P5 Nằm yên + fade — body nằm đúng vị trí standing (ty = 0)
+				const p = (t - 0.72) / 0.28;
+				const e = easeOutCubic(p);
+				rot = s.dieAngle;
+				ty = 0;
+				sy = 1 - s.collapse / 100;
+				sx = 1 + s.collapse / 140;
+				alpha = lerp(1, 1 - s.fade / 100, e);
+				filter = `saturate(${(1 - e * 0.5).toFixed(2)}) brightness(${(1 - e * 0.22).toFixed(2)})`;
+			}
+
+			// === WEAPON: 4 phase — văng LÊN TRỜI rồi rơi xuống cùng Y với unit (KHÔNG xoay khi bay) ===
+			// Phase A (0.15-0.30): Ascending — bay LÊN cao (apex trên đầu unit), giữ góc tự nhiên
+			// Phase B (0.30-0.50): Descending — rơi xuống dưới gia tốc (gravity), vẫn giữ góc tự nhiên
+			// Phase C (0.50-0.58): Settling — bounce nhẹ rồi snap rot về 90° (lying horizontal)
+			// Phase D (0.58+):     Rest — nằm im, Y = body's lying line
+			if (t >= 0.15) {
+				weaponDetached = true;
+				const handHeight = -s.pop * 0.4;                            // ~body ty tại t=0.15
+				const apexHeight = -(s.pop + 30);                           // weapon bay lên cao hơn đầu unit
+				const bodyH = bodyImg?.height || 96;
+				const groundDrop = weapon.y + bodyH * 0.5;                  // adaptive: weapon rơi xuống = body lying bottom (cùng Y với unit)
+				if (t < 0.30) {
+					// Phase A: Ascending — bay LÊN trời, KHÔNG xoay (giữ góc tự nhiên)
+					const p = (t - 0.15) / 0.15;
+					const eUp = easeOutCubic(p);                            // decelerate as approaches apex
+					weaponWorldDx = s.weaponDrop * 0.4 * p;                 // linear drift right
+					weaponWorldDy = lerp(handHeight, apexHeight, eUp);
+					weaponWorldRot = weapon.rot;                            // giữ nguyên góc tự nhiên, không spin
+				} else if (t < 0.50) {
+					// Phase B: Descending — rơi xuống với gia tốc, vẫn giữ góc tự nhiên
+					const p = (t - 0.30) / 0.20;
+					const eDown = p * p;                                    // easeInCubic-like: accelerate falling
+					weaponWorldDx = lerp(s.weaponDrop * 0.4, s.weaponDrop, p);
+					weaponWorldDy = lerp(apexHeight, groundDrop + 4, eDown); // slight overshoot for impact
+					weaponWorldRot = weapon.rot;                            // vẫn KHÔNG xoay
+				} else if (t < 0.58) {
+					// Phase C: Settling — bounce nhẹ + rot snap về 90° (lying horizontal khi chạm đất)
+					const p = (t - 0.50) / 0.08;
+					const e = easeOutCubic(p);
+					weaponWorldDx = s.weaponDrop;
+					weaponWorldDy = lerp(groundDrop + 4, groundDrop, e);
+					weaponWorldRot = lerp(weapon.rot, 90, e);               // snap từ góc tự nhiên sang lying angle
+				} else {
+					// Phase D: Rest — nằm im cùng Y với body lying
+					weaponWorldDx = s.weaponDrop;
+					weaponWorldDy = groundDrop;
+					weaponWorldRot = 90;
+				}
+			}
+
+			return { tx, ty, sx, sy, rot, alpha, filter, weaponDetached, weaponWorldDx, weaponWorldDy, weaponWorldRot };
 		},
 	},
 	attack: {
@@ -1220,7 +1300,7 @@ const SLIDER_CONFIG = {
 	intensity: { label: 'Cường độ giật', min: 2, max: 20, step: 1, suffix: 'px' },
 	flash: { label: 'Cường độ flash', min: 0, max: 100, step: 5, suffix: '%' },
 	fall: { label: 'Độ lún', min: 4, max: 30, step: 1, suffix: 'px' },
-	dieAngle: { label: 'Góc gục', min: 0, max: 45, step: 1, suffix: '°' },
+	dieAngle: { label: 'Góc ngửa (-) / úp (+)', min: -180, max: 180, step: 5, suffix: '°' },
 	collapse: { label: 'Độ xẹp thân', min: 0, max: 55, step: 1, suffix: '%' },
 	fade: { label: 'Độ mờ cuối', min: 0, max: 80, step: 5, suffix: '%' },
 	lunge: { label: 'Tầm vũ khí', min: 0, max: 180, step: 2, suffix: 'px' },
@@ -1249,6 +1329,7 @@ const SLIDER_CONFIG = {
 	panic: { label: 'Lùi hoảng', min: 2, max: 30, step: 1, suffix: 'px' },
 	pop: { label: 'Bật lên', min: 4, max: 40, step: 1, suffix: 'px' },
 	charge: { label: 'Lao tới', min: 4, max: 32, step: 1, suffix: 'px' },
+	weaponDrop: { label: 'Vũ khí văng phải', min: 0, max: 80, step: 2, suffix: 'px' },
 };
 
 // ============================================================
@@ -1395,6 +1476,12 @@ function drawFrameAt(ctx, t, cx, cy, dirOverride) {
 	const filter = tr.filter ?? 'none';
 	const wRotDelta = tr.weaponRot ?? 0;
 	const wTxDelta = tr.weaponTx ?? 0;
+	// Detached weapon: rendered independent of body transform (in world/screen space).
+	// Lets the weapon fall out of the character's hand and stay on the ground.
+	const weaponDetached = tr.weaponDetached === true;
+	const wWorldDx = tr.weaponWorldDx ?? 0;
+	const wWorldDy = tr.weaponWorldDy ?? 0;
+	const wWorldRot = tr.weaponWorldRot ?? 0;
 	const dir = dirOverride || direction;
 	const dirSign = dir === 'left' ? -1 : 1;
 
@@ -1466,11 +1553,34 @@ function drawFrameAt(ctx, t, cx, cy, dirOverride) {
 	ctx.rotate((rot * Math.PI) / 180);
 	ctx.scale(sx, sy);
 
-	if (weapon.behind) drawWeapon();
+	if (!weaponDetached && weapon.behind) drawWeapon();
 	ctx.drawImage(bodyImg, -bodyImg.width / 2, -bodyImg.height);
-	if (!weapon.behind) drawWeapon();
+	if (!weaponDetached && !weapon.behind) drawWeapon();
 
 	ctx.restore();
+
+	// Detached weapon: rendered AFTER body's transform context, in world/screen space.
+	// Stays visible (does NOT inherit body's alpha fade) — the dropped weapon is a
+	// physical object that remains on the ground while the body fades / soul rises.
+	if (weaponDetached && weaponImg) {
+		const wScale = weapon.scale / 100;
+		const gripX = (weapon.grip.x / 100) * weaponImg.width;
+		const gripY = (weapon.grip.y / 100) * weaponImg.height;
+		const tipX = (weapon.tip.x / 100) * weaponImg.width;
+		const tipY = (weapon.tip.y / 100) * weaponImg.height;
+		const naturalAngle = Math.atan2(tipY - gripY, tipX - gripX);
+		const correction = -Math.PI / 2 - naturalAngle;
+		ctx.save();
+		// Start from body's standing-grip world position, then apply body-local delta.
+		// dirSign applies to BOTH weapon.x AND wWorldDx so weapon flies in character's
+		// forward direction (right when facing right, left when facing left).
+		ctx.translate(cx + shakeX + dirSign * (weapon.x + wWorldDx), cy + shakeY - weapon.y + wWorldDy);
+		ctx.scale(dirSign, 1);
+		ctx.rotate((wWorldRot * Math.PI) / 180 + correction);
+		ctx.scale(wScale, wScale);
+		ctx.drawImage(weaponImg, -gripX, -gripY);
+		ctx.restore();
+	}
 }
 
 // ============================================================
