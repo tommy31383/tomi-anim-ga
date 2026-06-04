@@ -131,12 +131,50 @@ def build_4h_gate(
     return gate_arr
 
 
+def build_4h_direction_gate(
+    bars: list[Bar],
+    gate_params: IndicatorParams,
+    period: int = 4,
+) -> list[Optional[int]]:
+    """Return per-1h-bar directional values derived from the last *completed* HTF bar.
+
+    Values: +1 (bullish: slope > threshold), -1 (bearish: slope < -threshold), 0 (flat).
+    None when no complete HTF bar exists yet (treated as allow both directions).
+    """
+    bars_htf = resample_bars(bars, period)
+    states_htf = list(iter_indicator_states(bars_htf, gate_params))
+    threshold = gate_params.regime_ema_slope_max
+
+    htf_dir: list[Optional[int]] = []
+    for _, bar_htf, state in states_htf:
+        if state is None:
+            htf_dir.append(None)
+        else:
+            signed_slope_pct = state.ema_slope / bar_htf.close if bar_htf.close != 0 else 0.0
+            if signed_slope_pct > threshold:
+                htf_dir.append(1)
+            elif signed_slope_pct < -threshold:
+                htf_dir.append(-1)
+            else:
+                htf_dir.append(0)
+
+    dir_arr: list[Optional[int]] = [None] * len(bars)
+    for i in range(len(bars)):
+        k = (i // period) - 1
+        if 0 <= k < len(htf_dir):
+            dir_arr[i] = htf_dir[k]
+    return dir_arr
+
+
 def run_backtest(
     bars: list[Bar],
     indicator_params: IndicatorParams,
     strategy_params: StrategyParams,
     gate_4h_params: Optional[IndicatorParams] = None,
     gate_4h_period: int = 4,
+    gate_4h_dir_params: Optional[IndicatorParams] = None,
+    gate_4h_dir_period: int = 4,
+    min_signal_score: float = 0.0,
 ) -> BacktestResult:
     if len(bars) < min_required_bars(indicator_params):
         raise ValueError("Dataset qua ngan de tinh indicator va vao lenh.")
@@ -144,6 +182,10 @@ def run_backtest(
     gate_4h: Optional[list[Optional[bool]]] = None
     if gate_4h_params is not None:
         gate_4h = build_4h_gate(bars, gate_4h_params, gate_4h_period)
+
+    gate_4h_dir: Optional[list[Optional[int]]] = None
+    if gate_4h_dir_params is not None:
+        gate_4h_dir = build_4h_direction_gate(bars, gate_4h_dir_params, gate_4h_dir_period)
 
     states = list(iter_indicator_states(bars, indicator_params))
     trades: list[Trade] = []
@@ -171,6 +213,17 @@ def run_backtest(
 
         if side is None:
             continue
+
+        if score < min_signal_score:
+            continue
+
+        # Directional 4h gate: block counter-trend trades
+        if gate_4h_dir is not None:
+            dir_val = gate_4h_dir[index] if index < len(gate_4h_dir) else None
+            if dir_val == 1 and side == "short":
+                continue  # 4h bullish, no shorts
+            if dir_val == -1 and side == "long":
+                continue  # 4h bearish, no longs
 
         next_bar = bars[index + 1]
         entry_price = next_bar.open
@@ -416,6 +469,9 @@ def run_walk_forward(
     optimize_windows: bool = False,
     gate_4h_params: Optional[IndicatorParams] = None,
     gate_4h_period: int = 4,
+    gate_4h_dir_params: Optional[IndicatorParams] = None,
+    gate_4h_dir_period: int = 4,
+    min_signal_score: float = 0.0,
 ) -> WalkForwardResult:
     if train_bars < min_required_bars(indicator_params):
         raise ValueError("train_bars qua ngan cho indicator.")
@@ -442,6 +498,9 @@ def run_walk_forward(
             best_strategy,
             gate_4h_params=gate_4h_params,
             gate_4h_period=gate_4h_period,
+            gate_4h_dir_params=gate_4h_dir_params,
+            gate_4h_dir_period=gate_4h_dir_period,
+            min_signal_score=min_signal_score,
         )
 
         # Chi giu trades nam trong phan test out-of-sample.
@@ -675,6 +734,69 @@ def build_parser() -> argparse.ArgumentParser:
         default=0.03,
         help="Dist pct max cho 4h gate.",
     )
+    # Signal score filter
+    parser.add_argument(
+        "--min-signal-score",
+        type=float,
+        default=0.0,
+        help="Skip signals with score below this threshold.",
+    )
+    # Indicator params overrides
+    parser.add_argument(
+        "--oversold-rsi",
+        type=float,
+        default=40.0,
+        help="RSI oversold threshold for long signals.",
+    )
+    parser.add_argument(
+        "--overbought-rsi",
+        type=float,
+        default=60.0,
+        help="RSI overbought threshold for short signals.",
+    )
+    parser.add_argument(
+        "--wick-ratio",
+        type=float,
+        default=1.2,
+        help="Minimum wick/body ratio for rejection candle.",
+    )
+    # Strategy params overrides
+    parser.add_argument(
+        "--stop-atr-mult",
+        type=float,
+        default=1.2,
+        help="ATR multiplier for stop loss.",
+    )
+    parser.add_argument(
+        "--target-atr-mult",
+        type=float,
+        default=2.0,
+        help="ATR multiplier for take profit.",
+    )
+    # 4h directional gate
+    parser.add_argument(
+        "--gate-4h-dir",
+        action="store_true",
+        help="Bat 4h directional gate: chi long khi 4h slope duong/flat, chi short khi 4h slope am/flat.",
+    )
+    parser.add_argument(
+        "--gate-4h-dir-period",
+        type=int,
+        default=4,
+        help="So bars 1h tao thanh 1 bar HTF cho directional gate (mac dinh 4).",
+    )
+    parser.add_argument(
+        "--gate-4h-dir-method",
+        choices=["adx", "slope", "atr", "dist", "adx_atr", "adx_dist", "none"],
+        default="slope",
+        help="Regime method cho 4h directional gate (mac dinh: slope).",
+    )
+    parser.add_argument(
+        "--gate-4h-dir-threshold",
+        type=float,
+        default=0.0003,
+        help="Nguong |ema_slope/close| de phan biet bullish/bearish/flat cho 4h dir gate.",
+    )
     return parser
 
 
@@ -690,8 +812,15 @@ def main() -> None:
         regime_ema_slope_max=args.regime_ema_slope_max,
         regime_atr_ratio_max=args.regime_atr_ratio_max,
         regime_dist_pct_max=args.regime_dist_pct_max,
+        oversold_rsi=args.oversold_rsi,
+        overbought_rsi=args.overbought_rsi,
+        wick_ratio=args.wick_ratio,
     )
-    strategy_params = StrategyParams()
+    strategy_params = StrategyParams(
+        stop_atr_mult=args.stop_atr_mult,
+        target_atr_mult=args.target_atr_mult,
+    )
+    min_signal_score: float = args.min_signal_score
 
     gate_4h_params: Optional[IndicatorParams] = None
     if args.gate_4h:
@@ -706,7 +835,22 @@ def main() -> None:
         )
         print(f"\n[4h gate enabled] method={gate_method}, period={args.gate_4h_period}")
 
-    baseline = run_backtest(bars, indicator_params, strategy_params, gate_4h_params=gate_4h_params, gate_4h_period=args.gate_4h_period if args.gate_4h else 4)
+    gate_4h_dir_params: Optional[IndicatorParams] = None
+    if args.gate_4h_dir:
+        gate_4h_dir_params = IndicatorParams(
+            regime_method=args.gate_4h_dir_method,
+            regime_ema_slope_max=args.gate_4h_dir_threshold,
+        )
+        print(f"\n[4h dir gate enabled] method={args.gate_4h_dir_method}, threshold={args.gate_4h_dir_threshold}, period={args.gate_4h_dir_period}")
+
+    baseline = run_backtest(
+        bars, indicator_params, strategy_params,
+        gate_4h_params=gate_4h_params,
+        gate_4h_period=args.gate_4h_period if args.gate_4h else 4,
+        gate_4h_dir_params=gate_4h_dir_params,
+        gate_4h_dir_period=args.gate_4h_dir_period if args.gate_4h_dir else 4,
+        min_signal_score=min_signal_score,
+    )
     print_summary("Baseline", indicator_params, strategy_params, baseline)
 
     selected_trades: list[Trade] | None = None
@@ -721,6 +865,9 @@ def main() -> None:
             optimize_windows=args.walk_forward_optimize,
             gate_4h_params=gate_4h_params,
             gate_4h_period=args.gate_4h_period if args.gate_4h else 4,
+            gate_4h_dir_params=gate_4h_dir_params,
+            gate_4h_dir_period=args.gate_4h_dir_period if args.gate_4h_dir else 4,
+            min_signal_score=min_signal_score,
         )
         print_walk_forward_summary(walk_forward_result)
         selected_trades = walk_forward_result.aggregate.trades
