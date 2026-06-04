@@ -68,6 +68,13 @@ class WalkForwardResult:
     aggregate: BacktestResult
 
 
+@dataclass
+class WalkForwardWindowStats:
+    positive: int
+    negative: int
+    flat: int
+
+
 def min_required_bars(indicator_params: IndicatorParams) -> int:
     return (
         max(
@@ -76,9 +83,26 @@ def min_required_bars(indicator_params: IndicatorParams) -> int:
             indicator_params.rsi_length,
             indicator_params.trend_ema_length,
             indicator_params.volume_lookback,
+            indicator_params.regime_atr_ma_length,
+            indicator_params.regime_dist_ema_length,
         )
+        + indicator_params.regime_slope_lookback
         + 2
     )
+
+
+def summarize_walk_forward_windows(windows: list[WalkForwardWindow]) -> WalkForwardWindowStats:
+    positive = 0
+    negative = 0
+    flat = 0
+    for window in windows:
+        if window.result.total_return_pct > 0:
+            positive += 1
+        elif window.result.total_return_pct < 0:
+            negative += 1
+        else:
+            flat += 1
+    return WalkForwardWindowStats(positive=positive, negative=negative, flat=flat)
 
 
 def run_backtest(
@@ -96,6 +120,8 @@ def run_backtest(
 
     for index, _, state in states[:-1]:
         if state is None:
+            continue
+        if not state.regime_ok:
             continue
 
         side: Optional[str] = None
@@ -351,6 +377,7 @@ def run_walk_forward(
     strategy_params: StrategyParams,
     train_bars: int,
     test_bars: int,
+    optimize_windows: bool = False,
 ) -> WalkForwardResult:
     if train_bars < min_required_bars(indicator_params):
         raise ValueError("train_bars qua ngan cho indicator.")
@@ -365,9 +392,12 @@ def run_walk_forward(
     while cursor + test_bars <= len(bars):
         train_slice = bars[cursor - train_bars : cursor]
         test_slice = bars[cursor - min_required_bars(indicator_params) : cursor + test_bars]
-        best_indicator, best_strategy, _ = optimize_parameters(
-            train_slice, indicator_params, strategy_params
-        )
+        if optimize_windows:
+            best_indicator, best_strategy, _ = optimize_parameters(
+                train_slice, indicator_params, strategy_params
+            )
+        else:
+            best_indicator, best_strategy = indicator_params, strategy_params
         test_result = run_backtest(test_slice, best_indicator, best_strategy)
 
         # Chi giu trades nam trong phan test out-of-sample.
@@ -459,6 +489,7 @@ def print_summary(
 
 
 def print_walk_forward_summary(result: WalkForwardResult) -> None:
+    window_stats = summarize_walk_forward_windows(result.windows)
     print("\n=== Walk Forward ===")
     print(f"windows: {len(result.windows)}")
     for index, window in enumerate(result.windows, start=1):
@@ -474,6 +505,10 @@ def print_walk_forward_summary(result: WalkForwardResult) -> None:
     print(f"  win_rate_pct: {result.aggregate.win_rate_pct}")
     print(f"  profit_factor: {result.aggregate.profit_factor}")
     print(f"  max_drawdown_pct: {result.aggregate.max_drawdown_pct}")
+    print(
+        "  windows_positive_negative_flat: "
+        f"{window_stats.positive}/{window_stats.negative}/{window_stats.flat}"
+    )
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -481,6 +516,42 @@ def build_parser() -> argparse.ArgumentParser:
         description="Backtest indicator bao hieu gia cham nguong va quay dau."
     )
     parser.add_argument("--csv", required=True, help="Duong dan CSV OHLCV.")
+    parser.add_argument(
+        "--regime-method",
+        choices=["adx", "slope", "atr", "dist", "adx_atr", "adx_dist"],
+        default="adx",
+        help="Chon regime filter cho walk-forward test.",
+    )
+    parser.add_argument(
+        "--regime-adx-threshold",
+        type=float,
+        default=25.0,
+        help="ADX < nguong thi coi la ranging.",
+    )
+    parser.add_argument(
+        "--regime-ema-slope-max",
+        type=float,
+        default=0.001,
+        help="Muc toi da cho |EMA slope pct| de coi la ranging.",
+    )
+    parser.add_argument(
+        "--regime-slope-lookback",
+        type=int,
+        default=5,
+        help="So bar de do do doc EMA khi dung slope filter.",
+    )
+    parser.add_argument(
+        "--regime-atr-ratio-max",
+        type=float,
+        default=1.5,
+        help="ATR/ATR_MA toi da de coi la ranging.",
+    )
+    parser.add_argument(
+        "--regime-dist-pct-max",
+        type=float,
+        default=0.03,
+        help="Khoang cach toi da giua gia va EMA dai han de coi la ranging.",
+    )
     parser.add_argument(
         "--optimize",
         action="store_true",
@@ -490,6 +561,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--walk-forward",
         action="store_true",
         help="Chay walk-forward optimization thay vi optimize tren toan bo du lieu.",
+    )
+    parser.add_argument(
+        "--walk-forward-optimize",
+        action="store_true",
+        help="Cho phep optimize tung window trong walk-forward. Mac dinh tat.",
     )
     parser.add_argument(
         "--train-bars",
@@ -515,7 +591,14 @@ def main() -> None:
     args = parser.parse_args()
 
     bars = load_ohlcv_csv(args.csv)
-    indicator_params = IndicatorParams()
+    indicator_params = IndicatorParams(
+        regime_method=args.regime_method,
+        regime_adx_threshold=args.regime_adx_threshold,
+        regime_slope_lookback=args.regime_slope_lookback,
+        regime_ema_slope_max=args.regime_ema_slope_max,
+        regime_atr_ratio_max=args.regime_atr_ratio_max,
+        regime_dist_pct_max=args.regime_dist_pct_max,
+    )
     strategy_params = StrategyParams()
 
     baseline = run_backtest(bars, indicator_params, strategy_params)
@@ -532,6 +615,7 @@ def main() -> None:
             strategy_params,
             train_bars=args.train_bars,
             test_bars=args.test_bars,
+            optimize_windows=args.walk_forward_optimize,
         )
         print_walk_forward_summary(walk_forward_result)
         selected_trades = walk_forward_result.aggregate.trades

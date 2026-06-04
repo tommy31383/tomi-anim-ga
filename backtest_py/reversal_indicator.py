@@ -33,6 +33,14 @@ class IndicatorParams:
     min_volume_ratio: float = 0.6
     require_trend_alignment: bool = False
     min_band_width_pct: float = 0.002
+    regime_method: str = "adx"
+    regime_adx_threshold: float = 25.0
+    regime_slope_lookback: int = 5
+    regime_ema_slope_max: float = 0.001
+    regime_atr_ma_length: int = 50
+    regime_atr_ratio_max: float = 1.5
+    regime_dist_ema_length: int = 200
+    regime_dist_pct_max: float = 0.03
 
 
 @dataclass
@@ -45,6 +53,8 @@ class IndicatorState:
     ema: float
     ema_slope: float
     volume_ratio: float
+    regime_ok: bool
+    regime_metric: float
     long_signal: bool
     short_signal: bool
     long_score: float
@@ -101,6 +111,66 @@ class ATRTracker:
         if not self.window.ready():
             return None
         return self.window.mean()
+
+
+class DMITracker:
+    def __init__(self, length: int) -> None:
+        self.length = length
+        self.prev_bar: Optional[Bar] = None
+        self.tr_sum: Optional[float] = None
+        self.plus_dm_sum: Optional[float] = None
+        self.minus_dm_sum: Optional[float] = None
+        self.dx_values: list[float] = []
+        self.adx: Optional[float] = None
+
+    def update(self, bar: Bar) -> Optional[float]:
+        if self.prev_bar is None:
+            self.prev_bar = bar
+            return None
+
+        up_move = bar.high - self.prev_bar.high
+        down_move = self.prev_bar.low - bar.low
+        plus_dm = up_move if up_move > down_move and up_move > 0 else 0.0
+        minus_dm = down_move if down_move > up_move and down_move > 0 else 0.0
+        true_range = max(
+            bar.high - bar.low,
+            abs(bar.high - self.prev_bar.close),
+            abs(bar.low - self.prev_bar.close),
+        )
+        self.prev_bar = bar
+
+        if self.tr_sum is None:
+            self.dx_values.append((true_range, plus_dm, minus_dm))  # type: ignore[arg-type]
+            if len(self.dx_values) < self.length:
+                return None
+            seed = self.dx_values[: self.length]
+            self.tr_sum = sum(value[0] for value in seed)
+            self.plus_dm_sum = sum(value[1] for value in seed)
+            self.minus_dm_sum = sum(value[2] for value in seed)
+            self.dx_values = []
+        else:
+            self.tr_sum = self.tr_sum - (self.tr_sum / self.length) + true_range
+            self.plus_dm_sum = self.plus_dm_sum - (self.plus_dm_sum / self.length) + plus_dm
+            self.minus_dm_sum = self.minus_dm_sum - (self.minus_dm_sum / self.length) + minus_dm
+
+        if not self.tr_sum:
+            return None
+
+        plus_di = 100.0 * (self.plus_dm_sum / self.tr_sum)
+        minus_di = 100.0 * (self.minus_dm_sum / self.tr_sum)
+        di_sum = plus_di + minus_di
+        dx = 0.0 if di_sum == 0 else 100.0 * abs(plus_di - minus_di) / di_sum
+
+        if self.adx is None:
+            self.dx_values.append(dx)
+            if len(self.dx_values) < self.length:
+                return None
+            self.adx = sum(self.dx_values) / self.length
+            self.dx_values = []
+        else:
+            self.adx = ((self.adx * (self.length - 1)) + dx) / self.length
+
+        return self.adx
 
 
 class EMATracker:
@@ -203,6 +273,48 @@ def _candle_components(bar: Bar) -> tuple[float, float, float]:
     return body, lower_wick, upper_wick
 
 
+def _is_ranging(
+    params: IndicatorParams,
+    bar: Bar,
+    adx: float,
+    ema: float,
+    slope_reference_ema: float,
+    atr: float,
+    atr_ma: float,
+    dist_ema: float,
+) -> tuple[bool, float]:
+    method = params.regime_method.lower()
+
+    if method == "adx":
+        return adx < params.regime_adx_threshold, adx
+
+    if method == "slope":
+        slope_pct = 0.0
+        if slope_reference_ema != 0:
+            slope_pct = abs((ema - slope_reference_ema) / slope_reference_ema)
+        return slope_pct < params.regime_ema_slope_max, slope_pct
+
+    if method == "atr":
+        atr_ratio = math.inf if atr_ma <= 0 else atr / atr_ma
+        return atr_ratio < params.regime_atr_ratio_max, atr_ratio
+
+    if method == "dist":
+        dist_pct = 0.0 if dist_ema == 0 else abs((bar.close - dist_ema) / dist_ema)
+        return dist_pct < params.regime_dist_pct_max, dist_pct
+
+    if method == "adx_atr":
+        atr_ratio = math.inf if atr_ma <= 0 else atr / atr_ma
+        regime_ok = adx < params.regime_adx_threshold and atr_ratio < params.regime_atr_ratio_max
+        return regime_ok, max(adx / max(params.regime_adx_threshold, 1e-9), atr_ratio)
+
+    if method == "adx_dist":
+        dist_pct = 0.0 if dist_ema == 0 else abs((bar.close - dist_ema) / dist_ema)
+        regime_ok = adx < params.regime_adx_threshold and dist_pct < params.regime_dist_pct_max
+        return regime_ok, max(adx / max(params.regime_adx_threshold, 1e-9), dist_pct)
+
+    raise ValueError(f"Unsupported regime_method: {params.regime_method}")
+
+
 def iter_indicator_states(
     bars: Iterable[Bar], params: IndicatorParams
 ) -> Iterable[tuple[int, Bar, Optional[IndicatorState]]]:
@@ -210,23 +322,37 @@ def iter_indicator_states(
     atr_tracker = ATRTracker(params.atr_length)
     rsi_tracker = RSITracker(params.rsi_length)
     ema_tracker = EMATracker(params.trend_ema_length)
+    adx_tracker = DMITracker(params.atr_length)
     volumes = RollingWindow(params.volume_lookback)
+    atr_ma_window = RollingWindow(params.regime_atr_ma_length)
+    ema_history = deque(maxlen=max(params.regime_slope_lookback + 1, 2))
+    dist_ema_tracker = EMATracker(params.regime_dist_ema_length)
 
     for index, bar in enumerate(bars):
         closes.push(bar.close)
         volumes.push(bar.volume)
         atr = atr_tracker.update(bar)
+        adx = adx_tracker.update(bar)
         rsi = rsi_tracker.update(bar)
         ema, ema_slope = ema_tracker.update(bar.close)
+        dist_ema, _ = dist_ema_tracker.update(bar.close)
 
         if (
             not closes.ready()
             or not volumes.ready()
             or atr is None
+            or adx is None
             or rsi is None
             or ema is None
             or ema_slope is None
+            or dist_ema is None
         ):
+            yield index, bar, None
+            continue
+
+        atr_ma_window.push(atr)
+        ema_history.append(ema)
+        if not atr_ma_window.ready() or len(ema_history) <= params.regime_slope_lookback:
             yield index, bar, None
             continue
 
@@ -234,6 +360,8 @@ def iter_indicator_states(
         stdev = closes.stdev()
         avg_volume = max(volumes.mean(), 1e-9)
         volume_ratio = bar.volume / avg_volume if bar.volume > 0 else 0.0
+        atr_ma = atr_ma_window.mean()
+        slope_reference_ema = ema_history[0]
         min_band_width = bar.close * params.min_band_width_pct
         band_width = max(
             stdev * params.stdev_mult,
@@ -261,6 +389,16 @@ def iter_indicator_states(
             or (bar.close <= ema and ema_slope <= 0.0)
         )
         volume_ok = volume_ratio >= params.min_volume_ratio
+        regime_ok, regime_metric = _is_ranging(
+            params=params,
+            bar=bar,
+            adx=adx,
+            ema=ema,
+            slope_reference_ema=slope_reference_ema,
+            atr=atr,
+            atr_ma=atr_ma,
+            dist_ema=dist_ema,
+        )
 
         long_signal = (
             long_touch
@@ -269,6 +407,7 @@ def iter_indicator_states(
             and rsi <= params.oversold_rsi
             and long_trend_ok
             and volume_ok
+            and regime_ok
         )
         short_signal = (
             short_touch
@@ -277,6 +416,7 @@ def iter_indicator_states(
             and rsi >= params.overbought_rsi
             and short_trend_ok
             and volume_ok
+            and regime_ok
         )
 
         long_score = 0.0
@@ -293,6 +433,8 @@ def iter_indicator_states(
             long_score += 0.8
         if volume_ok:
             long_score += min(volume_ratio, 2.0) * 0.4
+        if regime_ok:
+            long_score += 1.0
 
         if short_touch:
             short_score += 1.0
@@ -306,6 +448,8 @@ def iter_indicator_states(
             short_score += 0.8
         if volume_ok:
             short_score += min(volume_ratio, 2.0) * 0.4
+        if regime_ok:
+            short_score += 1.0
 
         yield (
             index,
@@ -319,6 +463,8 @@ def iter_indicator_states(
                 ema=ema,
                 ema_slope=ema_slope,
                 volume_ratio=volume_ratio,
+                regime_ok=regime_ok,
+                regime_metric=round(regime_metric, 6),
                 long_signal=long_signal,
                 short_signal=short_signal,
                 long_score=round(long_score, 4),
