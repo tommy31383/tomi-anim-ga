@@ -785,6 +785,36 @@ def build_parser() -> argparse.ArgumentParser:
         default=0.6,
         help="Minimum volume ratio (vs lookback avg) to allow signal.",
     )
+    parser.add_argument(
+        "--lookback",
+        type=int,
+        default=20,
+        help="Rolling window for band basis/stdev calculation.",
+    )
+    parser.add_argument(
+        "--stdev-mult",
+        type=float,
+        default=1.8,
+        help="Multiplier for stdev component of band width.",
+    )
+    parser.add_argument(
+        "--atr-band-mult",
+        type=float,
+        default=0.8,
+        help="Multiplier for ATR component of band width.",
+    )
+    parser.add_argument(
+        "--reentry-buffer",
+        type=float,
+        default=0.15,
+        help="Fraction of band_width price must retrace from band edge before entry.",
+    )
+    parser.add_argument(
+        "--trend-ema-length",
+        type=int,
+        default=50,
+        help="EMA length used for trend/slope tracking.",
+    )
     # 4h directional gate
     parser.add_argument(
         "--gate-4h-dir",
@@ -818,6 +848,11 @@ def main() -> None:
 
     bars = load_ohlcv_csv(args.csv)
     indicator_params = IndicatorParams(
+        lookback=args.lookback,
+        trend_ema_length=args.trend_ema_length,
+        stdev_mult=args.stdev_mult,
+        atr_band_mult=args.atr_band_mult,
+        reentry_buffer=args.reentry_buffer,
         regime_method=args.regime_method,
         regime_adx_threshold=args.regime_adx_threshold,
         regime_slope_lookback=args.regime_slope_lookback,
