@@ -27,6 +27,8 @@ class IndicatorParams:
     stdev_mult: float = 1.8
     atr_band_mult: float = 0.8
     wick_ratio: float = 1.2
+    wick_ratio_long: float = 0.0   # 0 = use wick_ratio
+    wick_ratio_short: float = 0.0  # 0 = use wick_ratio
     reentry_buffer: float = 0.15
     oversold_rsi: float = 40.0
     overbought_rsi: float = 60.0
@@ -399,8 +401,10 @@ def iter_indicator_states(
         short_touch = bar.high >= upper_band
         long_reentry = bar.close >= lower_band + (band_width * params.reentry_buffer)
         short_reentry = bar.close <= upper_band - (band_width * params.reentry_buffer)
-        bullish_rejection = bar.close > bar.open and (lower_wick / body_floor) >= params.wick_ratio
-        bearish_rejection = bar.close < bar.open and (upper_wick / body_floor) >= params.wick_ratio
+        wr_long = params.wick_ratio_long if params.wick_ratio_long > 0 else params.wick_ratio
+        wr_short = params.wick_ratio_short if params.wick_ratio_short > 0 else params.wick_ratio
+        bullish_rejection = bar.close > bar.open and (lower_wick / body_floor) >= wr_long
+        bearish_rejection = bar.close < bar.open and (upper_wick / body_floor) >= wr_short
         long_trend_ok = (
             (not params.require_trend_alignment)
             or (bar.close >= ema and ema_slope >= 0.0)
@@ -447,7 +451,7 @@ def iter_indicator_states(
         if long_reentry:
             long_score += 1.0
         if bullish_rejection:
-            long_score += min((lower_wick / body_floor) / max(params.wick_ratio, 1e-9), 2.0)
+            long_score += min((lower_wick / body_floor) / max(wr_long, 1e-9), 2.0)
         if rsi < 50:
             long_score += (50.0 - rsi) / 25.0
         if long_trend_ok:
@@ -462,7 +466,7 @@ def iter_indicator_states(
         if short_reentry:
             short_score += 1.0
         if bearish_rejection:
-            short_score += min((upper_wick / body_floor) / max(params.wick_ratio, 1e-9), 2.0)
+            short_score += min((upper_wick / body_floor) / max(wr_short, 1e-9), 2.0)
         if rsi > 50:
             short_score += (rsi - 50.0) / 25.0
         if short_trend_ok:

@@ -760,6 +760,18 @@ def build_parser() -> argparse.ArgumentParser:
         default=1.2,
         help="Minimum wick/body ratio for rejection candle.",
     )
+    parser.add_argument(
+        "--wick-ratio-long",
+        type=float,
+        default=0.0,
+        help="Wick/body ratio for long (bullish) signals only. 0=use --wick-ratio.",
+    )
+    parser.add_argument(
+        "--wick-ratio-short",
+        type=float,
+        default=0.0,
+        help="Wick/body ratio for short (bearish) signals only. 0=use --wick-ratio.",
+    )
     # Strategy params overrides
     parser.add_argument(
         "--stop-atr-mult",
@@ -821,6 +833,11 @@ def build_parser() -> argparse.ArgumentParser:
         default=50,
         help="EMA length used for trend/slope tracking.",
     )
+    parser.add_argument(
+        "--require-trend-alignment",
+        action="store_true",
+        help="Chi long khi gia >= EMA va slope >= 0; chi short khi gia <= EMA va slope <= 0.",
+    )
     # 4h directional gate
     parser.add_argument(
         "--gate-4h-dir",
@@ -869,7 +886,10 @@ def main() -> None:
         oversold_rsi=args.oversold_rsi,
         overbought_rsi=args.overbought_rsi,
         wick_ratio=args.wick_ratio,
+        wick_ratio_long=args.wick_ratio_long,
+        wick_ratio_short=args.wick_ratio_short,
         min_volume_ratio=args.min_volume_ratio,
+        require_trend_alignment=args.require_trend_alignment,
     )
     strategy_params = StrategyParams(
         stop_atr_mult=args.stop_atr_mult,
