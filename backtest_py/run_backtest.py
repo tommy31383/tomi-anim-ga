@@ -28,6 +28,10 @@ class StrategyParams:
     stop_atr_mult_short: float = 0.0
     target_atr_mult_long: float = 0.0
     target_atr_mult_short: float = 0.0
+    # Break-even stop trigger (0 = disabled). Fraction of target distance at which stop moves to entry.
+    be_trigger_mult: float = 0.0
+    # Trailing stop ATR multiplier (0 = disabled).
+    trail_atr_mult: float = 0.0
 
 
 @dataclass
@@ -316,6 +320,7 @@ def run_backtest(
             target_price=target_price,
             strategy_params=strategy_params,
             signal_score=score,
+            atr=atr,
         )
         trades.append(trade)
 
@@ -334,11 +339,17 @@ def _simulate_trade(
     target_price: float,
     strategy_params: StrategyParams,
     signal_score: float,
+    atr: float = 0.0,
 ) -> Trade:
     exit_price = entry_price
     exit_reason = "time"
     exit_time = bars[start_index].timestamp
     bars_held = 0
+    be_triggered = False
+    current_stop = stop_price
+
+    be_trigger_mult = strategy_params.be_trigger_mult
+    trail_atr_mult = strategy_params.trail_atr_mult
 
     for offset in range(strategy_params.max_holding_bars):
         bar_index = start_index + offset
@@ -348,15 +359,37 @@ def _simulate_trade(
         bars_held = offset + 1
         exit_time = bar.timestamp
 
+        # Break-even trigger check (before stop/target evaluation)
+        if be_trigger_mult > 0 and not be_triggered:
+            if side == "long":
+                be_threshold = entry_price + (target_price - entry_price) * be_trigger_mult
+                if bar.high >= be_threshold:
+                    current_stop = max(current_stop, entry_price)
+                    be_triggered = True
+            else:
+                be_threshold = entry_price - (entry_price - target_price) * be_trigger_mult
+                if bar.low <= be_threshold:
+                    current_stop = min(current_stop, entry_price)
+                    be_triggered = True
+
+        # Trailing stop update (after BE, each bar)
+        if trail_atr_mult > 0 and atr > 0:
+            if side == "long":
+                trail_stop = bar.close - trail_atr_mult * atr
+                current_stop = max(current_stop, trail_stop)
+            else:
+                trail_stop = bar.close + trail_atr_mult * atr
+                current_stop = min(current_stop, trail_stop)
+
         if side == "long":
-            stop_hit = bar.low <= stop_price
+            stop_hit = bar.low <= current_stop
             target_hit = bar.high >= target_price
             if stop_hit and target_hit:
-                exit_price = stop_price
+                exit_price = current_stop
                 exit_reason = "stop_and_target_same_bar"
                 break
             if stop_hit:
-                exit_price = stop_price
+                exit_price = current_stop
                 exit_reason = "stop"
                 break
             if target_hit:
@@ -364,14 +397,14 @@ def _simulate_trade(
                 exit_reason = "target"
                 break
         else:
-            stop_hit = bar.high >= stop_price
+            stop_hit = bar.high >= current_stop
             target_hit = bar.low <= target_price
             if stop_hit and target_hit:
-                exit_price = stop_price
+                exit_price = current_stop
                 exit_reason = "stop_and_target_same_bar"
                 break
             if stop_hit:
-                exit_price = stop_price
+                exit_price = current_stop
                 exit_reason = "stop"
                 break
             if target_hit:
@@ -992,6 +1025,18 @@ def build_parser() -> argparse.ArgumentParser:
         default=0.0,
         help="ATR target multiplier for short trades. 0=use --target-atr-mult.",
     )
+    parser.add_argument(
+        "--be-trigger-mult",
+        type=float,
+        default=0.0,
+        help="Break-even trigger: fraction of target distance at which stop moves to entry. 0=disabled.",
+    )
+    parser.add_argument(
+        "--trail-atr-mult",
+        type=float,
+        default=0.0,
+        help="Trailing stop ATR multiplier. 0=disabled.",
+    )
     # Regime persistence gate
     parser.add_argument(
         "--gate-4h-persistence",
@@ -1060,6 +1105,8 @@ def main() -> None:
         stop_atr_mult_short=args.stop_atr_mult_short,
         target_atr_mult_long=args.target_atr_mult_long,
         target_atr_mult_short=args.target_atr_mult_short,
+        be_trigger_mult=args.be_trigger_mult,
+        trail_atr_mult=args.trail_atr_mult,
     )
     min_signal_score: float = args.min_signal_score
     confirm_bar: bool = args.confirm_bar
