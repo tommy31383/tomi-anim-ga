@@ -233,6 +233,24 @@ class RSITracker:
         return 100.0 - (100.0 / (1.0 + rs))
 
 
+def resample_bars(bars: list[Bar], period: int) -> list[Bar]:
+    """Aggregate 1h bars into higher-timeframe OHLCV bars. Drops the last partial group."""
+    resampled: list[Bar] = []
+    for i in range(0, len(bars) - period + 1, period):
+        chunk = bars[i : i + period]
+        resampled.append(
+            Bar(
+                timestamp=chunk[-1].timestamp,
+                open=chunk[0].open,
+                high=max(b.high for b in chunk),
+                low=min(b.low for b in chunk),
+                close=chunk[-1].close,
+                volume=sum(b.volume for b in chunk),
+            )
+        )
+    return resampled
+
+
 def load_ohlcv_csv(path: str) -> list[Bar]:
     with open(path, "r", encoding="utf-8-sig", newline="") as handle:
         reader = csv.DictReader(handle)
@@ -311,6 +329,9 @@ def _is_ranging(
         dist_pct = 0.0 if dist_ema == 0 else abs((bar.close - dist_ema) / dist_ema)
         regime_ok = adx < params.regime_adx_threshold and dist_pct < params.regime_dist_pct_max
         return regime_ok, max(adx / max(params.regime_adx_threshold, 1e-9), dist_pct)
+
+    if method == "none":
+        return True, 0.0
 
     raise ValueError(f"Unsupported regime_method: {params.regime_method}")
 

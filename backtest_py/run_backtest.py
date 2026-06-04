@@ -13,6 +13,7 @@ from reversal_indicator import (
     IndicatorParams,
     iter_indicator_states,
     load_ohlcv_csv,
+    resample_bars,
 )
 
 
@@ -105,13 +106,44 @@ def summarize_walk_forward_windows(windows: list[WalkForwardWindow]) -> WalkForw
     return WalkForwardWindowStats(positive=positive, negative=negative, flat=flat)
 
 
+def build_4h_gate(
+    bars: list[Bar],
+    gate_params: IndicatorParams,
+    period: int = 4,
+) -> list[Optional[bool]]:
+    """Return per-1h-bar gate values derived from the last *completed* HTF bar.
+
+    gate_arr[i] is None when no complete HTF bar exists yet (treated as allow),
+    True when HTF regime is ranging (allow entry), False when trending (block entry).
+    """
+    bars_htf = resample_bars(bars, period)
+    states_htf = list(iter_indicator_states(bars_htf, gate_params))
+    htf_gate: list[Optional[bool]] = [
+        state.regime_ok if state is not None else None
+        for _, _, state in states_htf
+    ]
+
+    gate_arr: list[Optional[bool]] = [None] * len(bars)
+    for i in range(len(bars)):
+        k = (i // period) - 1
+        if 0 <= k < len(htf_gate):
+            gate_arr[i] = htf_gate[k]
+    return gate_arr
+
+
 def run_backtest(
     bars: list[Bar],
     indicator_params: IndicatorParams,
     strategy_params: StrategyParams,
+    gate_4h_params: Optional[IndicatorParams] = None,
+    gate_4h_period: int = 4,
 ) -> BacktestResult:
     if len(bars) < min_required_bars(indicator_params):
         raise ValueError("Dataset qua ngan de tinh indicator va vao lenh.")
+
+    gate_4h: Optional[list[Optional[bool]]] = None
+    if gate_4h_params is not None:
+        gate_4h = build_4h_gate(bars, gate_4h_params, gate_4h_period)
 
     states = list(iter_indicator_states(bars, indicator_params))
     trades: list[Trade] = []
@@ -123,6 +155,10 @@ def run_backtest(
             continue
         if not state.regime_ok:
             continue
+        if gate_4h is not None:
+            gate_val = gate_4h[index] if index < len(gate_4h) else None
+            if gate_val is False:
+                continue
 
         side: Optional[str] = None
         score = 0.0
@@ -378,6 +414,8 @@ def run_walk_forward(
     train_bars: int,
     test_bars: int,
     optimize_windows: bool = False,
+    gate_4h_params: Optional[IndicatorParams] = None,
+    gate_4h_period: int = 4,
 ) -> WalkForwardResult:
     if train_bars < min_required_bars(indicator_params):
         raise ValueError("train_bars qua ngan cho indicator.")
@@ -398,7 +436,13 @@ def run_walk_forward(
             )
         else:
             best_indicator, best_strategy = indicator_params, strategy_params
-        test_result = run_backtest(test_slice, best_indicator, best_strategy)
+        test_result = run_backtest(
+            test_slice,
+            best_indicator,
+            best_strategy,
+            gate_4h_params=gate_4h_params,
+            gate_4h_period=gate_4h_period,
+        )
 
         # Chi giu trades nam trong phan test out-of-sample.
         test_start_time = bars[cursor].timestamp
@@ -518,9 +562,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--csv", required=True, help="Duong dan CSV OHLCV.")
     parser.add_argument(
         "--regime-method",
-        choices=["adx", "slope", "atr", "dist", "adx_atr", "adx_dist"],
+        choices=["adx", "slope", "atr", "dist", "adx_atr", "adx_dist", "none"],
         default="adx",
-        help="Chon regime filter cho walk-forward test.",
+        help="Chon regime filter 1h. Dung 'none' de tat filter 1h (nen dung cung --gate-4h).",
     )
     parser.add_argument(
         "--regime-adx-threshold",
@@ -583,6 +627,54 @@ def build_parser() -> argparse.ArgumentParser:
         "--export-trades",
         help="Ghi log giao dich ra CSV.",
     )
+    # 4h gate
+    parser.add_argument(
+        "--gate-4h",
+        action="store_true",
+        help="Bat 4h gate: chi vao lenh khi 4h regime OK.",
+    )
+    parser.add_argument(
+        "--gate-4h-period",
+        type=int,
+        default=4,
+        help="So bars 1h tao thanh 1 bar HTF (mac dinh 4).",
+    )
+    parser.add_argument(
+        "--gate-4h-method",
+        choices=["adx", "slope", "atr", "dist", "adx_atr", "adx_dist", "none"],
+        default=None,
+        help="Regime method cho 4h gate (mac dinh: giong --regime-method).",
+    )
+    parser.add_argument(
+        "--gate-4h-adx-threshold",
+        type=float,
+        default=25.0,
+        help="ADX threshold cho 4h gate.",
+    )
+    parser.add_argument(
+        "--gate-4h-ema-slope-max",
+        type=float,
+        default=0.002,
+        help="EMA slope max cho 4h gate (4h bars di chuyen nhieu hon 1h).",
+    )
+    parser.add_argument(
+        "--gate-4h-slope-lookback",
+        type=int,
+        default=5,
+        help="Slope lookback bars cho 4h gate.",
+    )
+    parser.add_argument(
+        "--gate-4h-atr-ratio-max",
+        type=float,
+        default=1.5,
+        help="ATR ratio max cho 4h gate.",
+    )
+    parser.add_argument(
+        "--gate-4h-dist-pct-max",
+        type=float,
+        default=0.03,
+        help="Dist pct max cho 4h gate.",
+    )
     return parser
 
 
@@ -601,11 +693,22 @@ def main() -> None:
     )
     strategy_params = StrategyParams()
 
-    baseline = run_backtest(bars, indicator_params, strategy_params)
+    gate_4h_params: Optional[IndicatorParams] = None
+    if args.gate_4h:
+        gate_method = args.gate_4h_method or args.regime_method
+        gate_4h_params = IndicatorParams(
+            regime_method=gate_method,
+            regime_adx_threshold=args.gate_4h_adx_threshold,
+            regime_slope_lookback=args.gate_4h_slope_lookback,
+            regime_ema_slope_max=args.gate_4h_ema_slope_max,
+            regime_atr_ratio_max=args.gate_4h_atr_ratio_max,
+            regime_dist_pct_max=args.gate_4h_dist_pct_max,
+        )
+        print(f"\n[4h gate enabled] method={gate_method}, period={args.gate_4h_period}")
+
+    baseline = run_backtest(bars, indicator_params, strategy_params, gate_4h_params=gate_4h_params, gate_4h_period=args.gate_4h_period if args.gate_4h else 4)
     print_summary("Baseline", indicator_params, strategy_params, baseline)
 
-    # Fix: khởi tạo None — chỉ export khi --optimize hoặc --walk-forward đã chạy thành công.
-    # Trước đây = baseline.trades → nếu path optimize không reassign thì export nhầm baseline (có thể rỗng).
     selected_trades: list[Trade] | None = None
 
     if args.walk_forward:
@@ -616,6 +719,8 @@ def main() -> None:
             train_bars=args.train_bars,
             test_bars=args.test_bars,
             optimize_windows=args.walk_forward_optimize,
+            gate_4h_params=gate_4h_params,
+            gate_4h_period=args.gate_4h_period if args.gate_4h else 4,
         )
         print_walk_forward_summary(walk_forward_result)
         selected_trades = walk_forward_result.aggregate.trades
