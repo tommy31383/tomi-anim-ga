@@ -773,6 +773,18 @@ def build_parser() -> argparse.ArgumentParser:
         default=2.0,
         help="ATR multiplier for take profit.",
     )
+    parser.add_argument(
+        "--max-holding-bars",
+        type=int,
+        default=12,
+        help="Maximum bars to hold a position before forced exit.",
+    )
+    parser.add_argument(
+        "--min-volume-ratio",
+        type=float,
+        default=0.6,
+        help="Minimum volume ratio (vs lookback avg) to allow signal.",
+    )
     # 4h directional gate
     parser.add_argument(
         "--gate-4h-dir",
@@ -815,10 +827,12 @@ def main() -> None:
         oversold_rsi=args.oversold_rsi,
         overbought_rsi=args.overbought_rsi,
         wick_ratio=args.wick_ratio,
+        min_volume_ratio=args.min_volume_ratio,
     )
     strategy_params = StrategyParams(
         stop_atr_mult=args.stop_atr_mult,
         target_atr_mult=args.target_atr_mult,
+        max_holding_bars=args.max_holding_bars,
     )
     min_signal_score: float = args.min_signal_score
 
