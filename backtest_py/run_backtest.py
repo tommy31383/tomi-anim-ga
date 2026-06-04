@@ -822,6 +822,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
     # Indicator params overrides
     parser.add_argument(
+        "--rsi-length",
+        type=int,
+        default=14,
+        help="RSI period length (default 14).",
+    )
+    parser.add_argument(
         "--oversold-rsi",
         type=float,
         default=40.0,
@@ -1021,6 +1027,7 @@ def main() -> None:
         regime_ema_slope_max=args.regime_ema_slope_max,
         regime_atr_ratio_max=args.regime_atr_ratio_max,
         regime_dist_pct_max=args.regime_dist_pct_max,
+        rsi_length=args.rsi_length,
         oversold_rsi=args.oversold_rsi,
         overbought_rsi=args.overbought_rsi,
         wick_ratio=args.wick_ratio,
