@@ -175,6 +175,8 @@ def run_backtest(
     gate_4h_dir_params: Optional[IndicatorParams] = None,
     gate_4h_dir_period: int = 4,
     min_signal_score: float = 0.0,
+    confirm_bar: bool = False,
+    rsi_momentum_bars: int = 0,
 ) -> BacktestResult:
     if len(bars) < min_required_bars(indicator_params):
         raise ValueError("Dataset qua ngan de tinh indicator va vao lenh.")
@@ -188,6 +190,10 @@ def run_backtest(
         gate_4h_dir = build_4h_direction_gate(bars, gate_4h_dir_params, gate_4h_dir_period)
 
     states = list(iter_indicator_states(bars, indicator_params))
+    # Build RSI history array for momentum filter
+    rsi_arr: list[Optional[float]] = [
+        state.rsi if state is not None else None for _, _, state in states
+    ]
     trades: list[Trade] = []
     equity = 1.0
     equity_curve = [equity]
@@ -217,6 +223,16 @@ def run_backtest(
         if score < min_signal_score:
             continue
 
+        # RSI momentum filter: require RSI declining for longs, increasing for shorts
+        if rsi_momentum_bars > 0 and index >= rsi_momentum_bars:
+            prev_rsi = rsi_arr[index - rsi_momentum_bars]
+            curr_rsi = rsi_arr[index]
+            if prev_rsi is not None and curr_rsi is not None:
+                if side == "long" and curr_rsi >= prev_rsi:
+                    continue  # RSI not declining — skip long
+                if side == "short" and curr_rsi <= prev_rsi:
+                    continue  # RSI not rising — skip short
+
         # Directional 4h gate: block counter-trend trades
         if gate_4h_dir is not None:
             dir_val = gate_4h_dir[index] if index < len(gate_4h_dir) else None
@@ -225,7 +241,20 @@ def run_backtest(
             if dir_val == -1 and side == "long":
                 continue  # 4h bearish, no longs
 
-        next_bar = bars[index + 1]
+        # Confirmation bar filter: wait for bar[i+1] to confirm direction
+        if confirm_bar:
+            if index + 2 >= len(bars):
+                continue
+            confirm = bars[index + 1]
+            if side == "long" and confirm.close <= confirm.open:
+                continue  # not bullish confirmation
+            if side == "short" and confirm.close >= confirm.open:
+                continue  # not bearish confirmation
+            entry_bar_index = index + 2
+        else:
+            entry_bar_index = index + 1
+
+        next_bar = bars[entry_bar_index]
         entry_price = next_bar.open
         atr = state.atr
 
@@ -238,7 +267,7 @@ def run_backtest(
 
         trade = _simulate_trade(
             bars=bars,
-            start_index=index + 1,
+            start_index=entry_bar_index,
             side=side,
             entry_price=entry_price,
             stop_price=stop_price,
@@ -472,6 +501,8 @@ def run_walk_forward(
     gate_4h_dir_params: Optional[IndicatorParams] = None,
     gate_4h_dir_period: int = 4,
     min_signal_score: float = 0.0,
+    confirm_bar: bool = False,
+    rsi_momentum_bars: int = 0,
 ) -> WalkForwardResult:
     if train_bars < min_required_bars(indicator_params):
         raise ValueError("train_bars qua ngan cho indicator.")
@@ -501,6 +532,8 @@ def run_walk_forward(
             gate_4h_dir_params=gate_4h_dir_params,
             gate_4h_dir_period=gate_4h_dir_period,
             min_signal_score=min_signal_score,
+            confirm_bar=confirm_bar,
+            rsi_momentum_bars=rsi_momentum_bars,
         )
 
         # Chi giu trades nam trong phan test out-of-sample.
@@ -862,6 +895,26 @@ def build_parser() -> argparse.ArgumentParser:
         default=0.0003,
         help="Nguong |ema_slope/close| de phan biet bullish/bearish/flat cho 4h dir gate.",
     )
+    # Confirmation bar filter
+    parser.add_argument(
+        "--confirm-bar",
+        action="store_true",
+        help="Wait for bar[i+1] to confirm direction before entering at bar[i+2].",
+    )
+    # RSI momentum filter
+    parser.add_argument(
+        "--rsi-momentum-bars",
+        type=int,
+        default=0,
+        help="Require RSI to be declining (longs) or rising (shorts) over this many bars. 0=disabled.",
+    )
+    # Band width filter
+    parser.add_argument(
+        "--min-band-width-pct",
+        type=float,
+        default=0.002,
+        help="Minimum band width as fraction of price to allow signals.",
+    )
     return parser
 
 
@@ -890,6 +943,7 @@ def main() -> None:
         wick_ratio_short=args.wick_ratio_short,
         min_volume_ratio=args.min_volume_ratio,
         require_trend_alignment=args.require_trend_alignment,
+        min_band_width_pct=args.min_band_width_pct,
     )
     strategy_params = StrategyParams(
         stop_atr_mult=args.stop_atr_mult,
@@ -897,6 +951,8 @@ def main() -> None:
         max_holding_bars=args.max_holding_bars,
     )
     min_signal_score: float = args.min_signal_score
+    confirm_bar: bool = args.confirm_bar
+    rsi_momentum_bars: int = args.rsi_momentum_bars
 
     gate_4h_params: Optional[IndicatorParams] = None
     if args.gate_4h:
@@ -926,6 +982,8 @@ def main() -> None:
         gate_4h_dir_params=gate_4h_dir_params,
         gate_4h_dir_period=args.gate_4h_dir_period if args.gate_4h_dir else 4,
         min_signal_score=min_signal_score,
+        confirm_bar=confirm_bar,
+        rsi_momentum_bars=rsi_momentum_bars,
     )
     print_summary("Baseline", indicator_params, strategy_params, baseline)
 
@@ -944,6 +1002,8 @@ def main() -> None:
             gate_4h_dir_params=gate_4h_dir_params,
             gate_4h_dir_period=args.gate_4h_dir_period if args.gate_4h_dir else 4,
             min_signal_score=min_signal_score,
+            confirm_bar=confirm_bar,
+            rsi_momentum_bars=rsi_momentum_bars,
         )
         print_walk_forward_summary(walk_forward_result)
         selected_trades = walk_forward_result.aggregate.trades
