@@ -521,7 +521,9 @@ def main() -> None:
     baseline = run_backtest(bars, indicator_params, strategy_params)
     print_summary("Baseline", indicator_params, strategy_params, baseline)
 
-    selected_trades = baseline.trades
+    # Fix: khởi tạo None — chỉ export khi --optimize hoặc --walk-forward đã chạy thành công.
+    # Trước đây = baseline.trades → nếu path optimize không reassign thì export nhầm baseline (có thể rỗng).
+    selected_trades: list[Trade] | None = None
 
     if args.walk_forward:
         walk_forward_result = run_walk_forward(
@@ -541,9 +543,12 @@ def main() -> None:
         selected_trades = best_result.trades
 
     if args.export_trades:
-        export_path = Path(args.export_trades)
-        export_trades(export_path, selected_trades)
-        print(f"\nDa xuat trades ra: {export_path}")
+        if selected_trades is None:
+            print("\n[WARN] --export-trades chi hoat dong voi --optimize hoac --walk-forward. Bo qua.")
+        else:
+            export_path = Path(args.export_trades)
+            export_trades(export_path, selected_trades)
+            print(f"\nDa xuat {len(selected_trades)} trades ra: {export_path}")
 
 
 if __name__ == "__main__":
