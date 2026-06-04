@@ -23,6 +23,11 @@ class StrategyParams:
     target_atr_mult: float = 2.0
     max_holding_bars: int = 12
     fee_per_side_pct: float = 0.0004
+    # Asymmetric long/short stop & target (0 = use symmetric value)
+    stop_atr_mult_long: float = 0.0
+    stop_atr_mult_short: float = 0.0
+    target_atr_mult_long: float = 0.0
+    target_atr_mult_short: float = 0.0
 
 
 @dataclass
@@ -110,11 +115,14 @@ def build_4h_gate(
     bars: list[Bar],
     gate_params: IndicatorParams,
     period: int = 4,
+    persistence: int = 0,
 ) -> list[Optional[bool]]:
     """Return per-1h-bar gate values derived from the last *completed* HTF bar.
 
     gate_arr[i] is None when no complete HTF bar exists yet (treated as allow),
     True when HTF regime is ranging (allow entry), False when trending (block entry).
+
+    If persistence > 0, require the last `persistence` 4h bars to ALL be True.
     """
     bars_htf = resample_bars(bars, period)
     states_htf = list(iter_indicator_states(bars_htf, gate_params))
@@ -122,6 +130,23 @@ def build_4h_gate(
         state.regime_ok if state is not None else None
         for _, _, state in states_htf
     ]
+
+    # Apply persistence smoothing if requested
+    if persistence > 1:
+        persistent_gate: list[Optional[bool]] = []
+        for k in range(len(htf_gate)):
+            start = k - persistence + 1
+            if start < 0:
+                persistent_gate.append(None)
+            else:
+                window = htf_gate[start : k + 1]
+                if any(v is None for v in window):
+                    persistent_gate.append(None)
+                elif all(v is True for v in window):
+                    persistent_gate.append(True)
+                else:
+                    persistent_gate.append(False)
+        htf_gate = persistent_gate
 
     gate_arr: list[Optional[bool]] = [None] * len(bars)
     for i in range(len(bars)):
@@ -177,13 +202,15 @@ def run_backtest(
     min_signal_score: float = 0.0,
     confirm_bar: bool = False,
     rsi_momentum_bars: int = 0,
+    gate_4h_persistence: int = 0,
+    blocked_hours: Optional[set] = None,
 ) -> BacktestResult:
     if len(bars) < min_required_bars(indicator_params):
         raise ValueError("Dataset qua ngan de tinh indicator va vao lenh.")
 
     gate_4h: Optional[list[Optional[bool]]] = None
     if gate_4h_params is not None:
-        gate_4h = build_4h_gate(bars, gate_4h_params, gate_4h_period)
+        gate_4h = build_4h_gate(bars, gate_4h_params, gate_4h_period, persistence=gate_4h_persistence)
 
     gate_4h_dir: Optional[list[Optional[int]]] = None
     if gate_4h_dir_params is not None:
@@ -223,6 +250,17 @@ def run_backtest(
         if score < min_signal_score:
             continue
 
+        # Hour-of-day filter
+        if blocked_hours:
+            ts = state  # just to not shadow; use bars[index].timestamp
+            bar_ts = bars[index].timestamp
+            try:
+                bar_hour = int(bar_ts[11:13])
+                if bar_hour in blocked_hours:
+                    continue
+            except (IndexError, ValueError):
+                pass
+
         # RSI momentum filter: require RSI declining for longs, increasing for shorts
         if rsi_momentum_bars > 0 and index >= rsi_momentum_bars:
             prev_rsi = rsi_arr[index - rsi_momentum_bars]
@@ -259,11 +297,15 @@ def run_backtest(
         atr = state.atr
 
         if side == "long":
-            stop_price = entry_price - (atr * strategy_params.stop_atr_mult)
-            target_price = entry_price + (atr * strategy_params.target_atr_mult)
+            stop_mult = strategy_params.stop_atr_mult_long if strategy_params.stop_atr_mult_long != 0.0 else strategy_params.stop_atr_mult
+            target_mult = strategy_params.target_atr_mult_long if strategy_params.target_atr_mult_long != 0.0 else strategy_params.target_atr_mult
+            stop_price = entry_price - (atr * stop_mult)
+            target_price = entry_price + (atr * target_mult)
         else:
-            stop_price = entry_price + (atr * strategy_params.stop_atr_mult)
-            target_price = entry_price - (atr * strategy_params.target_atr_mult)
+            stop_mult = strategy_params.stop_atr_mult_short if strategy_params.stop_atr_mult_short != 0.0 else strategy_params.stop_atr_mult
+            target_mult = strategy_params.target_atr_mult_short if strategy_params.target_atr_mult_short != 0.0 else strategy_params.target_atr_mult
+            stop_price = entry_price + (atr * stop_mult)
+            target_price = entry_price - (atr * target_mult)
 
         trade = _simulate_trade(
             bars=bars,
@@ -503,6 +545,8 @@ def run_walk_forward(
     min_signal_score: float = 0.0,
     confirm_bar: bool = False,
     rsi_momentum_bars: int = 0,
+    gate_4h_persistence: int = 0,
+    blocked_hours: Optional[set] = None,
 ) -> WalkForwardResult:
     if train_bars < min_required_bars(indicator_params):
         raise ValueError("train_bars qua ngan cho indicator.")
@@ -534,6 +578,8 @@ def run_walk_forward(
             min_signal_score=min_signal_score,
             confirm_bar=confirm_bar,
             rsi_momentum_bars=rsi_momentum_bars,
+            gate_4h_persistence=gate_4h_persistence,
+            blocked_hours=blocked_hours,
         )
 
         # Chi giu trades nam trong phan test out-of-sample.
@@ -915,6 +961,45 @@ def build_parser() -> argparse.ArgumentParser:
         default=0.002,
         help="Minimum band width as fraction of price to allow signals.",
     )
+    # Asymmetric stop/target
+    parser.add_argument(
+        "--stop-atr-mult-long",
+        type=float,
+        default=0.0,
+        help="ATR stop multiplier for long trades. 0=use --stop-atr-mult.",
+    )
+    parser.add_argument(
+        "--stop-atr-mult-short",
+        type=float,
+        default=0.0,
+        help="ATR stop multiplier for short trades. 0=use --stop-atr-mult.",
+    )
+    parser.add_argument(
+        "--target-atr-mult-long",
+        type=float,
+        default=0.0,
+        help="ATR target multiplier for long trades. 0=use --target-atr-mult.",
+    )
+    parser.add_argument(
+        "--target-atr-mult-short",
+        type=float,
+        default=0.0,
+        help="ATR target multiplier for short trades. 0=use --target-atr-mult.",
+    )
+    # Regime persistence gate
+    parser.add_argument(
+        "--gate-4h-persistence",
+        type=int,
+        default=0,
+        help="Require last N 4h bars all regime_ok=True before allowing entry. 0=disabled.",
+    )
+    # Hour-of-day filter
+    parser.add_argument(
+        "--block-hours",
+        type=str,
+        default="",
+        help="Comma-separated UTC hours to block entries (e.g. '14,15,16,17,18,19,20,21,22').",
+    )
     return parser
 
 
@@ -949,10 +1034,21 @@ def main() -> None:
         stop_atr_mult=args.stop_atr_mult,
         target_atr_mult=args.target_atr_mult,
         max_holding_bars=args.max_holding_bars,
+        stop_atr_mult_long=args.stop_atr_mult_long,
+        stop_atr_mult_short=args.stop_atr_mult_short,
+        target_atr_mult_long=args.target_atr_mult_long,
+        target_atr_mult_short=args.target_atr_mult_short,
     )
     min_signal_score: float = args.min_signal_score
     confirm_bar: bool = args.confirm_bar
     rsi_momentum_bars: int = args.rsi_momentum_bars
+    gate_4h_persistence: int = args.gate_4h_persistence
+    blocked_hours: set = set()
+    if args.block_hours:
+        for part in args.block_hours.split(","):
+            part = part.strip()
+            if part:
+                blocked_hours.add(int(part))
 
     gate_4h_params: Optional[IndicatorParams] = None
     if args.gate_4h:
@@ -984,6 +1080,8 @@ def main() -> None:
         min_signal_score=min_signal_score,
         confirm_bar=confirm_bar,
         rsi_momentum_bars=rsi_momentum_bars,
+        gate_4h_persistence=gate_4h_persistence,
+        blocked_hours=blocked_hours if blocked_hours else None,
     )
     print_summary("Baseline", indicator_params, strategy_params, baseline)
 
@@ -1004,6 +1102,8 @@ def main() -> None:
             min_signal_score=min_signal_score,
             confirm_bar=confirm_bar,
             rsi_momentum_bars=rsi_momentum_bars,
+            gate_4h_persistence=gate_4h_persistence,
+            blocked_hours=blocked_hours if blocked_hours else None,
         )
         print_walk_forward_summary(walk_forward_result)
         selected_trades = walk_forward_result.aggregate.trades
