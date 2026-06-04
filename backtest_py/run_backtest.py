@@ -999,6 +999,19 @@ def build_parser() -> argparse.ArgumentParser:
         default=0,
         help="Require last N 4h bars all regime_ok=True before allowing entry. 0=disabled.",
     )
+    # Phase 3: close-beyond-band filter
+    parser.add_argument(
+        "--require-close-beyond-band",
+        action="store_true",
+        help="Require close below lower band (longs) or close above upper band (shorts).",
+    )
+    # Phase 4: max body ratio filter
+    parser.add_argument(
+        "--max-body-ratio",
+        type=float,
+        default=1.0,
+        help="Maximum body/range ratio to allow signal (1.0=disabled). E.g. 0.5 = body <= 50%% of range.",
+    )
     # Hour-of-day filter
     parser.add_argument(
         "--block-hours",
@@ -1036,6 +1049,8 @@ def main() -> None:
         min_volume_ratio=args.min_volume_ratio,
         require_trend_alignment=args.require_trend_alignment,
         min_band_width_pct=args.min_band_width_pct,
+        require_close_beyond_band=args.require_close_beyond_band,
+        max_body_ratio=args.max_body_ratio,
     )
     strategy_params = StrategyParams(
         stop_atr_mult=args.stop_atr_mult,

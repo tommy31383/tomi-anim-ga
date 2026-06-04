@@ -43,6 +43,8 @@ class IndicatorParams:
     regime_atr_ratio_max: float = 1.5
     regime_dist_ema_length: int = 200
     regime_dist_pct_max: float = 0.03
+    require_close_beyond_band: bool = False
+    max_body_ratio: float = 1.0
 
 
 @dataclass
@@ -397,8 +399,12 @@ def iter_indicator_states(
         body, lower_wick, upper_wick = _candle_components(bar)
         body_floor = max(body, 1e-9)
 
-        long_touch = bar.low <= lower_band
-        short_touch = bar.high >= upper_band
+        if params.require_close_beyond_band:
+            long_touch = bar.close <= lower_band
+            short_touch = bar.close >= upper_band
+        else:
+            long_touch = bar.low <= lower_band
+            short_touch = bar.high >= upper_band
         long_reentry = bar.close >= lower_band + (band_width * params.reentry_buffer)
         short_reentry = bar.close <= upper_band - (band_width * params.reentry_buffer)
         wr_long = params.wick_ratio_long if params.wick_ratio_long > 0 else params.wick_ratio
@@ -414,6 +420,12 @@ def iter_indicator_states(
             or (bar.close <= ema and ema_slope <= 0.0)
         )
         volume_ok = volume_ratio >= params.min_volume_ratio
+        candle_range = bar.high - bar.low
+        body_ratio_ok = (
+            params.max_body_ratio >= 1.0
+            or candle_range <= 0
+            or (body / candle_range) <= params.max_body_ratio
+        )
         regime_ok, regime_metric = _is_ranging(
             params=params,
             bar=bar,
@@ -433,6 +445,7 @@ def iter_indicator_states(
             and long_trend_ok
             and volume_ok
             and regime_ok
+            and body_ratio_ok
         )
         short_signal = (
             short_touch
@@ -442,6 +455,7 @@ def iter_indicator_states(
             and short_trend_ok
             and volume_ok
             and regime_ok
+            and body_ratio_ok
         )
 
         long_score = 0.0
