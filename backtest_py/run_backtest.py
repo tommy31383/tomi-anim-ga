@@ -804,6 +804,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="Multiplier for ATR component of band width.",
     )
     parser.add_argument(
+        "--atr-length",
+        type=int,
+        default=14,
+        help="ATR period length.",
+    )
+    parser.add_argument(
         "--reentry-buffer",
         type=float,
         default=0.15,
@@ -849,6 +855,7 @@ def main() -> None:
     bars = load_ohlcv_csv(args.csv)
     indicator_params = IndicatorParams(
         lookback=args.lookback,
+        atr_length=args.atr_length,
         trend_ema_length=args.trend_ema_length,
         stdev_mult=args.stdev_mult,
         atr_band_mult=args.atr_band_mult,
